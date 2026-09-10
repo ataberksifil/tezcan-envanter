@@ -6,6 +6,7 @@
 - Phase 1.1 — Repository Foundation completed
 - Phase 1.2 — Django Bootstrap completed; Django foundation exists
 - Phase 1.3 — PostgreSQL Environment completed; local PostgreSQL development environment exists
+- Phase 1.4 — App / Module Skeletons completed; architecture Django apps registered
 
 ## Product Goal
 
@@ -68,6 +69,6 @@ Kararlar ve açık hard gate'ler [docs/06-DECISION-REGISTER.md](docs/06-DECISION
 
 **Gate 0:** PASS
 
-**Current:** Phase 1.3 — PostgreSQL Environment completed
+**Current:** Phase 1.4 — App / Module Skeletons completed
 
-**Next:** Phase 1.4 — App / Module Skeletons
+**Next:** Phase 1.5

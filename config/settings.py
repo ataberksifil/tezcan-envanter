@@ -43,7 +43,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'accounts',
+    'accounts.apps.AccountsConfig',
+    'core.apps.CoreConfig',
+    'catalog.apps.CatalogConfig',
+    'locations.apps.LocationsConfig',
+    'inventory.apps.InventoryConfig',
+    'corrections.apps.CorrectionsConfig',
+    'counting.apps.CountingConfig',
+    'imports.apps.ImportsConfig',
+    'reports.apps.ReportsConfig',
+    'audit.apps.AuditConfig',
 ]
 
 # DEC-019: custom User must be configured before the first migrate.
