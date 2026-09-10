@@ -53,6 +53,35 @@ def env_csv(name: str, *, default: tuple[str, ...] | list[str] = ()) -> list[str
     return [item.strip() for item in raw.split(',') if item.strip()]
 
 
+def env_positive_int(name: str, *, default: int | None = None) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        if default is None:
+            raise ImproperlyConfigured(f'{name} is required.')
+        return default
+
+    value = raw.strip()
+    if not value:
+        if default is None:
+            raise ImproperlyConfigured(f'{name} cannot be empty.')
+        return default
+
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise ImproperlyConfigured(
+            f'{name} has invalid integer value {raw!r}. '
+            'Use a positive whole number of seconds.'
+        ) from None
+
+    if parsed <= 0:
+        raise ImproperlyConfigured(
+            f'{name} must be a positive integer; got {parsed}.'
+        )
+
+    return parsed
+
+
 def resolve_secret_key(*, debug: bool) -> str:
     raw = os.environ.get('DJANGO_SECRET_KEY')
     if raw is not None and raw.strip():
@@ -141,6 +170,8 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # real passwords. An empty POSTGRES_PASSWORD default is configuration
 # loading only; it is not a recommended PostgreSQL setup.
 
+POSTGRES_CONNECT_TIMEOUT = env_positive_int('POSTGRES_CONNECT_TIMEOUT', default=5)
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -149,6 +180,9 @@ DATABASES = {
         'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
         'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
         'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        'OPTIONS': {
+            'connect_timeout': POSTGRES_CONNECT_TIMEOUT,
+        },
         'TEST': {
             'NAME': os.environ.get(
                 'POSTGRES_TEST_DB',

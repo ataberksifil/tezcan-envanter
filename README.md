@@ -10,6 +10,7 @@
 - Phase 1.5 — Frontend Foundation completed; shared Bootstrap/HTMX template shell exists
 - Phase 1.6 — Environment Configuration completed; logging/static/media/runtime settings established
 - Phase 1.7 — Test Foundation completed; pytest/PostgreSQL test database foundation established
+- Phase 1.8 — Health Endpoint completed; `GET /health/` verifies Django and PostgreSQL
 
 ## Product Goal
 
@@ -118,6 +119,13 @@ Test notes:
 
 **Gate 0:** PASS
 
-**Current:** Phase 1.7 — Test Foundation completed
+**Current:** Phase 1.8 — Health Endpoint / DB Health Check completed
 
-**Next:** Phase 1.8 — Health Endpoint / DB Health Check
+**Next:** Phase 2 — not started
+
+### Health check
+
+`GET /health/` — no authentication required.
+
+- `200` — Django process is alive and PostgreSQL responds
+- `503` — PostgreSQL is unavailable
