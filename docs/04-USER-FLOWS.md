@@ -12,7 +12,7 @@ Belge görsel mockup, ekran tasarımı, route, form veya uygulama kodu içermez.
 
 | Rol | Kod | Özet yetki |
 |---|---|---|
-| Teknisyen | `TECHNICIAN` | Katalog/stok görüntüleme; olağan çıkış; sahada kullanılan alandan atölyeye fiziksel getirilen malzeme kaydı (hareket semantiği hard gate sonrası); düzeltme talebi oluşturma; satın alma/tedarikçi teslimatı girişi yok |
+| Teknisyen | `TECHNICIAN` | Katalog/stok görüntüleme; olağan çıkış; uygun saha/atölye malzeme alım talebi başlatma (onay öncesi envanter etkisi yok; `DEC-020`); düzeltme talebi oluşturma; satın alma/tedarikçi teslimatı girişi ve otoritatif stok girişi yok |
 | Depo Görevlisi | `STOREKEEPER` | Katalog görüntüleme; olağan giriş ve çıkış; operasyonel depo işleri (TBD); katalog ana veri yazma yok |
 | Yönetici / Müdür | `ADMIN_MANAGER` | Katalog ana veri yönetimi; tam yönetim, düzeltme onayı, import ve cutover hazırlığı; baseline approval yetkisi TBD |
 
@@ -230,6 +230,90 @@ flowchart TD
 
 **TBD / Open Decisions**
 - Serialized zorunlu tanımlayıcılar; yeni asset oluşturma alanları.
+
+### UF-INT-001 — Saha / Atölye Malzeme Alım Talebi
+
+**Actors:** `TECHNICIAN`
+
+**Preconditions**
+- Kullanıcı oturum açmış ve talep başlatma yetkisine sahip olmalıdır (`AUTH-003A`).
+- Senaryo satın alma/tedarikçi `RECEIPT` değildir (`RCV-002`).
+
+**Trigger**
+- Teknisyen, sahadan veya sahada kullanılan alandan atölyeye fiziksel getirilen malzeme için alım talebi başlatır.
+
+**Main Flow**
+1. Teknisyen alım talebi işlemini seçer.
+2. Malzeme ve getirme bağlamı girilir (takip moduna uygun tanımlama; zorunlu alanlar workflow implementasyonunda netleşir).
+3. Destekleyici bilgi/kanıt toplanır (detay **TBD**; düzeltme fotoğrafı kurallarıyla karıştırılmaz).
+4. Teknisyen talebi gönderir.
+5. Talep `PENDING` durumuna geçer ve Yönetici/Müdür onay kuyruğuna düşer.
+
+**Validation Rules**
+- INT-001, INT-002, INT-003: Talep gönderimi otoritatif envanter etkisi oluşturmamalıdır.
+- Satın alma/tedarikçi kabulü denemesi reddedilir (`RCV-002`).
+
+**Success Result**
+- Talep kaydı oluşur; envanter projection değişmez.
+
+**Failure / Alternate Flows**
+- Yetkisiz kullanıcı: UF-ERR-001.
+- Eksik/hatalı veri: Hata mesajı; stok değişmez.
+
+**Permissions**
+- AUTH-003A; Depo Görevlisi ve Yönetici/Müdür bu akışın başlatıcısı değildir (onay UF-INT-002).
+
+**Inventory / Data Effect**
+- Bekleyen talep sırasında `inventory_transactions`, `stock_balances` ve `serialized_assets` değişmez (`INT-003`).
+
+**Audit Effect**
+- Talep oluşturma actor ve zamanı kaydedilir; onaylanmış envanter etkisi henüz yoktur.
+
+**TBD / Open Decisions**
+- Talep formu, kanıt gereksinimleri ve workflow modeli implementasyon öncesi tanımlanır.
+- Kavramsal senaryolar (hareket türü eşlemesi yapılmaz): tamamen kullanılmamış geri getirme; kısmen kullanılmamış geri getirme; yanlış alınmış kullanılmamış iade; kullanılmış/sökülmüş malzeme; arızalı/sökülmüş malzeme; orijinal depo `ISSUE` kaydı bilinmeyen fabrika sahası malzemesi.
+- `DEC-HG-005` RETURN semantiği, uygunluk, miktar limiti, tekil kimlik, provenans ve kondisyon geçişleri açık kalır (`INT-006`).
+
+### UF-INT-002 — Saha / Atölye Malzeme Alım Onayı
+
+**Actors:** `ADMIN_MANAGER`
+
+**Preconditions**
+- Bekleyen bir alım talebi mevcut olmalıdır.
+- Karar veren kullanıcı Yönetici/Müdür olmalıdır (`AUTH-012`).
+
+**Trigger**
+- Yönetici/Müdür onay kuyruğundan talebi açar.
+
+**Main Flow**
+1. Yönetici/Müdür talep detayını ve kanıtı inceler.
+2. Onay veya red kararı verir.
+3. **Onay:** Talep onaylanır; envanter etkisi yalnızca gelecekteki otoritatif envanter servisi üzerinden atomik ve idempotent olarak uygulanır (`INT-005`).
+4. **Red:** Talep reddedilir; envanter etkisi oluşmaz; talep ve kanıt tarihsel iz için korunur (`INT-004`).
+
+**Validation Rules**
+- INT-002, INT-004, INT-005.
+- Onay anında `RETURN`, `RECEIPT`, `TRANSFER` veya `CONTROLLED_CORRECTION` semantiğine önceden bağlanmaz.
+
+**Success Result**
+- Karar kaydedilir; bekleyen talep durumu güncellenir.
+
+**Failure / Alternate Flows**
+- Yetkisiz kullanıcı: UF-ERR-001.
+- Eşzamanlı çift onay: Yalnızca bir karar geçerli olmalıdır (implementasyon detayı **TBD**).
+
+**Permissions**
+- AUTH-012; Teknisyen karar veremez.
+
+**Inventory / Data Effect**
+- **Beklemede / red:** Yok (`INT-003`, `INT-004`).
+- **Onay:** Ledger/projection etkisi yalnızca yetkili envanter servisi commit'i ile oluşur; bu belge hareket türünü seçmez.
+
+**Audit Effect**
+- Karar actor'ı, zamanı ve talep ilişkisi kaydedilir.
+
+**TBD / Open Decisions**
+- Onay sonrası envanter servis çağrısı ve hareket türü eşlemesi `DEC-HG-005` ve ilgili hard gate'ler çözülene kadar implement edilmez.
 
 ## 7. Issue Flows
 
@@ -1209,6 +1293,8 @@ flowchart LR
 | Material List | TECHNICIAN, STOREKEEPER, ADMIN_MANAGER | UF-STK-001, UF-STK-002 |
 | Material Detail | Tüm görüntüleme yetkili roller | UF-STK-001, UF-ISS-002, UF-QR-001 |
 | Receive Stock | STOREKEEPER, ADMIN_MANAGER | UF-RCV-001 |
+| Field Intake Request | TECHNICIAN | UF-INT-001 |
+| Field Intake Approval Queue | ADMIN_MANAGER | UF-INT-002 |
 | Issue Stock | TECHNICIAN, STOREKEEPER, ADMIN_MANAGER | UF-ISS-001 |
 | Quick Issue | TECHNICIAN (öncelikli) | UF-ISS-002 |
 | Return | `DEC-HG-005` çözülene kadar kapalı | UF-RET-001 |
@@ -1239,7 +1325,10 @@ flowchart LR
 | AS-003 | Teknisyen mevcut stoktan fazla çıkış yapamaz. | UF-ISS-001, ISS-008 |
 | AS-004 | İki eşzamanlı çıkış negatif stok oluşturmaz. | UF-ERR-003, INV-005 |
 | AS-005 | Tekil varlık transfer sonrası yalnızca bir lokasyonda görünür. | UF-TRF-001, SER-003 |
-| AS-006 | Teknisyen olağan stok girişi yapamaz. | UF-RCV-001, RCV-002 |
+| AS-006 | Teknisyen olağan stok girişi (tedarikçi/satın alma `RECEIPT`) yapamaz. | UF-RCV-001, RCV-002 |
+| AS-019 | Teknisyen saha/atölye alım talebi başlatır; onay öncesi stok değişmez. | UF-INT-001, INT-001, INT-003, DEC-020 |
+| AS-020 | Yönetici/Müdür saha/atölye alım talebini reddeder; stok değişmez ve talep izlenebilir kalır. | UF-INT-002, INT-004, DEC-020 |
+| AS-021 | Yönetici/Müdür saha/atölye alım talebini onaylar; envanter etkisi yalnızca otoritatif servis commit'i ile oluşur. | UF-INT-002, INT-005, DEC-020 |
 | AS-007 | Hatalı işlem doğrudan düzenlenmez; düzeltme talebi açılır. | UF-COR-001, COR-001 |
 | AS-008 | Fotoğrafsız düzeltme talebi gönderilemez. | UF-COR-001, COR-005 |
 | AS-009 | Yönetici aynı bekleyen talebi yalnızca bir kez onaylayabilir. | UF-COR-002 |

@@ -175,6 +175,23 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
 - **Reason:** Django default `User` modelinden sonradan custom `User`'a geçiş, migration ve bağımlı tablolar oluştuktan sonra gereksiz yere yıkıcıdır. Minimal `AbstractUser` alt sınıfı, `DEC-HG-004` employee business semantiği çözülmeden gelecek seçenekleri korur.
 - **Consequence:** `django.contrib.auth.models.User`'a geri dönülmez. `Employee` ile `User` birleştirilmez; `DEC-HG-004` çözülmeden employee alanları `User`'a taşınmaz.
 
+### DEC-020 — Teknisyen saha/atölye alım talebi ve onay zorunluluğu
+
+- **Status:** `DECIDED`
+- **Supersedes:** Phase 2.3 ve öncesindeki `AUTH-003A` ifadeleri ile Teknisyen'in sahadan/atölyeye fiziksel getirilen malzeme için otoritatif stok girişini doğrudan kaydedebileceğini ima eden tüm wording.
+- **Decision:**
+  1. `TECHNICIAN` satın alma/tedarikçi teslimatı kabulü veya olağan supplier/purchase `RECEIPT` asla yapamaz (`RCV-002`).
+  2. Uygun saha veya sahada kullanılan alan → atölye senaryolarında `TECHNICIAN` yalnızca talep başlatabilir (`AUTH-003A`, `INT-001`).
+  3. Her Teknisyen başlatımlı talep, otoritatif envanter etkisi öncesinde `ADMIN_MANAGER` onayı gerektirir (`AUTH-012`, `INT-002`).
+  4. Talep `PENDING` iken `InventoryTransaction`/ledger, `StockBalance` artışı ve `SerializedAsset` state/lokasyon mutation oluşmaz (`INT-003`).
+  5. Reddedilen talep envanter etkisi oluşturmaz; talep ve kanıt ileride workflow uygulandığında tarihsel izlenebilir kalır (`INT-004`).
+  6. Onaylanan talebin envanter etkisi yalnızca gelecekteki otoritatif envanter servisi üzerinden atomik ve idempotent olarak gerçekleşir (`INT-005`).
+  7. Kavramsal senaryolar (hareket türü eşlemesi yapılmaz): tamamen kullanılmamış geri getirme; kısmen kullanılmamış geri getirme; yanlış alınmış kullanılmamış iade; kullanılmış/sökülmüş malzeme; arızalı/sökülmüş malzeme; orijinal depo `ISSUE` kaydı bilinmeyen fabrika sahası malzemesi.
+  8. Daha önce çıkış yapılmış kullanılmamış malzeme orijinal kondisyonuyla geri gelebilir; uygunluk, miktar limiti, tekil kimlik, provenans ve kondisyon geçişleri `DEC-HG-005` kapsamında açık kalır (`INT-006`).
+  9. `STOREKEEPER` olağan supplier/purchase receipt yetkisi bu kararla değişmez (`RCV-001`, `DEC-OPEN-005`).
+  10. `RETURN`, `RECEIPT`, `TRANSFER`, `CONTROLLED_CORRECTION` veya yeni hareket türüne önceden eşleştirme yapılmaz; `DEC-HG-005` hard gate korunur.
+- **Consequence:** Talep/onay workflow schema, service, UI, permission tabloları ve envanter kodu bu kararın implementasyon görevi olarak ayrıca tanımlanır; bu register kaydı tek başına implementasyon başlatmaz.
+
 ## 3. Açık İş Kararları
 
 Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` alanında kanonik karar kaydına bağlanır.
@@ -234,6 +251,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Accounts implementation | `DEC-HG-004`: employee number uniqueness/reuse ve Employee–ApplicationUser ilişkisi |
 | Catalog/import identity matching | `DEC-OPEN-004`, `DEC-OPEN-021`; history sonrası tracking mode için `DEC-013` zaten kararlı |
 | Issue data/UI | `DEC-HG-003`; receiver snapshots değişmez |
+| Technician field intake request/approval workflow | `DEC-020` kararlıdır; talep/onay schema/service/UI implementasyonu ayrı görevdir; hareket türü eşlemesi `DEC-HG-005` çözülmeden yapılmaz |
 | Return | `DEC-HG-005`; cevaplanmadan schema/service/UI ve aktif menü yok |
 | Corrections | `DEC-HG-002`; ayrıca `DEC-OPEN-006` yalnız PROPOSED kalır |
 | Counting/reconciliation | `DEC-HG-001` ve `DEC-OPEN-007`; stability modeli olmadan Phase 11/count implementation başlayamaz |
