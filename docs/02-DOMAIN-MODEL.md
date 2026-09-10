@@ -39,7 +39,7 @@ Bu belge:
 |---|---|---|
 | `Employee` | Entity / Aggregate Root | Fabrikadaki kişi/çalışan; malzemeyi teslim alan kişi olabilir. |
 | `ApplicationUser` | Entity / Aggregate Root | Uygulamaya kimlik doğrulayarak erişebilen kullanıcı. |
-| `Role` | Value Object / referans kavramı | `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` yetki sınıfları. |
+| `Role` | Value Object / referans kavramı | Başlangıç şablonları `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER`; gelecekte ek roller UI ile tanımlanabilir (`DEC-021`). |
 | `Category` | Entity / Aggregate Root | Hiyerarşik malzeme sınıflandırması. |
 | `Material` | Entity / Aggregate Root | Fiziksel tekil örnek değil, malzeme veya ürün tanımı. |
 | `TrackingMode` | Value Object | `QUANTITY` veya `SERIALIZED`. |
@@ -73,11 +73,13 @@ Bir stok çıkışındaki teslim alan kişi, uygulamaya giriş yapan kullanıcı
 
 ### ApplicationUser
 
-`ApplicationUser`, uygulamada kimliği doğrulanabilen ve önemli işlemlerin aktörü olan kullanıcıdır. Bilinen roller:
+`ApplicationUser`, uygulamada kimliği doğrulanabilen ve önemli işlemlerin aktörü olan kullanıcıdır. Başlangıç rol şablonları:
 
 - `TECHNICIAN`
 - `STOREKEEPER`
 - `ADMIN_MANAGER`
+
+Bu üç kod başlangıç şablonlarıdır; sistemin gelecekte sahip olabileceği tek roller değildir. Runtime authorization permission/policy tabanlı olmalıdır; hard-coded Group adı kontrolü yeterli değildir (`DEC-021`). Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration izinlerini expose eder.
 
 Bir `ApplicationUser` bir `Employee` kaydına bağlanabilir. Bağın zorunlu olup olmadığı ve bire bir mi başka bir kardinalitede mi olacağı **TBD**'dir. SSO, Active Directory veya LDAP bu modelin varsayımı değildir.
 
@@ -137,11 +139,11 @@ Takip modu malzeme bazında belirlenir; kategori kalıcı takip modu dayatmaz. B
 
 ### UnitOfMeasure
 
-`UnitOfMeasure`, miktarın iş anlamını korur. Bilinen örnekler `ADET`, `METRE`, `MAKARA`, `SET`, `PAKET`tir. Domain, uygun malzemelerde ondalıklı miktarı desteklemelidir. Hassasiyet ve dönüşüm kuralları **TBD**'dir; otomatik dönüşüm varsayılmaz.
+`UnitOfMeasure`, miktarın iş anlamını korur. UUID kararlı kimliktir; `code` yetkili yönetici tarafından düzenlenebilir ve uniqueness korunur (`DEC-021`). Başlangıç seed örnekleri `ADET`, `METRE`, `MAKARA`, `SET`, `PAKET` kapalı whitelist değildir. Domain, uygun malzemelerde ondalıklı miktarı desteklemelidir. Hassasiyet ve dönüşüm kuralları **TBD**'dir (`DEC-OPEN-010`); otomatik dönüşüm ve rounding davranışı varsayılmaz. Referanslı bir UoM deaktive edilebilir: mevcut referanslar korunur, yeni atamalarda inactive UoM sunulmaz.
 
 ### Esnek teknik nitelikler
 
-Esnek nitelikler `Material` tanımına aittir; tekil fiziksel varlığın konum/kondisyon geçmişiyle karıştırılmaz. Nitelik şablonu, zorunluluk ve doğrulama modeli Excel ve malzeme örnekleri görülmeden kesinleştirilmez.
+Esnek nitelikler `Material` tanımına aittir; tekil fiziksel varlığın konum/kondisyon geçmişiyle karıştırılmaz. `Material.technical_specs` unrestricted raw JSON editor olarak expose edilmez; kategori-özel teknik alanlar controlled `TechnicalFieldDefinition`-style metadata ile yönetilir (`DEC-021`, `DEC-OPEN-019`). Nitelik şablonu, zorunluluk ve doğrulama modeli Excel ve malzeme örnekleri görülmeden kesinleştirilmez.
 
 ## 6. Lokasyon Domaini
 
@@ -157,7 +159,7 @@ Esnek nitelikler `Material` tanımına aittir; tekil fiziksel varlığın konum/
 
 Bilinen başlangıç alanları Elektrik Deposu, Alkali Elektrik alanındaki kablo stoğu, Enstrüman Atölyesi ve Bobinaj Atölyesi'dir.
 
-Fabrika → Alan → Hat → Makine → Pano → Raf/Bin olası bir gelecek hiyerarşisidir; zorunlu yapı değildir. Kesin katmanlar ve lokasyon kodu **TBD**'dir.
+Location hiyerarşisi dinamik ve arbitrary-depth'tir; hard-coded warehouse/corridor/rack/bin schema seviyeleri zorunlu değildir (`DEC-021`). Fabrika → Alan → Hat → Makine → Pano → Raf/Bin olası bir örnek hiyerarşidir; zorunlu yapı değildir. `can_hold_stock` presentation/type label'larından ayrı kalır. Location implementasyonu Phase 2 dışındadır. Kesin katmanlar ve lokasyon kodu **TBD**'dir.
 
 Domain davranışı:
 

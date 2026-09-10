@@ -192,6 +192,26 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   10. `RETURN`, `RECEIPT`, `TRANSFER`, `CONTROLLED_CORRECTION` veya yeni hareket türüne önceden eşleştirme yapılmaz; `DEC-HG-005` hard gate korunur.
 - **Consequence:** Talep/onay workflow schema, service, UI, permission tabloları ve envanter kodu bu kararın implementasyon görevi olarak ayrıca tanımlanır; bu register kaydı tek başına implementasyon başlatmaz.
 
+### DEC-021 — Dynamic Configuration Architecture
+
+- **Status:** `DECIDED`
+- **Required before:** Phase 2 catalog/configuration UI ve dinamik rol yönetimi implementasyonu
+- **Principle:** Envanter doğruluğunu tehlikeye atmadan güvenle yönetici tarafından yönetilebilecek her şey dinamik/yapılandırılabilir olmalıdır; hard-coded olmamalıdır.
+- **Decision:**
+  1. **Dynamic master data:** Aşağıdaki referans/master veriler ilgili implementasyon fazına geldiğinde UI ile yönetilecek şekilde tasarlanır: Category hiyerarşisi, `UnitOfMeasure`, `Material`, Location hiyerarşisi, `ProductionLine`, onaylı reason/reference listeleri, technical-field tanımları ve yapılandırılabilir eşikler. Normal eklemeler kod veya migration gerektirmemelidir. Seed değerleri başlangıç varsayılanlarıdır; kapalı whitelist veya korumalı iş kaydı değildir.
+  2. **Dynamic roles:** `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` başlangıç rol şablonlarıdır; sistemin gelecekte sahip olabileceği tek roller değildir. Gelecekte yöneticiler ek roller oluşturabilir ve onaylı izinleri kontrollü uygulama UI üzerinden yönetebilir. Runtime authorization permission/policy tabanlı olmalıdır; hard-coded Group adı kontrolü kullanılmamalıdır.
+  3. **Phase 2 role-management boundary:** Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration izinlerini expose edebilir. Inventory receipt/issue/approval izinleri, ilgili inventory hard gate'leri tasarlanana kadar dinamik olarak expose edilmez. Gerekçe: Django Group permission'ları additive'tir ve onaylı Teknisyen supplier-receipt yasağı (`DEC-020`, `RCV-002`) multi-group membership ile yanlışlıkla bypass edilebilir.
+  4. **`setup_roles` contract:** Gelecekteki varsayılan davranış non-destructive olmalıdır: varsayılan rol yoksa oluşturulur ve başlangıç şablon izinleri atanır; rol zaten varsa permission ekleme/çıkarma/reconcile yapılmaz. Deployment sonradan yapılan yönetici değişikliklerini sessizce overwrite etmemelidir. Açık recovery/reset davranışı varsa normal deployment yolu olmamalıdır (Phase 2.5C).
+  5. **`UnitOfMeasure` policy (Phase 2.6):** `code` yetkili yönetici tarafından düzenlenebilir kalır; UUID kararlı kimliktir; `code` uniqueness korunur; `code` değişiklikleri audit edilir; case-insensitive normalization kuralı uydurulmaz; `decimal_places` semantik olarak `DEC-OPEN-010` altında çözülmemiş kalır; rounding/conversion davranışı oluşturulmaz. Referanslı bir UoM deaktive edilebilir: mevcut referanslar korunur, Material'lara cascade/mutation yapılmaz, yeni atama UI'larında inactive UoM sunulmaz, tarihsel/mevcut referanslar geçerli kalır. Seed UoM'ler özel koruma almaz.
+  6. **Concurrency:** Phase 2 catalog master data için optimistic locking/`state_version` zorunlu değildir; geçici davranış last-write-wins kalır. Bu, gelecekteki stok mutation concurrency'sine uygulanmaz; stok tarafı transactional/locked kalır.
+  7. **Technical specifications:** `Material.technical_specs` unrestricted raw JSON editor olarak expose edilmez. Gelecekteki kategori-özel teknik alanlar controlled `TechnicalFieldDefinition`-style metadata ile yönetilir: stable key, display label, closed data type, required flag, optional unit/choice metadata, ordering, active/inactive, safe bounded validation metadata. Arbitrary Python/SQL/plugin execution yoktur. Exact definition modeli sonraki gate'e bırakılır (`DEC-OPEN-019`).
+  8. **Location:** Gelecekteki Location hiyerarşisi dinamik ve arbitrary-depth'tir. Hard-coded warehouse/corridor/rack/bin schema seviyeleri zorunlu değildir. `can_hold_stock` presentation/type label'larından ayrı kalır. Location implementasyonu Phase 2 dışındadır.
+  9. **Hard invariant boundary:** Aşağıdakiler yönetici tarafından devre dışı bırakılabilir configuration haline gelemez: negatif stok yasağı; immutable `InventoryTransaction` ledger; immutable `AuditEvent`; yalnız inventory-service mutation; atomik stok mutation; idempotency; Decimal quantity semantics; doğrudan `StockBalance` edit yasağı; serialized identity integrity; `DEC-020` pending Teknisyen intake'in otoritatif stok etkisi olmaması; diğer onaylı inventory hard gate'ler. Movement mathematics generic configuration ile oluşturulamaz.
+  10. **Movement / condition boundary:** Movement semantic type'lar code-controlled kalır. Condition label/reference metadata gelecekte dinamik olabilir; availability effect ve allowed transition'lar code/policy controlled kalır. `RETURN` ve Teknisyen movement classification çözülmez (`DEC-HG-005`, `DEC-020`).
+  11. **Audit:** Her başarılı dynamic configuration mutation sonunda `permission → service → transaction → mutation + AuditEvent` yolu kullanılmalıdır. No-op veya başarısız/reddedilen işlem başarılı configuration mutation audit event'i üretmez. Audit schema değiştirilmez.
+  12. **Phase 2 roadmap:** Kanonik sıra: 2.5B Dynamic Configuration Architecture decision → 2.5C Non-destructive role bootstrap hardening → 2.6 UnitOfMeasure UI → 2.7 Material list/search/detail → 2.8A Material base writes → 2.8B Technical-specification gate → 2.9A Yönetim/configuration shell → 2.9B Dynamic roles/permissions/user assignment → 2.9C technical-field configuration (yalnız onaylı/hazır ise) → 2.10 Gate 2. Location, `ProductionLine` ve inventory implementasyonu Phase 2 dışındadır.
+- **Consequence:** `DEC-020` değişmez. Seed verileri kapalı whitelist olarak ele alınmaz. Mevcut `setup_roles` reconcile davranışı Phase 2.5C ile non-destructive contract'a hizalanır. Catalog master data UI'ları permission tabanlıdır; inventory mutation izinleri Phase 2 dinamik rol yönetimine dahil edilmez.
+
 ## 3. Açık İş Kararları
 
 Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` alanında kanonik karar kaydına bağlanır.
@@ -259,6 +279,14 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |
 | QR | `DEC-OPEN-016`, `DEC-IT-006`; neutral ownership `DEC-011` ile sabittir |
 | Deployment/pilot | `DEC-IT-001`–`DEC-IT-005`, restore drill; retention için `DEC-OPEN-013`/`018` |
+| Phase 2 catalog/configuration UI | `DEC-021`: dynamic configuration principle, seed≠whitelist, UoM/role/technical-spec boundaries |
+| Phase 2 dynamic role management | `DEC-021`: yalnız güvenli catalog/configuration permission'ları; inventory receipt/issue/approval izinleri expose edilmez |
+| Phase 2.5C `setup_roles` hardening | `DEC-021`: non-destructive bootstrap; mevcut rol permission reconcile yapmaz |
+| Phase 2.6 UnitOfMeasure UI | `DEC-021` UoM policy; `DEC-OPEN-010` rounding/conversion çözülmeden precision semantics uydurulmaz |
+| Phase 2.8B technical specifications | `DEC-021`, `DEC-OPEN-019`; unrestricted raw JSON editor yok |
+| Phase 2.9C technical-field configuration | `DEC-OPEN-019` onayı/hazırlığı olmadan başlanmaz |
+| Location / ProductionLine UI | Phase 2 dışı; `DEC-004`, `DEC-HG-003` korunur |
+| Gate 2 | Phase 2.10; inventory implementasyonu Phase 2 dışındadır |
 
 ## 5. Audit Finding Disposition
 

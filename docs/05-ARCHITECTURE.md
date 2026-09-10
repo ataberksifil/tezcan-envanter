@@ -370,17 +370,13 @@ Canonical field serialization ayrıntısı implementation review'da belirlenir; 
 
 ## 15. Authentication and Authorization
 
-Django Auth, Groups ve Permissions kullanılır:
+Django Auth, Groups ve Permissions kullanılır. `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` başlangıç rol şablonlarıdır; sistemin gelecekte sahip olabileceği tek roller değildir (`DEC-021`). Runtime authorization permission/policy tabanlı olmalıdır; hard-coded Group adı kontrolü yeterli değildir.
 
-- `TECHNICIAN`
-- `STOREKEEPER`
-- `ADMIN_MANAGER`
-
-| İşlem | Mimari yetki |
+| İşlem | Mimari yetki (başlangıç şablonları) |
 |---|---|
-| Stok görüntüleme | Üç rol |
+| Stok görüntüleme | Üç şablon rol |
 | Receipt | STOREKEEPER, ADMIN_MANAGER |
-| Issue | Üç rol |
+| Issue | Üç şablon rol |
 | Correction request | Yetkili operasyon kullanıcıları |
 | Correction approve/reject | ADMIN_MANAGER |
 | Material/location master data | ADMIN_MANAGER; storekeeper kapsamı TBD |
@@ -390,7 +386,9 @@ Django Auth, Groups ve Permissions kullanılır:
 | Count/reconciliation | TBD |
 | Reports/export | TBD |
 
-Template/HTMX response içinde buton görünürlüğü kullanıcı deneyimidir; her state-changing endpoint ayrıca server-side permission kontrolü yapar. Role check tek başına yeterli değildir: correction, count, attachment ve benzeri kayıtlarda gerekli object/state-level authorization service/view sınırında uygulanır. Bir teknisyen başka kullanıcının correction evidence'ına sırf ID bildiği için erişemez. QR taramak yetki vermez.
+Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration permission'larını expose eder; inventory receipt/issue/approval izinleri ilgili inventory hard gate'leri tasarlanana kadar dinamik olarak atanamaz (`DEC-021`). Gelecekteki `setup_roles` varsayılan davranışı non-destructive olmalıdır: rol yoksa oluşturulur ve şablon izinleri atanır; rol varsa permission reconcile yapılmaz (Phase 2.5C).
+
+Template/HTMX response içinde buton görünürlüğü kullanıcı deneyimidir; her state-changing endpoint ayrıca server-side permission kontrolü yapar. Permission check tek başına yeterli değildir: correction, count, attachment ve benzeri kayıtlarda gerekli object/state-level authorization service/view sınırında uygulanır. Bir teknisyen başka kullanıcının correction evidence'ına sırf ID bildiği için erişemez. QR taramak yetki vermez.
 
 `Employee` ve `ApplicationUser` ayrıdır. İlişki kardinalitesi ve AD/LDAP gereksinimi **TBD**'dir.
 
@@ -765,8 +763,9 @@ Gelecekte API gerektiğinde service layer yeniden kullanılabilir; şimdi varsay
 | ADR-020 | Projection Verify / Protected Rebuild | Ledger-projection drift'i tespit etmek | Pilot öncesi management capability ve tests | ACCEPTED, DEC-014 |
 | ADR-021 | Staging-Only Import + Scoped Baseline | Double opening stock ve dev cutover transaction'ı önlemek | Baseline `1..N` INITIAL_BALANCE linki taşır | ACCEPTED, DEC-001/002/015 |
 | ADR-022 | File/DB Backup Consistency Contract | Missing evidence ve doğrulanamayan restore riskini azaltmak | File-before-DB; DB snapshot then media; restore drill | ACCEPTED, DEC-018 |
+| ADR-023 | Dynamic Configuration Where Safe | Operasyonel esneklik; envanter doğruluğunu koruma | UI-managed master data/roles; hard inventory invariants code-controlled | ACCEPTED, DEC-021 |
 
-Toplam **22** architecture decision kaydedilmiştir. Gate 0 kararlarının kanonik status ve audit disposition kaydı `docs/06-DECISION-REGISTER.md`dir.
+Toplam **23** architecture decision kaydedilmiştir. Gate 0 kararlarının kanonik status ve audit disposition kaydı `docs/06-DECISION-REGISTER.md`dir.
 
 ## 34. Open Decisions and Dependencies
 
@@ -859,3 +858,73 @@ Task 0.9 `AGENTS.md` / repository rules içinde aşağıdaki mimari korumaları 
 18. Canonical roadmap'in 0.9 remediation sonrası bağımsız Gate 0 re-audit ile bitmesi.
 
 Re-audit başarılı olmadan Phase 1 otomatik başlamaz.
+
+## 37. Dynamic Configuration Architecture
+
+Onaylı mimari ilke (`DEC-021`):
+
+> Envanter doğruluğunu tehlikeye atmadan güvenle yönetici tarafından yönetilebilecek her şey dinamik/yapılandırılabilir olmalıdır; hard-coded olmamalıdır.
+
+### Dinamik alanlar
+
+İlgili faz geldiğinde UI ile yönetilecek referans/master veriler:
+
+- Category hiyerarşisi
+- `UnitOfMeasure`
+- `Material`
+- Location hiyerarşisi (implementasyon Phase 2 dışı)
+- `ProductionLine` (implementasyon Phase 2 dışı; `DEC-HG-003`)
+- Onaylı reason/reference listeleri
+- Technical-field tanımları (`DEC-OPEN-019`)
+- Yapılandırılabilir eşikler
+
+Normal eklemeler kod veya migration gerektirmemelidir. Seed değerleri başlangıç varsayılanlarıdır; kapalı whitelist veya korumalı iş kaydı değildir.
+
+### Hard invariant boundary
+
+Aşağıdakiler yönetici tarafından devre dışı bırakılabilir configuration haline gelemez:
+
+- Negatif stok yasağı
+- Immutable `InventoryTransaction` ledger (`DEC-005`)
+- Immutable `AuditEvent`
+- Yalnız inventory-service mutation (`ADR-007`)
+- Atomik stok mutation ve projection güncellemesi
+- Idempotency (`DEC-009`)
+- Decimal quantity semantics
+- Doğrudan `StockBalance` edit yasağı
+- Serialized identity integrity (`DEC-012`)
+- `DEC-020` pending Teknisyen intake'in otoritatif stok etkisi olmaması
+- Diğer onaylı inventory hard gate'ler
+
+Movement semantic type'lar code-controlled kalır. Movement mathematics generic configuration ile oluşturulamaz. Condition label/reference metadata gelecekte dinamik olabilir; availability effect ve allowed transition'lar code/policy controlled kalır.
+
+### Catalog master data concurrency
+
+Phase 2 catalog master data için optimistic locking/`state_version` zorunlu değildir; geçici davranış last-write-wins kalır. Bu, stok mutation concurrency'sine uygulanmaz.
+
+### Technical specifications
+
+`Material.technical_specs` unrestricted raw JSON editor olarak expose edilmez. Kategori-özel teknik alanlar controlled `TechnicalFieldDefinition`-style metadata ile yönetilir; exact model `DEC-OPEN-019` gate'ine bırakılır.
+
+### Configuration mutation audit
+
+Her başarılı dynamic configuration mutation: `permission → service → transaction → mutation + AuditEvent`. No-op veya başarısız/reddedilen işlem başarılı configuration mutation audit event'i üretmez.
+
+## 38. Phase 2 Implementation Roadmap
+
+Kanonik sıra (`DEC-021`):
+
+| Görev | Kapsam |
+|---|---|
+| 2.5B | Dynamic Configuration Architecture decision (bu belge/register) |
+| 2.5C | Non-destructive role bootstrap hardening |
+| 2.6 | UnitOfMeasure UI |
+| 2.7 | Material list/search/detail |
+| 2.8A | Material base writes |
+| 2.8B | Technical-specification gate |
+| 2.9A | Yönetim/configuration shell |
+| 2.9B | Dynamic roles/permissions/user assignment |
+| 2.9C | Technical-field configuration (yalnız onaylı/hazır ise) |
+| 2.10 | Gate 2 |
+
+**Phase 2 dışı:** Location, `ProductionLine` ve inventory implementasyonu.

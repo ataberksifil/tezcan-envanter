@@ -53,6 +53,8 @@ Nicel doğruluk hedefleri, kabul edilebilir sapma oranı ve rapor performansı g
 
 ## 6. Users and Roles
 
+Mimari ilke (`DEC-021`): envanter doğruluğunu tehlikeye atmadan güvenle yönetici tarafından yönetilebilecek referans veriler ve roller dinamik/yapılandırılabilir olmalıdır. `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` başlangıç rol şablonlarıdır; runtime authorization permission/policy tabanlı olmalıdır.
+
 ### Teknisyen
 
 - **ROLE-001:** Stok bilgilerini görüntüleyebilmelidir.

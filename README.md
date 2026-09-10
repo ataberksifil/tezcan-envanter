@@ -119,9 +119,9 @@ Test notes:
 
 **Gate 0:** PASS
 
-**Current:** Phase 1.8 — Health Endpoint / DB Health Check completed
+**Current:** Phase 2.5B — Dynamic Configuration Architecture decision completed
 
-**Next:** Phase 2 — not started
+**Next:** Phase 2.5C — Non-destructive role bootstrap hardening
 
 ### Health check
 

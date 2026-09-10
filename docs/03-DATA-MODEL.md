@@ -80,7 +80,7 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 - **Check Constraints:** Yok.
 - **Recommended Indexes:** FK indeksleri; `user_id` unique indeksi yeterlidir.
 - **Delete Policy:** Profil, tarihsel auth referanslarını bozmadan yönetilir; kullanıcı silmek yerine auth tarafında pasifleştirme önerilir.
-- **Notes / TBD:** Roller Django groups/permissions ile `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` kodları üzerinden kurulabilir. Rol atama akışı ve user–employee kardinalitesi TBD'dir. SSO varsayılmaz.
+- **Notes / TBD:** `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` başlangıç rol şablonlarıdır; gelecekte ek roller UI ile tanımlanabilir (`DEC-021`). Runtime authorization permission/policy tabanlı olmalıdır; hard-coded Group adı kontrolü yeterli değildir. Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration izinlerini expose eder. Rol atama akışı ve user–employee kardinalitesi TBD'dir. SSO varsayılmaz.
 
 ## 5. Catalog Tabloları
 
@@ -113,7 +113,7 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 | Column | Conceptual Type | Null | Constraint | Description |
 |---|---|---:|---|---|
 | `id` | UUID | Hayır | PK | Birim kimliği. |
-| `code` | VARCHAR | Hayır | UNIQUE | `ADET`, `METRE`, `MAKARA`, `SET`, `PAKET` gibi kararlı kod. |
+| `code` | VARCHAR | Hayır | UNIQUE | İş kodu; UUID kararlı kimliktir, `code` yetkili yönetici tarafından düzenlenebilir (`DEC-021`). Seed örnekleri kapalı whitelist değildir. |
 | `name` | VARCHAR | Hayır | Boş olamaz | Görünen ad. |
 | `decimal_places` | SMALLINT | Evet | Provisional 0..3 | Birim için opsiyonel validation ipucu; kesin politika `DEC-OPEN-010`. |
 | `active` | BOOLEAN | Hayır | Default true | Yeni kullanım durumu. |
@@ -125,8 +125,8 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 - **Unique Constraints:** `code`.
 - **Check Constraints:** Değer kullanılırsa `decimal_places BETWEEN 0 AND 3`; alan kesin precision kararı verilene kadar null olabilir.
 - **Recommended Indexes:** Unique `code`; ek indeks gerekmez.
-- **Delete Policy:** `SOFT DELETE / DEACTIVATE`.
-- **Notes / TBD:** Birim dönüşüm tablosu önerilmez. Ondalık hassasiyet iş kararıyla kesinleşmelidir.
+- **Delete Policy:** `SOFT DELETE / DEACTIVATE`; referanslı UoM deaktive edilebilir, mevcut referanslar korunur (`DEC-021`).
+- **Notes / TBD:** Birim dönüşüm tablosu önerilmez. `code` değişiklikleri audit edilir; case-insensitive normalization kuralı uydurulmaz. `decimal_places` semantik olarak `DEC-OPEN-010` altında çözülmemiş kalır; rounding/conversion davranışı oluşturulmaz. Seed UoM'ler özel koruma almaz. Phase 2 catalog master data için optimistic locking zorunlu değildir (last-write-wins).
 
 ### 5.3 `material_conditions`
 
@@ -148,7 +148,7 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 - **Check Constraints:** `sort_order >= 0`.
 - **Recommended Indexes:** Unique `code`; `active, sort_order` yalnızca listeleme ihtiyacı doğrulanırsa.
 - **Delete Policy:** `SOFT DELETE / DEACTIVATE`.
-- **Notes / TBD:** Referans tablo, DB enum'a göre isim/sıra/aktiflik ve kontrollü gelecek genişlemesi sağlar. Başlangıç kodları `NEW_GOOD`, `USED_REMOVED_GOOD`, `DEFECTIVE`, `USED_REMOVED_DEFECTIVE`tir. Kondisyonun kullanılabilir stoğa etkisi TBD'dir.
+- **Notes / TBD:** Referans tablo, DB enum'a göre isim/sıra/aktiflik ve kontrollü gelecek genişlemesi sağlar. Başlangıç kodları seed varsayılanlarıdır; kapalı whitelist değildir. Condition label/reference metadata gelecekte dinamik olabilir; availability effect ve allowed transition'lar code/policy controlled kalır (`DEC-021`). Movement semantic type'lar code-controlled kalır. Kondisyonun kullanılabilir stoğa etkisi TBD'dir.
 
 ### 5.4 `materials`
 
@@ -165,7 +165,7 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 | `unit_id` | UUID | Evet | FK; QUANTITY için zorunlu | Temel ölçü birimi; serialized material zorunluluğu TBD. |
 | `tracking_mode` | VARCHAR | Hayır | CHECK | `QUANTITY` veya `SERIALIZED`. |
 | `minimum_stock_value` | NUMERIC(18,3) | Evet | `>= 0` | Basit malzeme geneli eşik; kapsam TBD. |
-| `technical_specs` | JSONB | Hayır | Default empty object | Esnek teknik nitelikler. |
+| `technical_specs` | JSONB | Hayır | Default empty object | Esnek teknik nitelikler; unrestricted raw JSON editor olarak expose edilmez (`DEC-021`). |
 | `active` | BOOLEAN | Hayır | Default true | Yeni işlemlerde kullanılabilirlik. |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Oluşturma zamanı. |
 | `updated_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Son güncelleme zamanı. |
@@ -176,7 +176,7 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 - **Check Constraints:** `tracking_mode IN (QUANTITY, SERIALIZED)`; `minimum_stock_value IS NULL OR minimum_stock_value >= 0`; `technical_specs` JSON object olmalıdır.
 - **Recommended Indexes:** `material_code`, `name`, `category_id`, `active`. GIN yalnızca gerçek JSONB arama ihtiyacı ölçüldüğünde.
 - **Delete Policy:** Referans varsa `SOFT DELETE / DEACTIVATE`; history sonrası hard delete yok.
-- **Notes / TBD:** `stock_quantity` alanı kesinlikle yoktur. Bir material herhangi bir inventory ledger history'ye sahip olduktan sonra `tracking_mode` normal uygulama yollarında immutable'dır (`DEC-013`). Exceptional veri dönüşümü ayrı iş kararı ve migration projesidir. Material code benzersizliği ve kategori teknik şemaları TBD'dir.
+- **Notes / TBD:** `stock_quantity` alanı kesinlikle yoktur. Bir material herhangi bir inventory ledger history'ye sahip olduktan sonra `tracking_mode` normal uygulama yollarında immutable'dır (`DEC-013`). Exceptional veri dönüşümü ayrı iş kararı ve migration projesidir. Material code benzersizliği ve kategori teknik şemaları TBD'dir. Kategori-özel teknik alanlar controlled `TechnicalFieldDefinition`-style metadata ile yönetilir (`DEC-021`, `DEC-OPEN-019`).
 
 ## 6. Location Tabloları
 

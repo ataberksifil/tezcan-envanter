@@ -1406,7 +1406,7 @@ Kanonik Phase 0 sırası: 0.1 Product Requirements → 0.2 Business Rules → 0.
 
 Re-audit başarılı olmadan Phase 1 otomatik başlamaz. Sonraki UI/permission/validation implementation aşağıdaki kullanıcı akışlarını temel almalıdır:
 
-1. **Rol matrisi:** Her ekran ve işlem için TECHNICIAN / STOREKEEPER / ADMIN_MANAGER sunucu tarafı yetkileri UF belgesinden türetilmeli.
+1. **Rol matrisi:** Her ekran ve işlem için başlangıç şablon rolleri (TECHNICIAN / STOREKEEPER / ADMIN_MANAGER) ve permission tabanlı sunucu tarafı yetkiler UF belgesinden türetilmeli; hard-coded Group adı kontrolü yeterli değildir (`DEC-021`).
 2. **Zorunlu form alanları:** Issue (alıcı snapshot, üretim hattı, kullanım yeri), Correction (açıklama, fotoğraf), Receipt (takip moduna göre miktar veya asset).
 3. **Ayrı UX yolları:** Quantity stok tablosu vs serialized asset listesi; karışık tek form kullanılmamalı.
 4. **Hata mesajları:** Yetersiz stok, eşzamanlı tüketim, pasif master, yetki reddi, duplicate operation için standart kullanıcı mesajları.

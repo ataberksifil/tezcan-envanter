@@ -156,7 +156,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 
 | Kural ID | Durum | Kural | Gerekçe / doğrulama etkisi |
 |---|---|---|---|
-| AUTH-001 | CONFIRMED | Envanter işlevlerine erişim kimliği doğrulanmış kullanıcı ve rol bazlı yetki üzerinden sağlanmalıdır. | Yetkisiz kullanıcı korunan işlemi tamamlayamamalıdır. |
+| AUTH-001 | CONFIRMED | Envanter işlevlerine erişim kimliği doğrulanmış kullanıcı ve permission/policy tabanlı yetki üzerinden sağlanmalıdır. `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` başlangıç rol şablonlarıdır (`DEC-021`). | Yetkisiz kullanıcı korunan işlemi tamamlayamamalıdır; hard-coded Group adı kontrolü yeterli değildir. |
 | AUTH-002 | CONFIRMED | Teknisyen stok ve katalog verisini görüntüleyebilir. | Rol kabul testinde güncel stok ve katalog erişilebilir olmalıdır. |
 | AUTH-003 | CONFIRMED | Teknisyen olağan stok çıkışı yapabilir. | Çıkışın diğer zorunlu kuralları yine uygulanır. |
 | AUTH-003A | CONFIRMED | Teknisyen satın alma/tedarikçi teslimatı kabulü yapamaz (`RCV-002`). Uygun saha veya sahada kullanılan alandan atölyeye fiziksel getirilen malzeme için yalnızca alım talebi başlatabilir; otoritatif stok girişi veya envanter etkisini doğrudan kaydedemez. | `INT-001`–`INT-005` ve `DEC-020` geçerlidir; hareket türü eşlemesi `DEC-HG-005` çözülmeden yapılmaz. |
