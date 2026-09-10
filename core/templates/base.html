@@ -30,13 +30,10 @@
                         <li class="nav-item">
                             <a class="nav-link ps-0" href="{% url 'home' %}">Ana sayfa</a>
                         </li>
-                        {% url 'catalog:index' as catalog_index_url %}
-                        {% if catalog_index_url %}
-                            {% if perms.catalog.view_material or perms.catalog.view_category or perms.catalog.view_unitofmeasure %}
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{{ catalog_index_url }}">Katalog</a>
-                                </li>
-                            {% endif %}
+                        {% if perms.catalog.view_category %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'catalog:category-list' %}">Kategoriler</a>
+                            </li>
                         {% endif %}
                     </ul>
                 </nav>

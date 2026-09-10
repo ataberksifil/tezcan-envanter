@@ -4,8 +4,8 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
-from django.test import override_settings
-from django.urls import reverse
+from django.core.management import call_command
+from django.urls import NoReverseMatch, reverse
 
 from accounts.roles import (
     ADMIN_MANAGER,
@@ -88,17 +88,28 @@ def test_unauthenticated_user_has_no_catalog_view_permission(app_client):
     assert user_has_catalog_view_permission(response.wsgi_request.user) is False
 
 
-def test_authenticated_shell_has_no_dead_catalog_link(app_client):
-    user = _grant_catalog_view_permissions(_create_ordinary_user("nav-no-route"))
+def test_catalog_index_route_is_not_kept_for_compatibility():
+    with pytest.raises(NoReverseMatch):
+        reverse("catalog:index")
+    assert reverse("catalog:category-list") == "/catalog/categories/"
+
+
+def test_authenticated_shell_links_to_category_list(app_client):
+    user = _create_ordinary_user("nav-category-route")
+    user.user_permissions.add(_catalog_permission("view_category"))
+    user = _refresh_user_permissions(user)
     app_client.force_login(user)
     response = app_client.get("/")
     content = response.content.decode()
-    assert user_has_catalog_view_permission(user) is True
+    assert user.has_perm("catalog.view_category") is True
+    assert ">Kategoriler</a>" in content
+    assert 'href="/catalog/categories/"' in content
     assert ">Katalog</a>" not in content
-    assert 'href="/catalog/"' not in content
     assert "Ana sayfa" in content
     assert "Stok girişi" not in content
     assert "Stok çıkışı" not in content
+    listing = app_client.get("/catalog/categories/")
+    assert listing.status_code == 200
 
 
 def test_user_without_catalog_permission_has_no_catalog_nav(app_client):
@@ -107,40 +118,52 @@ def test_user_without_catalog_permission_has_no_catalog_nav(app_client):
     response = app_client.get("/")
     content = response.content.decode()
     assert user_has_catalog_view_permission(user) is False
+    assert ">Kategoriler</a>" not in content
     assert ">Katalog</a>" not in content
-    assert 'href="/catalog/"' not in content
+    assert 'href="/catalog/categories/"' not in content
     assert user.has_perm("catalog.view_material") is False
+    assert user.has_perm("catalog.view_category") is False
 
 
-@override_settings(ROOT_URLCONF="accounts.tests.catalog_urlconf")
+def test_view_material_alone_does_not_show_category_nav(app_client):
+    user = _create_ordinary_user("nav-material-only")
+    user.user_permissions.add(_catalog_permission("view_material"))
+    user = _refresh_user_permissions(user)
+    app_client.force_login(user)
+    content = app_client.get("/").content.decode()
+    assert user_has_catalog_view_permission(user) is True
+    assert user.has_perm("catalog.view_category") is False
+    assert ">Kategoriler</a>" not in content
+    assert 'href="/catalog/categories/"' not in content
+
+
 def test_catalog_nav_visible_with_real_catalog_view_permission(app_client):
     user = _grant_catalog_view_permissions(_create_ordinary_user("nav-with-perm"))
     app_client.force_login(user)
     response = app_client.get("/")
     content = response.content.decode()
     assert user_has_catalog_view_permission(user) is True
-    assert 'href="/catalog/"' in content
-    assert ">Katalog</a>" in content
-    catalog = app_client.get("/catalog/")
+    assert user.has_perm("catalog.view_category") is True
+    assert 'href="/catalog/categories/"' in content
+    assert ">Kategoriler</a>" in content
+    catalog = app_client.get("/catalog/categories/")
     assert catalog.status_code == 200
-    assert catalog.content.decode() == "catalog-ok"
 
 
-@override_settings(ROOT_URLCONF="accounts.tests.catalog_urlconf")
 def test_hidden_catalog_nav_is_not_the_authorization_control(app_client):
     user = _create_ordinary_user("nav-hidden-not-authz")
     app_client.force_login(user)
     home = app_client.get("/")
     content = home.content.decode()
-    assert ">Katalog</a>" not in content
-    assert 'href="/catalog/"' not in content
+    assert ">Kategoriler</a>" not in content
+    assert 'href="/catalog/categories/"' not in content
 
-    denied = app_client.get("/catalog/")
+    denied = app_client.get("/catalog/categories/")
     assert denied.status_code == 403
     assert user_has_catalog_view_permission(user) is False
+    assert user.has_perm("catalog.view_category") is False
 
 
-@override_settings(ROOT_URLCONF="accounts.tests.catalog_urlconf")
 @pytest.mark.parametrize(
     ("role_name", "expect_catalog_nav"),
     (
@@ -152,8 +175,6 @@ def test_hidden_catalog_nav_is_not_the_authorization_control(app_client):
 def test_setup_roles_catalog_view_permissions_drive_shell_nav(
     app_client, role_name, expect_catalog_nav
 ):
-    from django.core.management import call_command
-
     call_command("setup_roles", verbosity=0)
     user = _create_ordinary_user(f"role-nav-{role_name.lower()}")
     user.groups.add(Group.objects.get(name=role_name))
@@ -163,10 +184,11 @@ def test_setup_roles_catalog_view_permissions_drive_shell_nav(
     app_client.force_login(user)
     response = app_client.get("/")
     content = response.content.decode()
-    has_permission = user_has_catalog_view_permission(user)
+    has_permission = user.has_perm("catalog.view_category")
     assert has_permission is expect_catalog_nav
     if expect_catalog_nav:
-        assert ">Katalog</a>" in content
-        assert reverse("catalog:index") == "/catalog/"
+        assert ">Kategoriler</a>" in content
+        assert reverse("catalog:category-list") == "/catalog/categories/"
+        assert 'href="/catalog/categories/"' in content
     else:
-        assert ">Katalog</a>" not in content
+        assert ">Kategoriler</a>" not in content
