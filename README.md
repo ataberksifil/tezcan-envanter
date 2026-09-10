@@ -107,6 +107,17 @@ Test notes:
 - Real `.env` files are not loaded automatically; supply PostgreSQL credentials through your shell or process environment before running tests.
 - Normal test command is `pytest`; `--reuse-db` does not automatically rebuild schema when migrations change. After migration/schema changes, `test_tezcan_envanter` may require a controlled DBA/admin refresh. Do not grant `CREATEDB` to `tezcan_envanter` as a shortcut.
 
+## Local / Deployment Bootstrap
+
+After PostgreSQL credentials are available in the process environment:
+
+```bash
+python manage.py migrate
+python manage.py setup_roles
+```
+
+`setup_roles` bootstraps missing default roles (`TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER`) with their initial catalog permission templates. Existing roles and administrator permission changes are preserved; the command does not add, remove, or reconcile permissions on groups that already exist. It is deployment/bootstrap provisioning and does not write `AuditEvent` rows.
+
 ## Development Workflow
 
 - Tek seferde bir kapsamlı görev
@@ -119,9 +130,9 @@ Test notes:
 
 **Gate 0:** PASS
 
-**Current:** Phase 2.5B — Dynamic Configuration Architecture decision completed
+**Current:** Phase 2.5C — Non-destructive role bootstrap hardening completed
 
-**Next:** Phase 2.5C — Non-destructive role bootstrap hardening
+**Next:** Phase 2.6 — UnitOfMeasure UI
 
 ### Health check
 

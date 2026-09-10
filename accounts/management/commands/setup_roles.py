@@ -6,16 +6,19 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from accounts.roles import (
-    MANAGED_CATALOG_CODENAMES,
-    ROLE_CATALOG_CODENAMES,
-    ROLE_NAMES,
+    DEFAULT_ROLE_NAMES,
+    DEFAULT_ROLE_TEMPLATES,
+    required_template_catalog_codenames,
 )
 
 
 class Command(BaseCommand):
     help = (
-        "Provision canonical application groups and reconcile catalog permissions "
-        "for TECHNICIAN, STOREKEEPER, and ADMIN_MANAGER."
+        "Bootstrap missing default role templates "
+        "(TECHNICIAN, STOREKEEPER, ADMIN_MANAGER). "
+        "Existing groups are left unchanged, including administrator "
+        "permission customizations. This is deployment/bootstrap "
+        "provisioning and does not write AuditEvent rows."
     )
 
     def add_arguments(self, parser):
@@ -27,40 +30,36 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         database = options["database"]
+        verbosity = options["verbosity"]
 
         with transaction.atomic(using=database):
-            permission_map = self._load_catalog_permissions(database)
-            groups = self._get_or_create_groups(database)
-
-            for role_name in ROLE_NAMES:
-                group = groups[role_name]
-                allowed_codenames = ROLE_CATALOG_CODENAMES[role_name]
-                self._reconcile_group_catalog_permissions(
-                    group,
-                    permission_map,
-                    allowed_codenames,
-                    database,
-                )
-
-        self.stdout.write(
-            self.style.SUCCESS(
-                "Roles provisioned: TECHNICIAN, STOREKEEPER, ADMIN_MANAGER "
-                "(catalog permissions reconciled)."
+            permission_map = self._load_required_catalog_permissions(database)
+            created, preserved = self._bootstrap_default_roles(
+                database,
+                permission_map,
             )
-        )
 
-    def _load_catalog_permissions(self, database: str) -> dict[str, Permission]:
+        if verbosity >= 1:
+            self.stdout.write(
+                f"created: {self._format_names(created)}"
+            )
+            self.stdout.write(
+                f"preserved existing: {self._format_names(preserved)}"
+            )
+
+    def _load_required_catalog_permissions(self, database: str) -> dict[str, Permission]:
+        required_codenames = required_template_catalog_codenames()
         catalog_content_types = ContentType.objects.using(database).filter(
             app_label="catalog",
             model__in=("category", "unitofmeasure", "material"),
         )
         permissions = Permission.objects.using(database).filter(
             content_type__in=catalog_content_types,
-            codename__in=MANAGED_CATALOG_CODENAMES,
+            codename__in=required_codenames,
         )
         permission_map = {permission.codename: permission for permission in permissions}
 
-        missing = sorted(MANAGED_CATALOG_CODENAMES - permission_map.keys())
+        missing = sorted(required_codenames - permission_map.keys())
         if missing:
             raise CommandError(
                 "Missing expected catalog permissions; no role changes were applied. "
@@ -69,31 +68,34 @@ class Command(BaseCommand):
 
         return permission_map
 
-    def _get_or_create_groups(self, database: str) -> dict[str, Group]:
-        groups: dict[str, Group] = {}
-        for role_name in ROLE_NAMES:
-            group, _created = Group.objects.using(database).get_or_create(name=role_name)
-            groups[role_name] = group
-        return groups
-
-    def _reconcile_group_catalog_permissions(
+    def _bootstrap_default_roles(
         self,
-        group: Group,
-        permission_map: dict[str, Permission],
-        allowed_codenames: frozenset[str],
         database: str,
-    ) -> None:
-        current_permissions = group.permissions.using(database).select_related(
-            "content_type"
-        )
-        managed_current = [
-            permission
-            for permission in current_permissions
-            if permission.codename in MANAGED_CATALOG_CODENAMES
-            and permission.content_type.app_label == "catalog"
-        ]
-        if managed_current:
-            group.permissions.remove(*managed_current)
+        permission_map: dict[str, Permission],
+    ) -> tuple[list[str], list[str]]:
+        created: list[str] = []
+        preserved: list[str] = []
 
-        allowed_permissions = [permission_map[codename] for codename in sorted(allowed_codenames)]
-        group.permissions.add(*allowed_permissions)
+        for role_name in DEFAULT_ROLE_NAMES:
+            group, was_created = Group.objects.using(database).get_or_create(
+                name=role_name
+            )
+            if was_created:
+                template_codenames = DEFAULT_ROLE_TEMPLATES[role_name]
+                template_permissions = [
+                    permission_map[codename] for codename in sorted(template_codenames)
+                ]
+                group.permissions.add(*template_permissions)
+                created.append(role_name)
+            else:
+                preserved.append(role_name)
+
+        created.sort()
+        preserved.sort()
+        return created, preserved
+
+    @staticmethod
+    def _format_names(names: list[str]) -> str:
+        if not names:
+            return "(none)"
+        return ", ".join(names)

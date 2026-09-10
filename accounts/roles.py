@@ -1,4 +1,4 @@
-"""Canonical application role names and catalog permission matrix (Phase 2.3)."""
+"""Default role templates and catalog permission helpers (Phase 2.5C)."""
 
 from __future__ import annotations
 
@@ -8,8 +8,6 @@ TECHNICIAN = "TECHNICIAN"
 STOREKEEPER = "STOREKEEPER"
 ADMIN_MANAGER = "ADMIN_MANAGER"
 
-ROLE_NAMES: tuple[str, ...] = (TECHNICIAN, STOREKEEPER, ADMIN_MANAGER)
-
 CATALOG_MODELS: tuple[str, ...] = ("category", "unitofmeasure", "material")
 
 CATALOG_ACTIONS: tuple[str, ...] = ("view", "add", "change", "delete")
@@ -18,7 +16,7 @@ MANAGED_CATALOG_CODENAMES: frozenset[str] = frozenset(
     f"{action}_{model}" for model in CATALOG_MODELS for action in CATALOG_ACTIONS
 )
 
-ROLE_CATALOG_CODENAMES: dict[str, frozenset[str]] = {
+DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
     TECHNICIAN: frozenset(f"view_{model}" for model in CATALOG_MODELS),
     STOREKEEPER: frozenset(f"view_{model}" for model in CATALOG_MODELS),
     ADMIN_MANAGER: frozenset(
@@ -28,13 +26,23 @@ ROLE_CATALOG_CODENAMES: dict[str, frozenset[str]] = {
     ),
 }
 
+DEFAULT_ROLE_NAMES: tuple[str, ...] = (TECHNICIAN, STOREKEEPER, ADMIN_MANAGER)
+
+# Backward-compatible aliases. Runtime authorization uses permissions, not group names.
+ROLE_NAMES = DEFAULT_ROLE_NAMES
+ROLE_CATALOG_CODENAMES = DEFAULT_ROLE_TEMPLATES
+
 
 def expected_catalog_codenames() -> frozenset[str]:
     return MANAGED_CATALOG_CODENAMES
 
 
+def required_template_catalog_codenames() -> frozenset[str]:
+    return frozenset().union(*DEFAULT_ROLE_TEMPLATES.values())
+
+
 def catalog_codenames_for_role(role_name: str) -> frozenset[str]:
-    return ROLE_CATALOG_CODENAMES[role_name]
+    return DEFAULT_ROLE_TEMPLATES[role_name]
 
 
 def is_managed_catalog_codename(codename: str) -> bool:

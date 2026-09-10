@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import patch
+from io import StringIO
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -9,16 +9,16 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.management import call_command
 from django.core.management.base import CommandError
 
-from accounts.management.commands.setup_roles import Command as SetupRolesCommand
-
 from accounts.roles import (
     ADMIN_MANAGER,
+    DEFAULT_ROLE_NAMES,
+    DEFAULT_ROLE_TEMPLATES,
     MANAGED_CATALOG_CODENAMES,
-    ROLE_CATALOG_CODENAMES,
-    ROLE_NAMES,
     STOREKEEPER,
     TECHNICIAN,
+    catalog_codenames_for_role,
 )
+from audit.models import AuditEvent
 
 pytestmark = pytest.mark.django_db
 
@@ -45,8 +45,15 @@ def _catalog_codenames_for_group(group_name: str) -> set[str]:
     }
 
 
-def _run_setup_roles():
-    call_command("setup_roles", verbosity=0)
+def _permission_pks_for_group(group_name: str) -> set[int]:
+    group = Group.objects.get(name=group_name)
+    return set(group.permissions.values_list("pk", flat=True))
+
+
+def _run_setup_roles(*, verbosity: int = 0) -> str:
+    stdout = StringIO()
+    call_command("setup_roles", verbosity=verbosity, stdout=stdout)
+    return stdout.getvalue()
 
 
 def _create_user(username: str, group_name: str):
@@ -67,39 +74,27 @@ def _refresh_user_permissions(user):
     return user
 
 
-def test_setup_roles_creates_exactly_three_groups():
-    _run_setup_roles()
-    group_names = set(Group.objects.values_list("name", flat=True))
-    assert {TECHNICIAN, STOREKEEPER, ADMIN_MANAGER}.issubset(group_names)
-
-
-def test_setup_roles_is_idempotent(catalog_permissions):
-    _run_setup_roles()
-    first_state = {
-        role: _catalog_codenames_for_group(role) for role in ROLE_NAMES
-    }
+def test_empty_db_creates_exactly_the_three_default_groups():
+    assert Group.objects.count() == 0
 
     _run_setup_roles()
-    second_state = {
-        role: _catalog_codenames_for_group(role) for role in ROLE_NAMES
-    }
 
-    assert first_state == second_state
+    assert set(Group.objects.values_list("name", flat=True)) == set(DEFAULT_ROLE_NAMES)
+    assert Group.objects.count() == 3
 
 
-@pytest.mark.parametrize("role_name", ROLE_NAMES)
-def test_all_groups_receive_catalog_view_permissions(role_name):
+@pytest.mark.parametrize("role_name", DEFAULT_ROLE_NAMES)
+def test_newly_created_groups_receive_initial_template_permissions(role_name):
     _run_setup_roles()
-    codenames = _catalog_codenames_for_group(role_name)
-    assert codenames >= {
-        "view_category",
-        "view_unitofmeasure",
-        "view_material",
-    }
+    assert _catalog_codenames_for_group(role_name) == set(
+        catalog_codenames_for_role(role_name)
+    )
 
 
 @pytest.mark.parametrize("role_name", (TECHNICIAN, STOREKEEPER))
-def test_view_only_roles_receive_no_catalog_write_or_delete_permissions(role_name):
+def test_new_view_only_templates_receive_no_catalog_write_or_delete_permissions(
+    role_name,
+):
     _run_setup_roles()
     codenames = _catalog_codenames_for_group(role_name)
     assert not any(codename.startswith("add_") for codename in codenames)
@@ -107,102 +102,184 @@ def test_view_only_roles_receive_no_catalog_write_or_delete_permissions(role_nam
     assert not any(codename.startswith("delete_") for codename in codenames)
 
 
-def test_admin_manager_receives_catalog_view_add_change_permissions():
+def test_new_admin_manager_receives_catalog_view_add_change_not_delete():
     _run_setup_roles()
     codenames = _catalog_codenames_for_group(ADMIN_MANAGER)
-    assert codenames == set(ROLE_CATALOG_CODENAMES[ADMIN_MANAGER])
-
-
-def test_admin_manager_receives_no_catalog_delete_permissions():
-    _run_setup_roles()
-    codenames = _catalog_codenames_for_group(ADMIN_MANAGER)
+    assert codenames == set(DEFAULT_ROLE_TEMPLATES[ADMIN_MANAGER])
     assert not any(codename.startswith("delete_") for codename in codenames)
 
 
-def test_rerun_removes_accidental_catalog_write_permissions_from_view_only_roles(
+def test_running_twice_creates_no_duplicate_groups_and_no_permission_changes():
+    first_output = _run_setup_roles(verbosity=1)
+    first_state = {
+        role: _permission_pks_for_group(role) for role in DEFAULT_ROLE_NAMES
+    }
+    first_count = Group.objects.count()
+
+    second_output = _run_setup_roles(verbosity=1)
+    second_state = {
+        role: _permission_pks_for_group(role) for role in DEFAULT_ROLE_NAMES
+    }
+
+    assert first_count == 3
+    assert Group.objects.count() == 3
+    assert first_state == second_state
+    assert "created: ADMIN_MANAGER, STOREKEEPER, TECHNICIAN" in first_output
+    assert "preserved existing: (none)" in first_output
+    assert "created: (none)" in second_output
+    assert "preserved existing: ADMIN_MANAGER, STOREKEEPER, TECHNICIAN" in second_output
+
+
+def test_existing_technician_extra_catalog_write_permission_is_preserved(
     catalog_permissions,
 ):
     _run_setup_roles()
-
     technician = Group.objects.get(name=TECHNICIAN)
-    storekeeper = Group.objects.get(name=STOREKEEPER)
-    technician.permissions.add(
-        catalog_permissions["add_category"],
-        catalog_permissions["change_material"],
-    )
-    storekeeper.permissions.add(
-        catalog_permissions["add_unitofmeasure"],
-        catalog_permissions["change_category"],
-    )
+    technician.permissions.add(catalog_permissions["add_category"])
+    before = _permission_pks_for_group(TECHNICIAN)
 
     _run_setup_roles()
 
-    assert _catalog_codenames_for_group(TECHNICIAN) == set(
-        ROLE_CATALOG_CODENAMES[TECHNICIAN]
-    )
-    assert _catalog_codenames_for_group(STOREKEEPER) == set(
-        ROLE_CATALOG_CODENAMES[STOREKEEPER]
-    )
+    assert _permission_pks_for_group(TECHNICIAN) == before
+    assert "add_category" in _catalog_codenames_for_group(TECHNICIAN)
 
 
-def test_rerun_removes_managed_catalog_delete_permissions_from_every_group(
+def test_existing_technician_removed_view_permission_is_not_restored(
     catalog_permissions,
 ):
     _run_setup_roles()
-
-    for role_name in ROLE_NAMES:
-        group = Group.objects.get(name=role_name)
-        group.permissions.add(
-            catalog_permissions["delete_category"],
-            catalog_permissions["delete_unitofmeasure"],
-            catalog_permissions["delete_material"],
-        )
+    technician = Group.objects.get(name=TECHNICIAN)
+    technician.permissions.remove(catalog_permissions["view_material"])
+    before = _permission_pks_for_group(TECHNICIAN)
 
     _run_setup_roles()
 
-    for role_name in ROLE_NAMES:
-        codenames = _catalog_codenames_for_group(role_name)
-        assert not any(codename.startswith("delete_") for codename in codenames)
+    assert _permission_pks_for_group(TECHNICIAN) == before
+    assert "view_material" not in _catalog_codenames_for_group(TECHNICIAN)
 
 
-def test_non_catalog_permissions_remain_untouched(catalog_permissions):
+def test_existing_storekeeper_customized_catalog_permissions_are_preserved(
+    catalog_permissions,
+):
+    _run_setup_roles()
+    storekeeper = Group.objects.get(name=STOREKEEPER)
+    storekeeper.permissions.remove(catalog_permissions["view_category"])
+    storekeeper.permissions.add(
+        catalog_permissions["add_material"],
+        catalog_permissions["change_unitofmeasure"],
+    )
+    before = _permission_pks_for_group(STOREKEEPER)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(STOREKEEPER) == before
+    assert _catalog_codenames_for_group(STOREKEEPER) == {
+        "view_unitofmeasure",
+        "view_material",
+        "add_material",
+        "change_unitofmeasure",
+    }
+
+
+def test_existing_admin_manager_customized_catalog_permissions_are_preserved(
+    catalog_permissions,
+):
+    _run_setup_roles()
+    admin_manager = Group.objects.get(name=ADMIN_MANAGER)
+    admin_manager.permissions.remove(catalog_permissions["change_material"])
+    admin_manager.permissions.add(catalog_permissions["delete_category"])
+    before = _permission_pks_for_group(ADMIN_MANAGER)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(ADMIN_MANAGER) == before
+    assert "change_material" not in _catalog_codenames_for_group(ADMIN_MANAGER)
+    assert "delete_category" in _catalog_codenames_for_group(ADMIN_MANAGER)
+
+
+def test_existing_group_non_catalog_permission_is_preserved_and_not_filled():
     auth_content_type = ContentType.objects.get_for_model(get_user_model())
     auth_permission = Permission.objects.filter(content_type=auth_content_type).first()
     assert auth_permission is not None
 
     technician = Group.objects.create(name=TECHNICIAN)
     technician.permissions.add(auth_permission)
+    before = _permission_pks_for_group(TECHNICIAN)
 
     _run_setup_roles()
 
-    technician.refresh_from_db()
+    assert _permission_pks_for_group(TECHNICIAN) == before
     assert technician.permissions.filter(pk=auth_permission.pk).exists()
-    assert _catalog_codenames_for_group(TECHNICIAN) == set(
-        ROLE_CATALOG_CODENAMES[TECHNICIAN]
+    assert _catalog_codenames_for_group(TECHNICIAN) == set()
+
+
+def test_mixed_state_creates_only_missing_default_group_with_template_permissions(
+    catalog_permissions,
+):
+    technician = Group.objects.create(name=TECHNICIAN)
+    technician.permissions.add(
+        catalog_permissions["view_category"],
+        catalog_permissions["add_category"],
     )
+    admin_manager = Group.objects.create(name=ADMIN_MANAGER)
+    admin_manager.permissions.add(catalog_permissions["view_material"])
+    technician_before = _permission_pks_for_group(TECHNICIAN)
+    admin_before = _permission_pks_for_group(ADMIN_MANAGER)
+
+    output = _run_setup_roles(verbosity=1)
+
+    assert _permission_pks_for_group(TECHNICIAN) == technician_before
+    assert _permission_pks_for_group(ADMIN_MANAGER) == admin_before
+    assert Group.objects.filter(name=STOREKEEPER).exists()
+    assert _catalog_codenames_for_group(STOREKEEPER) == set(
+        catalog_codenames_for_role(STOREKEEPER)
+    )
+    assert "created: STOREKEEPER" in output
+    assert "preserved existing: ADMIN_MANAGER, TECHNICIAN" in output
 
 
-def test_missing_catalog_permission_raises_command_error_without_partial_changes(
+def test_missing_expected_permission_raises_before_any_partial_group_creation(
+    catalog_permissions,
+):
+    technician = Group.objects.create(name=TECHNICIAN)
+    technician.permissions.add(catalog_permissions["view_category"])
+    technician_before = _permission_pks_for_group(TECHNICIAN)
+    Permission.objects.filter(
+        content_type__app_label="catalog",
+        codename="view_material",
+    ).delete()
+
+    with pytest.raises(CommandError, match="Missing expected catalog permissions"):
+        _run_setup_roles()
+
+    assert _permission_pks_for_group(TECHNICIAN) == technician_before
+    assert not Group.objects.filter(name=STOREKEEPER).exists()
+    assert not Group.objects.filter(name=ADMIN_MANAGER).exists()
+    assert set(Group.objects.values_list("name", flat=True)) == {TECHNICIAN}
+
+
+def test_setup_roles_does_not_create_audit_events():
+    assert AuditEvent.objects.count() == 0
+    _run_setup_roles()
+    assert AuditEvent.objects.count() == 0
+
+
+def test_ordinary_user_has_perm_follows_actual_group_permissions_after_customization(
     catalog_permissions,
 ):
     _run_setup_roles()
-
     technician = Group.objects.get(name=TECHNICIAN)
-    technician.permissions.add(
-        catalog_permissions["add_category"],
-        catalog_permissions["change_material"],
-    )
-    accidental_codenames = _catalog_codenames_for_group(TECHNICIAN)
+    technician.permissions.add(catalog_permissions["add_category"])
+    technician.permissions.remove(catalog_permissions["view_unitofmeasure"])
 
-    with patch.object(
-        SetupRolesCommand,
-        "_load_catalog_permissions",
-        side_effect=CommandError("Missing expected catalog permissions"),
-    ):
-        with pytest.raises(CommandError, match="Missing expected catalog permissions"):
-            call_command("setup_roles", verbosity=0)
+    _run_setup_roles()
+    user = _create_user("custom-technician", TECHNICIAN)
+    user = _refresh_user_permissions(user)
 
-    assert _catalog_codenames_for_group(TECHNICIAN) == accidental_codenames
+    assert user.has_perm("catalog.view_category") is True
+    assert user.has_perm("catalog.add_category") is True
+    assert user.has_perm("catalog.view_unitofmeasure") is False
+    assert user.has_perm("catalog.change_category") is False
 
 
 @pytest.mark.parametrize(
@@ -210,19 +287,17 @@ def test_missing_catalog_permission_raises_command_error_without_partial_changes
     [
         (TECHNICIAN, "catalog.view_category", True),
         (TECHNICIAN, "catalog.add_category", False),
-        (TECHNICIAN, "catalog.change_category", False),
-        (TECHNICIAN, "catalog.delete_category", False),
         (STOREKEEPER, "catalog.view_material", True),
         (STOREKEEPER, "catalog.add_material", False),
-        (STOREKEEPER, "catalog.change_material", False),
-        (STOREKEEPER, "catalog.delete_material", False),
         (ADMIN_MANAGER, "catalog.view_unitofmeasure", True),
         (ADMIN_MANAGER, "catalog.add_unitofmeasure", True),
         (ADMIN_MANAGER, "catalog.change_unitofmeasure", True),
         (ADMIN_MANAGER, "catalog.delete_unitofmeasure", False),
     ],
 )
-def test_group_membership_resolves_has_perm(role_name, permission_codename, expected):
+def test_new_template_group_membership_resolves_has_perm(
+    role_name, permission_codename, expected
+):
     _run_setup_roles()
     user = _create_user(f"user-{role_name.lower()}", role_name)
     user = _refresh_user_permissions(user)

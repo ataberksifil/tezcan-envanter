@@ -386,7 +386,7 @@ Django Auth, Groups ve Permissions kullanılır. `TECHNICIAN`, `STOREKEEPER`, `A
 | Count/reconciliation | TBD |
 | Reports/export | TBD |
 
-Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration permission'larını expose eder; inventory receipt/issue/approval izinleri ilgili inventory hard gate'leri tasarlanana kadar dinamik olarak atanamaz (`DEC-021`). Gelecekteki `setup_roles` varsayılan davranışı non-destructive olmalıdır: rol yoksa oluşturulur ve şablon izinleri atanır; rol varsa permission reconcile yapılmaz (Phase 2.5C).
+Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration permission'larını expose eder; inventory receipt/issue/approval izinleri ilgili inventory hard gate'leri tasarlanana kadar dinamik olarak atanamaz (`DEC-021`). `setup_roles` varsayılan davranışı non-destructive'tir: eksik varsayılan rol oluşturulur ve şablon izinleri atanır; mevcut rol permission'ları korunur (`DEC-021`).
 
 Template/HTMX response içinde buton görünürlüğü kullanıcı deneyimidir; her state-changing endpoint ayrıca server-side permission kontrolü yapar. Permission check tek başına yeterli değildir: correction, count, attachment ve benzeri kayıtlarda gerekli object/state-level authorization service/view sınırında uygulanır. Bir teknisyen başka kullanıcının correction evidence'ına sırf ID bildiği için erişemez. QR taramak yetki vermez.
 
@@ -908,7 +908,7 @@ Phase 2 catalog master data için optimistic locking/`state_version` zorunlu de�
 
 ### Configuration mutation audit
 
-Her başarılı dynamic configuration mutation: `permission → service → transaction → mutation + AuditEvent`. No-op veya başarısız/reddedilen işlem başarılı configuration mutation audit event'i üretmez.
+Her başarılı dynamic configuration mutation: `permission → service → transaction → mutation + AuditEvent`. No-op veya başarısız/reddedilen işlem başarılı configuration mutation audit event'i üretmez. `setup_roles` deployment/bootstrap provisioning'dir ve `AuditEvent` üretmez; yönetici kaynaklı rol/izin değişiklikleri Phase 2.9B'de bu audit yolunu kullanır.
 
 ## 38. Phase 2 Implementation Roadmap
 
