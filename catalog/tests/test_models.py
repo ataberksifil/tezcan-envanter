@@ -31,7 +31,7 @@ def category():
 
 @pytest.fixture
 def unit():
-    return UnitOfMeasure.objects.create(code="ADET", name="Adet")
+    return UnitOfMeasure.objects.create(code="TEST_UNIT", name="Test Unit")
 
 
 def test_category_without_parent_accepted():
