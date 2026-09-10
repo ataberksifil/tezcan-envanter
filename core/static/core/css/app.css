@@ -3,6 +3,19 @@
     line-height: 1.4;
 }
 
+.app-primary-nav .nav-link {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+main.container {
+    min-height: 60vh;
+}
+
+.card {
+    border-color: var(--bs-border-color-translucent);
+}
+
 main.container {
     min-height: 60vh;
 }

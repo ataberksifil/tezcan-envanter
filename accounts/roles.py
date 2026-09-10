@@ -43,3 +43,20 @@ def is_managed_catalog_codename(codename: str) -> bool:
 
 def managed_catalog_permissions(permissions: Iterable) -> list:
     return [perm for perm in permissions if is_managed_catalog_codename(perm.codename)]
+
+
+def catalog_view_permission_labels() -> tuple[str, ...]:
+    return tuple(f"catalog.view_{model}" for model in CATALOG_MODELS)
+
+
+def user_has_catalog_view_permission(user) -> bool:
+    """Return whether *user* has any catalog view permission.
+
+    Navigation and future catalog views must use Django permissions, not
+    group name strings. Hidden links are not authorization.
+    """
+    if not getattr(user, "is_authenticated", False):
+        return False
+    return any(
+        user.has_perm(permission) for permission in catalog_view_permission_labels()
+    )

@@ -1,0 +1,172 @@
+from __future__ import annotations
+
+import pytest
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group, Permission
+from django.contrib.contenttypes.models import ContentType
+from django.test import override_settings
+from django.urls import reverse
+
+from accounts.roles import (
+    ADMIN_MANAGER,
+    STOREKEEPER,
+    TECHNICIAN,
+    user_has_catalog_view_permission,
+)
+
+pytestmark = pytest.mark.django_db
+
+PASSWORD = "synthetic-test-password-only"
+
+
+@pytest.fixture
+def app_client(client):
+    client.defaults["HTTP_HOST"] = "localhost"
+    return client
+
+
+def _create_ordinary_user(username):
+    user_model = get_user_model()
+    user = user_model.objects.create_user(username=username, password=PASSWORD)
+    assert not user.is_superuser
+    assert not user.is_staff
+    return user
+
+
+def _refresh_user_permissions(user):
+    user = get_user_model().objects.get(pk=user.pk)
+    for cache_attr in ("_perm_cache", "_group_perm_cache", "_user_perm_cache"):
+        if hasattr(user, cache_attr):
+            delattr(user, cache_attr)
+    return user
+
+
+def _catalog_permission(codename):
+    content_type = ContentType.objects.get(app_label="catalog", model="material")
+    if codename.endswith("category"):
+        content_type = ContentType.objects.get(app_label="catalog", model="category")
+    elif codename.endswith("unitofmeasure"):
+        content_type = ContentType.objects.get(
+            app_label="catalog", model="unitofmeasure"
+        )
+    return Permission.objects.get(content_type=content_type, codename=codename)
+
+
+def _grant_catalog_view_permissions(user):
+    permissions = [
+        _catalog_permission("view_material"),
+        _catalog_permission("view_category"),
+        _catalog_permission("view_unitofmeasure"),
+    ]
+    user.user_permissions.add(*permissions)
+    return _refresh_user_permissions(user)
+
+
+def test_helper_false_without_catalog_permissions():
+    user = _create_ordinary_user("no-catalog-perm")
+    assert user_has_catalog_view_permission(user) is False
+
+
+def test_helper_true_with_direct_catalog_view_permission():
+    user = _create_ordinary_user("direct-catalog-view")
+    user.user_permissions.add(_catalog_permission("view_material"))
+    user = _refresh_user_permissions(user)
+    assert user_has_catalog_view_permission(user) is True
+
+
+def test_helper_does_not_treat_group_name_as_authorization():
+    user = _create_ordinary_user("group-name-only")
+    group, _created = Group.objects.get_or_create(name=TECHNICIAN)
+    user.groups.add(group)
+    user = _refresh_user_permissions(user)
+    assert user.groups.filter(name=TECHNICIAN).exists()
+    assert user_has_catalog_view_permission(user) is False
+
+
+def test_unauthenticated_user_has_no_catalog_view_permission(app_client):
+    response = app_client.get("/accounts/login/")
+    assert user_has_catalog_view_permission(response.wsgi_request.user) is False
+
+
+def test_authenticated_shell_has_no_dead_catalog_link(app_client):
+    user = _grant_catalog_view_permissions(_create_ordinary_user("nav-no-route"))
+    app_client.force_login(user)
+    response = app_client.get("/")
+    content = response.content.decode()
+    assert user_has_catalog_view_permission(user) is True
+    assert ">Katalog</a>" not in content
+    assert 'href="/catalog/"' not in content
+    assert "Ana sayfa" in content
+    assert "Stok girişi" not in content
+    assert "Stok çıkışı" not in content
+
+
+def test_user_without_catalog_permission_has_no_catalog_nav(app_client):
+    user = _create_ordinary_user("nav-no-perm")
+    app_client.force_login(user)
+    response = app_client.get("/")
+    content = response.content.decode()
+    assert user_has_catalog_view_permission(user) is False
+    assert ">Katalog</a>" not in content
+    assert 'href="/catalog/"' not in content
+    assert user.has_perm("catalog.view_material") is False
+
+
+@override_settings(ROOT_URLCONF="accounts.tests.catalog_urlconf")
+def test_catalog_nav_visible_with_real_catalog_view_permission(app_client):
+    user = _grant_catalog_view_permissions(_create_ordinary_user("nav-with-perm"))
+    app_client.force_login(user)
+    response = app_client.get("/")
+    content = response.content.decode()
+    assert user_has_catalog_view_permission(user) is True
+    assert 'href="/catalog/"' in content
+    assert ">Katalog</a>" in content
+    catalog = app_client.get("/catalog/")
+    assert catalog.status_code == 200
+    assert catalog.content.decode() == "catalog-ok"
+
+
+@override_settings(ROOT_URLCONF="accounts.tests.catalog_urlconf")
+def test_hidden_catalog_nav_is_not_the_authorization_control(app_client):
+    user = _create_ordinary_user("nav-hidden-not-authz")
+    app_client.force_login(user)
+    home = app_client.get("/")
+    content = home.content.decode()
+    assert ">Katalog</a>" not in content
+    assert 'href="/catalog/"' not in content
+
+    denied = app_client.get("/catalog/")
+    assert denied.status_code == 403
+    assert user_has_catalog_view_permission(user) is False
+
+
+@override_settings(ROOT_URLCONF="accounts.tests.catalog_urlconf")
+@pytest.mark.parametrize(
+    ("role_name", "expect_catalog_nav"),
+    (
+        (TECHNICIAN, True),
+        (STOREKEEPER, True),
+        (ADMIN_MANAGER, True),
+    ),
+)
+def test_setup_roles_catalog_view_permissions_drive_shell_nav(
+    app_client, role_name, expect_catalog_nav
+):
+    from django.core.management import call_command
+
+    call_command("setup_roles", verbosity=0)
+    user = _create_ordinary_user(f"role-nav-{role_name.lower()}")
+    user.groups.add(Group.objects.get(name=role_name))
+    user = _refresh_user_permissions(user)
+    assert not user.is_superuser
+
+    app_client.force_login(user)
+    response = app_client.get("/")
+    content = response.content.decode()
+    has_permission = user_has_catalog_view_permission(user)
+    assert has_permission is expect_catalog_nav
+    if expect_catalog_nav:
+        assert ">Katalog</a>" in content
+        assert reverse("catalog:index") == "/catalog/"
+    else:
+        assert ">Katalog</a>" not in content

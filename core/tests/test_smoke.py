@@ -1,18 +1,13 @@
+from urllib.parse import urlparse
+
 import pytest
 from django.db import connection
 
 
-def test_root_page(client):
+def test_root_page_requires_login(client):
     response = client.get('/', HTTP_HOST='localhost')
-    assert response.status_code == 200
-
-    template_names = [template.name for template in response.templates]
-    assert 'core/home.html' in template_names
-    assert 'base.html' in template_names
-
-    content = response.content.decode()
-    assert 'Elektrik Atölyesi Envanter Uygulaması' in content
-    assert 'envanter ve malzeme takibi' in content
+    assert response.status_code == 302
+    assert urlparse(response.url).path == '/accounts/login/'
 
 
 @pytest.mark.django_db

@@ -12,7 +12,35 @@
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     <header class="app-header border-bottom bg-body">
         <div class="container py-3">
-            <p class="app-brand mb-0 fw-semibold">Elektrik Atölyesi Envanter ve Malzeme Takip Sistemi</p>
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <p class="app-brand mb-0 fw-semibold">Elektrik Atölyesi Envanter ve Malzeme Takip Sistemi</p>
+                {% if user.is_authenticated %}
+                    <div class="d-flex flex-wrap align-items-center gap-3">
+                        <span class="text-body-secondary">{{ user.get_username }}</span>
+                        <form method="post" action="{% url 'logout' %}" class="app-logout-form mb-0">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-secondary btn-sm">Çıkış</button>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+            {% if user.is_authenticated %}
+                <nav class="app-primary-nav mt-3" aria-label="Ana menü">
+                    <ul class="nav">
+                        <li class="nav-item">
+                            <a class="nav-link ps-0" href="{% url 'home' %}">Ana sayfa</a>
+                        </li>
+                        {% url 'catalog:index' as catalog_index_url %}
+                        {% if catalog_index_url %}
+                            {% if perms.catalog.view_material or perms.catalog.view_category or perms.catalog.view_unitofmeasure %}
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ catalog_index_url }}">Katalog</a>
+                                </li>
+                            {% endif %}
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
         </div>
     </header>
 
