@@ -3,8 +3,9 @@
 ## Project Status
 
 - Gate 0 architecture/design completed
-- Phase 1 implementation foundation starting
-- application code not yet implemented
+- Phase 1.1 — Repository Foundation completed
+- Phase 1.2 — Django Bootstrap completed; Django foundation exists
+- Phase 1.3 — PostgreSQL Environment completed; local PostgreSQL development environment exists
 
 ## Product Goal
 
@@ -32,6 +33,10 @@ Mekanik Atölye veya SAP entegrasyonu V1 kapsamında değildir.
 - local filesystem via Django storage abstraction
 
 Tam mimari ayrıntıları için bkz. [docs/05-ARCHITECTURE.md](docs/05-ARCHITECTURE.md).
+
+## Local Database Configuration
+
+PostgreSQL is required for local development. Environment variable names and example values are documented in [`.env.example`](.env.example). The local `.env` file is not committed.
 
 ## Repository Governance
 
@@ -63,6 +68,6 @@ Kararlar ve açık hard gate'ler [docs/06-DECISION-REGISTER.md](docs/06-DECISION
 
 **Gate 0:** PASS
 
-**Current:** Phase 1.1 — Repository Foundation
+**Current:** Phase 1.3 — PostgreSQL Environment completed
 
-**Next:** Phase 1.2 — Django Bootstrap
+**Next:** Phase 1.4 — App / Module Skeletons

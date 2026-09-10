@@ -82,16 +82,19 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 #
-# TEMPORARY BOOTSTRAP ONLY (Task 1.2): generated SQLite settings so Django
-# can load. SQLite is NOT the V1 target database and is NOT a production
-# fallback. Task 1.3 MUST replace this with PostgreSQL before any first
-# migrate/database initialization. Do not run migrate or create db.sqlite3
-# in Task 1.2.
+# PostgreSQL is the only supported V1 database backend. Set connection
+# values via environment variables (see `.env.example`). Do not commit
+# real passwords. An empty POSTGRES_PASSWORD default is configuration
+# loading only; it is not a recommended PostgreSQL setup.
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB', 'tezcan_envanter'),
+        'USER': os.environ.get('POSTGRES_USER', 'tezcan_envanter'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
+        'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
     }
 }
 
