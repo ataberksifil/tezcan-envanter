@@ -12,9 +12,9 @@ Belge görsel mockup, ekran tasarımı, route, form veya uygulama kodu içermez.
 
 | Rol | Kod | Özet yetki |
 |---|---|---|
-| Teknisyen | `TECHNICIAN` | Stok görüntüleme, çıkış, düzeltme talebi oluşturma |
-| Depo Görevlisi | `STOREKEEPER` | Stok görüntüleme, giriş, çıkış, operasyonel depo işleri (TBD) |
-| Yönetici / Müdür | `ADMIN_MANAGER` | Tam yönetim, ana veri, düzeltme onayı, import ve cutover hazırlığı; baseline approval yetkisi TBD |
+| Teknisyen | `TECHNICIAN` | Katalog/stok görüntüleme; olağan çıkış; sahada kullanılan alandan atölyeye fiziksel getirilen malzeme kaydı (hareket semantiği hard gate sonrası); düzeltme talebi oluşturma; satın alma/tedarikçi teslimatı girişi yok |
+| Depo Görevlisi | `STOREKEEPER` | Katalog görüntüleme; olağan giriş ve çıkış; operasyonel depo işleri (TBD); katalog ana veri yazma yok |
+| Yönetici / Müdür | `ADMIN_MANAGER` | Katalog ana veri yönetimi; tam yönetim, düzeltme onayı, import ve cutover hazırlığı; baseline approval yetkisi TBD |
 
 ### Çalışan / teslim alan kişi
 

@@ -80,7 +80,7 @@ Bilinen başlangıç alanları Elektrik Deposu, Alkali Elektrik alanındaki kabl
 | Kural ID | Durum | Kural | Gerekçe / doğrulama etkisi |
 |---|---|---|---|
 | RCV-001 | CONFIRMED | Depo Görevlisi ve Yönetici/Müdür stok girişi yapabilir. | Bu rollerdeki yetkili kullanıcı için giriş işlemi erişilebilir olmalıdır. |
-| RCV-002 | CONFIRMED | Teknisyen olağan stok girişi yapamaz. | Teknisyen rolündeki kullanıcı giriş işlemini tamamlayamamalıdır. |
+| RCV-002 | CONFIRMED | Teknisyen yeni satın alınan veya tedarikçi teslimatı olarak gelen malzemenin olağan stok girişini/kabulünü yapamaz. | Teknisyen rolündeki kullanıcı tedarikçi/satın alma giriş işlemini tamamlayamamalıdır; sahada kullanılan alandan atölyeye fiziksel getirilen malzeme kaydı ayrı iş yetkisidir (`AUTH-003A`). |
 | RCV-003 | CONFIRMED | Tamamlanan stok girişi denetlenebilir bir stok iş olayı oluşturmalıdır. | Girişin kullanıcı, zaman, malzeme, miktar/varlık ve lokasyon bilgisi izlenebilmelidir. |
 | RCV-004 | CONFIRMED | Stok girişi, malzemenin takip moduna uygun miktar veya tekil varlık bilgisiyle ve geçerli hedef lokasyonla kaydedilmelidir. | Miktar ve tekil takip birbirine karıştırılmamalıdır. |
 | RCV-005 | TBD DEPENDENCY | Satın alma, sipariş, tedarikçi, irsaliye ve kabul kontrolü kuralları onaylanmamıştır. | Bu bilgiler stok girişi için zorunlu kabul edilemez. |
@@ -142,11 +142,12 @@ Bilinen başlangıç alanları Elektrik Deposu, Alkali Elektrik alanındaki kabl
 | Kural ID | Durum | Kural | Gerekçe / doğrulama etkisi |
 |---|---|---|---|
 | AUTH-001 | CONFIRMED | Envanter işlevlerine erişim kimliği doğrulanmış kullanıcı ve rol bazlı yetki üzerinden sağlanmalıdır. | Yetkisiz kullanıcı korunan işlemi tamamlayamamalıdır. |
-| AUTH-002 | CONFIRMED | Teknisyen stok görüntüleyebilir. | Rol kabul testinde güncel stok erişilebilir olmalıdır. |
-| AUTH-003 | CONFIRMED | Teknisyen stok çıkışı yapabilir. | Çıkışın diğer zorunlu kuralları yine uygulanır. |
+| AUTH-002 | CONFIRMED | Teknisyen stok ve katalog verisini görüntüleyebilir. | Rol kabul testinde güncel stok ve katalog erişilebilir olmalıdır. |
+| AUTH-003 | CONFIRMED | Teknisyen olağan stok çıkışı yapabilir. | Çıkışın diğer zorunlu kuralları yine uygulanır. |
+| AUTH-003A | CONFIRMED | Teknisyen, sahadan veya sahada kullanılan alandan atölyeye fiziksel olarak getirilen malzemenin kaydını oluşturabilir. | Bu yetki, satın alma/tedarikçi teslimatı kabulü değildir; hareket türü ve servis semantiği `DEC-HG-005` ve ilgili hard gate'ler çözülmeden uygulanmaz. |
 | AUTH-004 | CONFIRMED | Teknisyen uygulanabilir durumda düzeltme talebi oluşturabilir. | Talep oluşturmak, talebi onaylama yetkisi vermez. |
 | AUTH-005 | CONFIRMED | Teknisyen envanter ana verisini serbestçe yönetemez ve düzeltme talebi onaylayamaz. | Ana veri değişikliği ve karar işlemi reddedilmelidir. |
-| AUTH-006 | CONFIRMED | Depo Görevlisi stok görüntüleyebilir, giriş ve çıkış yapabilir. | Her işlem kendi doğrulama kurallarına tabidir. |
+| AUTH-006 | CONFIRMED | Depo Görevlisi stok görüntüleyebilir, katalog verisini görüntüleyebilir, olağan giriş ve çıkış yapabilir. | Her işlem kendi doğrulama kurallarına tabidir. |
 | AUTH-007 | CONFIRMED | Depo Görevlisi yetkisi kapsamındaki operasyonel depo işlerini yapabilir. | Ayrıntılı işlem listesi TBD'dir. |
 | AUTH-008 | CONFIRMED | Depo Görevlisi ayrıca açıkça yetkilendirilmedikçe düzeltme talebi onaylayamaz veya reddedemez. | Mevcut onay yetkisi Yönetici/Müdür rolündedir. |
 | AUTH-009 | CONFIRMED | Yönetici/Müdür uygulama içinde tam yönetim yetkisine, ana veri yönetimine ve kontrollü düzeltme yönetimine sahiptir. | Bu rol giriş, çıkış ve düzeltme kararlarını gerçekleştirebilmelidir. |
