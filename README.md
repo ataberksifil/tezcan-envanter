@@ -9,6 +9,7 @@
 - Phase 1.4 — App / Module Skeletons completed; architecture Django apps registered
 - Phase 1.5 — Frontend Foundation completed; shared Bootstrap/HTMX template shell exists
 - Phase 1.6 — Environment Configuration completed; logging/static/media/runtime settings established
+- Phase 1.7 — Test Foundation completed; pytest/PostgreSQL test database foundation established
 
 ## Product Goal
 
@@ -70,6 +71,41 @@ Kararlar ve açık hard gate'ler [docs/06-DECISION-REGISTER.md](docs/06-DECISION
 | [docs/05-ARCHITECTURE.md](docs/05-ARCHITECTURE.md) | Üretim odaklı teknik mimari ve modül sınırları |
 | [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) | Karar durumları, hard gate'ler ve Gate 0 audit disposition'ları |
 
+## Development and Test Setup
+
+Create and use a repository-local virtual environment:
+
+```bash
+python -m venv .venv
+```
+
+Windows activation:
+
+```bash
+.venv\Scripts\activate
+```
+
+Install development/test dependencies:
+
+```bash
+python -m pip install -r requirements-dev.txt
+```
+
+Run the test suite:
+
+```bash
+pytest
+```
+
+Test notes:
+
+- Tests use PostgreSQL only; SQLite is not supported.
+- The local test database is `test_tezcan_envanter`, separate from the development database `tezcan_envanter`.
+- The test database is pre-created and owned by the `tezcan_envanter` application role, which intentionally remains `NOCREATEDB`.
+- `pytest.ini` defaults to `--reuse-db` so pytest reuses the pre-created test database instead of attempting `CREATE DATABASE`.
+- Real `.env` files are not loaded automatically; supply PostgreSQL credentials through your shell or process environment before running tests.
+- Normal test command is `pytest`; `--reuse-db` does not automatically rebuild schema when migrations change. After migration/schema changes, `test_tezcan_envanter` may require a controlled DBA/admin refresh. Do not grant `CREATEDB` to `tezcan_envanter` as a shortcut.
+
 ## Development Workflow
 
 - Tek seferde bir kapsamlı görev
@@ -82,6 +118,6 @@ Kararlar ve açık hard gate'ler [docs/06-DECISION-REGISTER.md](docs/06-DECISION
 
 **Gate 0:** PASS
 
-**Current:** Phase 1.6 — Environment Configuration completed
+**Current:** Phase 1.7 — Test Foundation completed
 
-**Next:** Phase 1.7 — Test Foundation
+**Next:** Phase 1.8 — Health Endpoint / DB Health Check
