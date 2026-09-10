@@ -60,6 +60,9 @@ db.sqlite3
 staticfiles/
 media/
 
+# Generated/runtime project data
+var/
+
 # Logs
 *.log
 logs/

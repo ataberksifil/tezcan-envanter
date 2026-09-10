@@ -13,25 +13,70 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+_TRUTHY = frozenset({'1', 'true', 'yes', 'on'})
+_FALSY = frozenset({'0', 'false', 'no', 'off'})
+_LOCAL_ALLOWED_HOSTS = ('localhost', '127.0.0.1', '[::1]')
+_INSECURE_DEV_SECRET_KEY = 'insecure-local-bootstrap-only-not-for-production'
+
+
+def env_bool(name: str, *, default: bool | None = None) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        if default is None:
+            raise ImproperlyConfigured(f'{name} is required.')
+        return default
+
+    value = raw.strip().lower()
+    if not value:
+        if default is None:
+            raise ImproperlyConfigured(f'{name} cannot be empty.')
+        return default
+    if value in _TRUTHY:
+        return True
+    if value in _FALSY:
+        return False
+    raise ImproperlyConfigured(
+        f'{name} has invalid boolean value {raw!r}. '
+        'Use true/false, 1/0, yes/no, or on/off.'
+    )
+
+
+def env_csv(name: str, *, default: tuple[str, ...] | list[str] = ()) -> list[str]:
+    raw = os.environ.get(name)
+    if raw is None:
+        return list(default)
+    return [item.strip() for item in raw.split(',') if item.strip()]
+
+
+def resolve_secret_key(*, debug: bool) -> str:
+    raw = os.environ.get('DJANGO_SECRET_KEY')
+    if raw is not None and raw.strip():
+        return raw
+    if debug:
+        return _INSECURE_DEV_SECRET_KEY
+    raise ImproperlyConfigured(
+        'DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false.'
+    )
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
+DEBUG = env_bool('DJANGO_DEBUG', default=True)
+
 # SECRET_KEY bootstrap: set DJANGO_SECRET_KEY in the environment for real use.
 # The fallback is NOT a secret; development/bootstrap only; must not be used
 # in production.
-SECRET_KEY = os.environ.get(
-    'DJANGO_SECRET_KEY',
-    'insecure-local-bootstrap-only-not-for-production',
-)
+SECRET_KEY = resolve_secret_key(debug=DEBUG)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+ALLOWED_HOSTS = env_csv('DJANGO_ALLOWED_HOSTS', default=_LOCAL_ALLOWED_HOSTS)
 
-ALLOWED_HOSTS = []
+CSRF_TRUSTED_ORIGINS = env_csv('DJANGO_CSRF_TRUSTED_ORIGINS')
 
 
 # Application definition
@@ -143,6 +188,44 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'var' / 'static'
+
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'var' / 'media'
+
+
+# Logging
+# https://docs.djangoproject.com/en/5.2/topics/logging/
+
+LOG_LEVEL = os.environ.get('DJANGO_LOG_LEVEL', 'INFO').upper()
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'console': {
+            'format': '%(asctime)s %(levelname)s %(name)s %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': LOG_LEVEL,
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': LOG_LEVEL,
+    },
+}
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

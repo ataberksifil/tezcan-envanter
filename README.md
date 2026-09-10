@@ -8,6 +8,7 @@
 - Phase 1.3 — PostgreSQL Environment completed; local PostgreSQL development environment exists
 - Phase 1.4 — App / Module Skeletons completed; architecture Django apps registered
 - Phase 1.5 — Frontend Foundation completed; shared Bootstrap/HTMX template shell exists
+- Phase 1.6 — Environment Configuration completed; logging/static/media/runtime settings established
 
 ## Product Goal
 
@@ -40,6 +41,17 @@ Tam mimari ayrıntıları için bkz. [docs/05-ARCHITECTURE.md](docs/05-ARCHITECT
 
 PostgreSQL is required for local development. Environment variable names and example values are documented in [`.env.example`](.env.example). The local `.env` file is not committed.
 
+## Environment and Runtime Configuration
+
+- Environment variables are supplied externally by the shell, process manager, or deployment environment.
+- [`.env.example`](.env.example) is a reference/template only; Django does not automatically load `.env` files.
+- Static source files live in app static directories such as `core/static/`.
+- `collectstatic` output destination: `var/static`
+- Runtime uploads destination: `var/media`
+- `var/` is intentionally Git-ignored generated/runtime data.
+- Application logging goes to the console.
+- Application timezone is `Europe/Istanbul` with `USE_TZ=True`.
+
 ## Repository Governance
 
 Tüm katkıcılar ve AI agent'lar göreve başlamadan önce [AGENTS.md](AGENTS.md) dosyasını okumalıdır.
@@ -70,6 +82,6 @@ Kararlar ve açık hard gate'ler [docs/06-DECISION-REGISTER.md](docs/06-DECISION
 
 **Gate 0:** PASS
 
-**Current:** Phase 1.5 — Frontend Foundation completed
+**Current:** Phase 1.6 — Environment Configuration completed
 
-**Next:** Phase 1.6 — environment/logging/static/media/timezone configuration
+**Next:** Phase 1.7 — Test Foundation
