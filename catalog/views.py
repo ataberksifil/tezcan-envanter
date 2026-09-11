@@ -11,12 +11,17 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from catalog.forms import CategoryForm, UnitOfMeasureForm
+from catalog.forms import CategoryForm, MaterialForm, UnitOfMeasureForm
 from catalog.models import Category, Material, UnitOfMeasure
 from catalog.services.categories import (
     create_category,
     set_category_active,
     update_category,
+)
+from catalog.services.materials import (
+    create_material,
+    set_material_active,
+    update_material,
 )
 from catalog.services.units_of_measure import (
     create_unit_of_measure,
@@ -423,3 +428,116 @@ class MaterialDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
             self.object.technical_specs
         )
         return context
+
+
+class MaterialCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = "catalog.add_material"
+    form_class = MaterialForm
+    template_name = "catalog/material_form.html"
+    success_url = reverse_lazy("catalog:material-list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["form_title"] = "Yeni malzeme"
+        context["submit_label"] = "Kaydet"
+        return context
+
+    def form_valid(self, form):
+        category = form.cleaned_data["category"]
+        unit = form.cleaned_data.get("unit")
+        try:
+            result = create_material(
+                actor=self.request.user,
+                material_code=form.cleaned_data["material_code"],
+                name=form.cleaned_data["name"],
+                category_id=category.pk,
+                brand=form.cleaned_data.get("brand"),
+                model=form.cleaned_data.get("model"),
+                unit_id=unit.pk if unit is not None else None,
+                tracking_mode=form.cleaned_data["tracking_mode"],
+                minimum_stock_value=form.cleaned_data.get("minimum_stock_value"),
+            )
+        except ValidationError as exc:
+            _attach_validation_error(form, exc)
+            return self.form_invalid(form)
+        self.object = result.material
+        messages.success(self.request, "Malzeme oluşturuldu.")
+        return redirect(self.get_success_url())
+
+
+class MaterialUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = "catalog.change_material"
+    model = Material
+    form_class = MaterialForm
+    template_name = "catalog/material_form.html"
+    success_url = reverse_lazy("catalog:material-list")
+    context_object_name = "material"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["form_title"] = "Malzemeyi düzenle"
+        context["submit_label"] = "Kaydet"
+        return context
+
+    def form_valid(self, form):
+        category = form.cleaned_data["category"]
+        unit = form.cleaned_data.get("unit")
+        try:
+            result = update_material(
+                actor=self.request.user,
+                material_id=self.object.pk,
+                material_code=form.cleaned_data["material_code"],
+                name=form.cleaned_data["name"],
+                category_id=category.pk,
+                brand=form.cleaned_data.get("brand"),
+                model=form.cleaned_data.get("model"),
+                unit_id=unit.pk if unit is not None else None,
+                tracking_mode=form.cleaned_data["tracking_mode"],
+                minimum_stock_value=form.cleaned_data.get("minimum_stock_value"),
+            )
+        except Material.DoesNotExist as exc:
+            raise Http404("No material found matching the query") from exc
+        except ValidationError as exc:
+            _attach_validation_error(form, exc)
+            return self.form_invalid(form)
+        self.object = result.material
+        if result.changed:
+            messages.success(self.request, "Malzeme güncellendi.")
+        else:
+            messages.success(self.request, "Değişiklik yapılmadı.")
+        return redirect(self.get_success_url())
+
+
+class MaterialStateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "catalog.change_material"
+    http_method_names = ["post"]
+    target_active: bool
+    success_message: str
+    noop_message: str
+
+    def post(self, request, pk):
+        try:
+            result = set_material_active(
+                actor=request.user,
+                material_id=pk,
+                active=self.target_active,
+            )
+        except Material.DoesNotExist as exc:
+            raise Http404("No material found matching the query") from exc
+        if result.changed:
+            messages.success(request, self.success_message)
+        else:
+            messages.success(request, self.noop_message)
+        return redirect("catalog:material-list")
+
+
+class MaterialDeactivateView(MaterialStateView):
+    target_active = False
+    success_message = "Malzeme pasifleştirildi."
+    noop_message = "Malzeme zaten pasif."
+
+
+class MaterialReactivateView(MaterialStateView):
+    target_active = True
+    success_message = "Malzeme aktifleştirildi."
+    noop_message = "Malzeme zaten aktif."

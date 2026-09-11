@@ -5,6 +5,9 @@
 {% block content %}
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
     <h1 class="h3 mb-0">Malzemeler</h1>
+    {% if perms.catalog.add_material %}
+        <a class="btn btn-primary" href="{% url 'catalog:material-create' %}">Yeni malzeme</a>
+    {% endif %}
 </div>
 
 <form method="get" class="row g-2 align-items-end mb-3">

@@ -94,31 +94,39 @@ def _material(**overrides):
 def test_material_named_routes():
     material = _material()
     assert reverse("catalog:material-list") == "/catalog/materials/"
+    assert reverse("catalog:material-create") == "/catalog/materials/new/"
     assert (
         reverse("catalog:material-detail", args=[material.pk])
         == f"/catalog/materials/{material.pk}/"
     )
+    assert (
+        reverse("catalog:material-update", args=[material.pk])
+        == f"/catalog/materials/{material.pk}/edit/"
+    )
+    assert (
+        reverse("catalog:material-deactivate", args=[material.pk])
+        == f"/catalog/materials/{material.pk}/deactivate/"
+    )
+    assert (
+        reverse("catalog:material-reactivate", args=[material.pk])
+        == f"/catalog/materials/{material.pk}/reactivate/"
+    )
 
 
-def test_no_material_mutation_routes_exist(app_client):
+def test_no_material_delete_route_exists():
     material = _material()
-    for name in (
-        "material-create",
-        "material-update",
-        "material-delete",
-        "material-deactivate",
-        "material-reactivate",
-    ):
-        with pytest.raises(NoReverseMatch):
-            reverse(f"catalog:{name}")
-        with pytest.raises(NoReverseMatch):
-            reverse(f"catalog:{name}", args=[material.pk])
+    with pytest.raises(NoReverseMatch):
+        reverse("catalog:material-delete")
+    with pytest.raises(NoReverseMatch):
+        reverse("catalog:material-delete", args=[material.pk])
 
-    user = _role_user(ADMIN_MANAGER, "no-mut-mat-admin")
+
+def test_guessed_material_delete_url_returns_404(app_client):
+    material = _material()
+    user = _role_user(ADMIN_MANAGER, "no-delete-mat-admin")
     _login(app_client, user)
-    for suffix in ("new/", "edit/", "delete/", "deactivate/", "reactivate/"):
-        response = app_client.post(f"/catalog/materials/{material.pk}/{suffix}")
-        assert response.status_code == 404
+    response = app_client.post(f"/catalog/materials/{material.pk}/delete/")
+    assert response.status_code == 404
 
 
 # ---------------------------------------------------------------------------
@@ -801,16 +809,48 @@ def test_post_to_detail_unsupported(app_client):
     assert material.updated_at == before_updated
 
 
-def test_list_has_no_create_or_edit_buttons(app_client):
+def test_view_only_user_sees_no_mutation_buttons(app_client):
     _material(name="READONLY-BUTTONS")
-    user = _role_user(ADMIN_MANAGER, "mat-readonly-buttons")
+    user = _role_user(TECHNICIAN, "mat-readonly-buttons")
     _login(app_client, user)
-    content = app_client.get("/catalog/materials/").content.decode()
-    assert "Kaydet" not in content
-    assert "Düzenle" not in content
-    assert "Pasifleştir" not in content
-    assert "Aktifleştir" not in content
-    assert "Yeni malzeme" not in content
+    list_content = app_client.get("/catalog/materials/").content.decode()
+    material = Material.objects.get(name="READONLY-BUTTONS")
+    detail_content = app_client.get(
+        reverse("catalog:material-detail", args=[material.pk])
+    ).content.decode()
+    for content in (list_content, detail_content):
+        assert "Kaydet" not in content
+        assert "Düzenle" not in content
+        assert "Pasifleştir" not in content
+        assert "Aktifleştir" not in content
+        assert "Yeni malzeme" not in content
+
+
+def test_admin_manager_sees_mutation_buttons(app_client):
+    material = _material(name="MUT-BUTTONS")
+    user = _role_user(ADMIN_MANAGER, "mat-mutation-buttons")
+    _login(app_client, user)
+    list_content = app_client.get("/catalog/materials/").content.decode()
+    detail_content = app_client.get(
+        reverse("catalog:material-detail", args=[material.pk])
+    ).content.decode()
+    assert "Yeni malzeme" in list_content
+    assert "Düzenle" in detail_content
+    assert "Pasifleştir" in detail_content
+
+
+def test_status_routes_reject_get(app_client):
+    material = _material(name="STATUS-GET")
+    user = _role_user(ADMIN_MANAGER, "mat-status-get")
+    _login(app_client, user)
+    assert (
+        app_client.get(reverse("catalog:material-deactivate", args=[material.pk])).status_code
+        == 405
+    )
+    assert (
+        app_client.get(reverse("catalog:material-reactivate", args=[material.pk])).status_code
+        == 405
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -40,9 +40,25 @@ urlpatterns = [
         name="unit-reactivate",
     ),
     path("materials/", views.MaterialListView.as_view(), name="material-list"),
+    path("materials/new/", views.MaterialCreateView.as_view(), name="material-create"),
     path(
         "materials/<uuid:pk>/",
         views.MaterialDetailView.as_view(),
         name="material-detail",
+    ),
+    path(
+        "materials/<uuid:pk>/edit/",
+        views.MaterialUpdateView.as_view(),
+        name="material-update",
+    ),
+    path(
+        "materials/<uuid:pk>/deactivate/",
+        views.MaterialDeactivateView.as_view(),
+        name="material-deactivate",
+    ),
+    path(
+        "materials/<uuid:pk>/reactivate/",
+        views.MaterialReactivateView.as_view(),
+        name="material-reactivate",
     ),
 ]
