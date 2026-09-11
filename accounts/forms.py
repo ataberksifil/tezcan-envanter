@@ -15,6 +15,9 @@ PERMISSION_CHOICES = (
     ("catalog.view_material", "Malzeme — görüntüleme"),
     ("catalog.add_material", "Malzeme — oluşturma"),
     ("catalog.change_material", "Malzeme — değiştirme"),
+    ("locations.view_location", "Lokasyon — görüntüleme"),
+    ("locations.add_location", "Lokasyon — oluşturma"),
+    ("locations.change_location", "Lokasyon — değiştirme"),
 )
 assert tuple(value for value, _label in PERMISSION_CHOICES) == SAFE_CATALOG_PERMISSION_LABELS
 
@@ -33,7 +36,7 @@ class RoleRenameForm(RoleCreateForm):
 
 class RolePermissionsForm(forms.Form):
     catalog_permissions = forms.MultipleChoiceField(
-        label="Katalog izinleri",
+        label="Katalog ve lokasyon izinleri",
         choices=PERMISSION_CHOICES,
         required=False,
         widget=forms.CheckboxSelectMultiple,

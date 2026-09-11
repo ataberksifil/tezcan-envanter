@@ -1,4 +1,4 @@
-"""Default role templates and catalog permission helpers (Phase 2.5C)."""
+"""Default role templates and managed permission helpers (Phase 2.5C / Phase 3.1)."""
 
 from __future__ import annotations
 
@@ -16,21 +16,29 @@ MANAGED_CATALOG_CODENAMES: frozenset[str] = frozenset(
     f"{action}_{model}" for model in CATALOG_MODELS for action in CATALOG_ACTIONS
 )
 
+MANAGED_LOCATION_CODENAMES: frozenset[str] = frozenset(
+    ("view_location", "add_location", "change_location")
+)
+
+_VIEW_ONLY_CATALOG = frozenset(f"view_{model}" for model in CATALOG_MODELS)
+_VIEW_ADD_CHANGE_CATALOG = frozenset(
+    f"{action}_{model}"
+    for model in CATALOG_MODELS
+    for action in ("view", "add", "change")
+)
+
 DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
-    TECHNICIAN: frozenset(f"view_{model}" for model in CATALOG_MODELS),
-    STOREKEEPER: frozenset(f"view_{model}" for model in CATALOG_MODELS),
-    ADMIN_MANAGER: frozenset(
-        f"{action}_{model}"
-        for model in CATALOG_MODELS
-        for action in ("view", "add", "change")
-    ),
+    TECHNICIAN: _VIEW_ONLY_CATALOG | frozenset({"view_location"}),
+    STOREKEEPER: _VIEW_ONLY_CATALOG | frozenset({"view_location"}),
+    ADMIN_MANAGER: _VIEW_ADD_CHANGE_CATALOG
+    | frozenset({"view_location", "add_location", "change_location"}),
 }
 
 DEFAULT_ROLE_NAMES: tuple[str, ...] = (TECHNICIAN, STOREKEEPER, ADMIN_MANAGER)
 RESERVED_ROLE_NAMES: frozenset[str] = frozenset(DEFAULT_ROLE_NAMES)
 
-# DEC-022: this is deliberately explicit. It must never expand merely because
-# another catalog or workflow permission is added to Django.
+# DEC-022 / DEC-023: explicit allowlist. Must never expand merely because
+# another permission is added to Django.
 SAFE_CATALOG_PERMISSION_LABELS: tuple[str, ...] = (
     "catalog.view_category",
     "catalog.add_category",
@@ -41,6 +49,9 @@ SAFE_CATALOG_PERMISSION_LABELS: tuple[str, ...] = (
     "catalog.view_material",
     "catalog.add_material",
     "catalog.change_material",
+    "locations.view_location",
+    "locations.add_location",
+    "locations.change_location",
 )
 SAFE_CATALOG_PERMISSION_SET: frozenset[str] = frozenset(
     SAFE_CATALOG_PERMISSION_LABELS

@@ -18,10 +18,7 @@ pytestmark = pytest.mark.django_db
 
 PASSWORD = "synthetic-test-password-only"
 FUTURE_CARD_LABELS = (
-    "Kullanıcılar",
-    "Roller ve Yetkiler",
     "Teknik Alan Tanımları",
-    "Lokasyonlar",
     "Üretim Hatları",
 )
 
@@ -56,6 +53,8 @@ def _catalog_permission(codename):
         content_type = ContentType.objects.get(
             app_label="catalog", model="unitofmeasure"
         )
+    elif codename.endswith("location"):
+        content_type = ContentType.objects.get(app_label="locations", model="location")
     return Permission.objects.get(content_type=content_type, codename=codename)
 
 
@@ -315,6 +314,72 @@ def test_management_get_creates_no_audit_event_and_no_catalog_mutation(app_clien
 # ---------------------------------------------------------------------------
 # Navigation regression helpers
 # ---------------------------------------------------------------------------
+
+
+def test_view_location_only_user_has_no_management_hub_or_card(app_client):
+    user = _grant_permissions(
+        _create_ordinary_user("mgmt-loc-view-only"),
+        "view_location",
+    )
+    _login(app_client, user)
+    home = app_client.get("/").content.decode()
+    assert ">Yönetim</a>" not in home
+    assert app_client.get(_management_url()).status_code == 403
+    assert app_client.get("/locations/").status_code == 200
+
+
+def test_location_writer_sees_management_and_location_card(app_client):
+    user = _grant_permissions(
+        _create_ordinary_user("mgmt-loc-writer"),
+        "view_location",
+        "add_location",
+    )
+    _login(app_client, user)
+    home = app_client.get("/").content.decode()
+    assert ">Yönetim</a>" in home
+    page = app_client.get(_management_url())
+    assert page.status_code == 200
+    content = page.content.decode()
+    assert reverse("locations:location-list") in content
+    assert reverse("catalog:category-list") not in content
+
+
+def test_location_change_without_add_shows_management_card(app_client):
+    user = _grant_permissions(
+        _create_ordinary_user("mgmt-loc-change"),
+        "view_location",
+        "change_location",
+    )
+    _login(app_client, user)
+    content = app_client.get(_management_url()).content.decode()
+    assert reverse("locations:location-list") in content
+
+
+def test_add_location_without_view_does_not_grant_management(app_client):
+    user = _grant_permissions(
+        _create_ordinary_user("mgmt-loc-add-only"),
+        "add_location",
+    )
+    _login(app_client, user)
+    assert ">Yönetim</a>" not in app_client.get("/").content.decode()
+    assert app_client.get(_management_url()).status_code == 403
+
+
+def test_manage_access_only_user_still_sees_management_hub(app_client):
+    user = _create_ordinary_user("mgmt-access-only")
+    user.user_permissions.add(
+        Permission.objects.get(
+            content_type__app_label="accounts",
+            codename="manage_access",
+        )
+    )
+    user = _refresh_user_permissions(user)
+    _login(app_client, user)
+    page = app_client.get(_management_url())
+    assert page.status_code == 200
+    content = page.content.decode()
+    assert reverse("accounts:role-list") in content
+    assert reverse("locations:location-list") not in content
 
 
 @pytest.mark.parametrize("role_name", (TECHNICIAN, STOREKEEPER))

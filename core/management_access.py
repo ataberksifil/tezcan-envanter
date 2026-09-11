@@ -44,6 +44,15 @@ def user_can_manage_materials(user) -> bool:
     )
 
 
+def user_can_manage_locations(user) -> bool:
+    return _has_actionable_surface(
+        user,
+        view_permission="locations.view_location",
+        add_permission="locations.add_location",
+        change_permission="locations.change_location",
+    )
+
+
 def user_has_management_access(user) -> bool:
     return bool(
         getattr(user, "is_authenticated", False)
@@ -52,4 +61,5 @@ def user_has_management_access(user) -> bool:
         user_can_manage_categories(user)
         or user_can_manage_units(user)
         or user_can_manage_materials(user)
+        or user_can_manage_locations(user)
     )

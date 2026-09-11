@@ -33,10 +33,14 @@ USER_ROLES_CHANGED = "accounts.user.roles_changed"
 
 GROUP_NAME_UNIQUE_CONSTRAINT = "auth_group_name_key"
 
-WRITE_VIEW_DEPENDENCIES: tuple[tuple[str, str], ...] = tuple(
-    (f"catalog.{action}_{model}", f"catalog.view_{model}")
-    for model in ("category", "unitofmeasure", "material")
-    for action in ("add", "change")
+WRITE_VIEW_DEPENDENCIES: tuple[tuple[str, str], ...] = (
+    *(
+        (f"catalog.{action}_{model}", f"catalog.view_{model}")
+        for model in ("category", "unitofmeasure", "material")
+        for action in ("add", "change")
+    ),
+    ("locations.add_location", "locations.view_location"),
+    ("locations.change_location", "locations.view_location"),
 )
 
 
@@ -400,7 +404,7 @@ def _normalize_catalog_permission_labels(labels: Iterable[str]) -> set[str]:
     unknown = normalized - SAFE_CATALOG_PERMISSION_SET
     if unknown:
         raise ValidationError(
-            "Yalnız Phase 2 için onaylı katalog izinleri yönetilebilir."
+            "Yalnız onaylı katalog ve lokasyon izinleri yönetilebilir."
         )
     return normalized
 
@@ -429,7 +433,7 @@ def _validate_write_view_dependencies(labels: set[str]) -> None:
 
 def _load_supported_permissions(using: str) -> dict[str, Permission]:
     permissions = Permission.objects.using(using).filter(
-        content_type__app_label__in=("accounts", "catalog")
+        content_type__app_label__in=("accounts", "catalog", "locations")
     ).select_related("content_type")
     permission_map = {
         permission_label(permission): permission

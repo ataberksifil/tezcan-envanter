@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}{{ location.name }} — Lokasyon — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">{{ location.name }}</h1>
+    <div class="d-flex flex-wrap gap-2">
+        {% if perms.locations.change_location %}
+            <a class="btn btn-outline-primary" href="{% url 'locations:location-update' location.pk %}">Düzenle</a>
+            {% if location.active %}
+                <form method="post" action="{% url 'locations:location-deactivate' location.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-warning">Pasifleştir</button>
+                </form>
+            {% else %}
+                <form method="post" action="{% url 'locations:location-reactivate' location.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-success">Aktifleştir</button>
+                </form>
+            {% endif %}
+        {% endif %}
+        <a class="btn btn-outline-secondary" href="{% url 'locations:location-list' %}">Listeye dön</a>
+    </div>
+</div>
+
+<dl class="row mb-4">
+    <dt class="col-sm-3">UUID</dt>
+    <dd class="col-sm-9 font-monospace">{{ location.id }}</dd>
+
+    <dt class="col-sm-3">Kod</dt>
+    <dd class="col-sm-9">{{ location.code }}</dd>
+
+    <dt class="col-sm-3">Ad</dt>
+    <dd class="col-sm-9">{{ location.name }}</dd>
+
+    <dt class="col-sm-3">Üst lokasyon</dt>
+    <dd class="col-sm-9">
+        {% if location.parent %}
+            <a href="{% url 'locations:location-detail' location.parent.pk %}">
+                {{ location.parent.code }} ({{ location.parent.name }})
+            </a>
+            {% if not location.parent.active %}
+                <span class="badge text-bg-secondary">Pasif</span>
+            {% endif %}
+        {% else %}
+            —
+        {% endif %}
+    </dd>
+
+    <dt class="col-sm-3">Stok tutabilir</dt>
+    <dd class="col-sm-9">
+        {% if location.can_hold_stock %}
+            <span class="badge text-bg-info">Evet</span>
+        {% else %}
+            Hayır
+        {% endif %}
+    </dd>
+
+    <dt class="col-sm-3">Durum</dt>
+    <dd class="col-sm-9">
+        {% if location.active %}
+            <span class="badge text-bg-success">Aktif</span>
+        {% else %}
+            <span class="badge text-bg-secondary">Pasif</span>
+        {% endif %}
+    </dd>
+
+    <dt class="col-sm-3">Oluşturulma</dt>
+    <dd class="col-sm-9">{{ location.created_at }}</dd>
+
+    <dt class="col-sm-3">Güncellenme</dt>
+    <dd class="col-sm-9">{{ location.updated_at }}</dd>
+</dl>
+
+<h2 class="h5 mb-3">Doğrudan alt lokasyonlar</h2>
+{% if children %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th scope="col">Kod</th>
+                    <th scope="col">Ad</th>
+                    <th scope="col">Durum</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for child in children %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'locations:location-detail' child.pk %}">{{ child.code }}</a>
+                        </td>
+                        <td>{{ child.name }}</td>
+                        <td>
+                            {% if child.active %}
+                                <span class="badge text-bg-success">Aktif</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary">Pasif</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <p class="text-body-secondary mb-0">Alt lokasyon yok.</p>
+{% endif %}
+{% endblock %}

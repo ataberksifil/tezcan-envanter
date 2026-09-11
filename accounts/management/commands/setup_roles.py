@@ -33,7 +33,7 @@ class Command(BaseCommand):
         verbosity = options["verbosity"]
 
         with transaction.atomic(using=database):
-            permission_map = self._load_required_catalog_permissions(database)
+            permission_map = self._load_required_template_permissions(database)
             created, preserved = self._bootstrap_default_roles(
                 database,
                 permission_map,
@@ -47,14 +47,14 @@ class Command(BaseCommand):
                 f"preserved existing: {self._format_names(preserved)}"
             )
 
-    def _load_required_catalog_permissions(self, database: str) -> dict[str, Permission]:
+    def _load_required_template_permissions(self, database: str) -> dict[str, Permission]:
         required_codenames = required_template_catalog_codenames()
-        catalog_content_types = ContentType.objects.using(database).filter(
-            app_label="catalog",
-            model__in=("category", "unitofmeasure", "material"),
+        content_types = ContentType.objects.using(database).filter(
+            app_label__in=("catalog", "locations"),
+            model__in=("category", "unitofmeasure", "material", "location"),
         )
         permissions = Permission.objects.using(database).filter(
-            content_type__in=catalog_content_types,
+            content_type__in=content_types,
             codename__in=required_codenames,
         )
         permission_map = {permission.codename: permission for permission in permissions}
@@ -62,7 +62,7 @@ class Command(BaseCommand):
         missing = sorted(required_codenames - permission_map.keys())
         if missing:
             raise CommandError(
-                "Missing expected catalog permissions; no role changes were applied. "
+                "Missing expected template permissions; no role changes were applied. "
                 f"Missing codenames: {', '.join(missing)}"
             )
 
