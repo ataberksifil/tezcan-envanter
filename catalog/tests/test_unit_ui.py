@@ -617,8 +617,9 @@ def test_navigation_visible_with_view_permission(app_client):
     user = _role_user(TECHNICIAN, "nav-uom")
     _login(app_client, user)
     content = app_client.get("/").content.decode()
-    assert ">Ölçü Birimleri</a>" in content
-    assert 'href="/catalog/units/"' in content
+    assert ">Ölçü Birimleri</a>" not in content
+    assert 'href="/catalog/units/"' not in content
+    assert app_client.get("/catalog/units/").status_code == 200
 
 
 def test_navigation_hidden_without_view_permission(app_client):

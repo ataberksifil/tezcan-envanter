@@ -1,4 +1,4 @@
-{% load static %}
+{% load static management_access %}
 <!doctype html>
 <html lang="tr">
 <head>
@@ -30,19 +30,15 @@
                         <li class="nav-item">
                             <a class="nav-link ps-0" href="{% url 'home' %}">Ana sayfa</a>
                         </li>
-                        {% if perms.catalog.view_category %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'catalog:category-list' %}">Kategoriler</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.catalog.view_unitofmeasure %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'catalog:unit-list' %}">Ölçü Birimleri</a>
-                            </li>
-                        {% endif %}
                         {% if perms.catalog.view_material %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'catalog:material-list' %}">Malzemeler</a>
+                            </li>
+                        {% endif %}
+                        {% show_management_nav user as management_nav_visible %}
+                        {% if management_nav_visible %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'management' %}">Yönetim</a>
                             </li>
                         {% endif %}
                     </ul>

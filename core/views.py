@@ -1,16 +1,42 @@
 import logging
 
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.db import DatabaseError, connection
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from django.views.generic import TemplateView
+
+from core.management_access import (
+    user_can_manage_categories,
+    user_can_manage_materials,
+    user_can_manage_units,
+    user_has_management_access,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class HomeView(LoginRequiredMixin, TemplateView):
     template_name = 'core/home.html'
+
+
+class ManagementView(LoginRequiredMixin, TemplateView):
+    template_name = 'core/management.html'
+    http_method_names = ['get', 'head']
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and not user_has_management_access(request.user):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        context['show_category_management'] = user_can_manage_categories(user)
+        context['show_unit_management'] = user_can_manage_units(user)
+        context['show_material_management'] = user_can_manage_materials(user)
+        return context
 
 
 @require_GET

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Yönetim — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <h1 class="h3 mb-4">Yönetim</h1>
+        <p class="text-body-secondary mb-4">
+            Katalog yapılandırma ekranlarına buradan erişebilirsiniz.
+        </p>
+        <div class="row g-3">
+            {% if show_category_management %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="h5 card-title">Kategoriler</h2>
+                            <p class="card-text text-body-secondary">
+                                Malzeme kategorilerini oluşturun ve düzenleyin.
+                            </p>
+                            <a class="stretched-link" href="{% url 'catalog:category-list' %}">Kategorilere git</a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            {% if show_unit_management %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="h5 card-title">Ölçü Birimleri</h2>
+                            <p class="card-text text-body-secondary">
+                                Ölçü birimlerini oluşturun ve düzenleyin.
+                            </p>
+                            <a class="stretched-link" href="{% url 'catalog:unit-list' %}">Ölçü birimlerine git</a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            {% if show_material_management %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="h5 card-title">Malzemeler</h2>
+                            <p class="card-text text-body-secondary">
+                                Malzeme tanımlarını oluşturun ve düzenleyin.
+                            </p>
+                            <a class="stretched-link" href="{% url 'catalog:material-list' %}">Malzemelere git</a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
