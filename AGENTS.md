@@ -50,7 +50,7 @@ Görsel kolaylık için zorunlu veri, kontrol, iz veya yetki kaldırma.
 
 - Mimari **modüler monolit**tir.
 - V1 stack: Python, Django 5.2 LTS, Django Templates, HTMX, Bootstrap 5, PostgreSQL, Django ORM/migrations, Django Auth/Groups/Permissions, openpyxl, pytest/Django tests, Django storage abstraction arkasında filesystem storage ve Git.
-- `AUTH_USER_MODEL`, ilk Django migration'dan itibaren minimal proje sahipli `accounts.User` (`AbstractUser`) olmalıdır (`DEC-019`). Django default `User`'a geri dönme. `Employee`'yi `User`'a birleştirme; `DEC-HG-004` çözülmeden employee business alanlarını `User`'a taşıma.
+- `AUTH_USER_MODEL`, ilk Django migration'dan itibaren minimal proje sahipli `accounts.User` (`AbstractUser`) olmalıdır (`DEC-019`). Django default `User`'a geri dönme. `Employee`'yi `User`'a birleştirme; employee business alanları `User`'a taşınmaz (`DEC-024`).
 - Business transaction zamanları timezone-aware saklanır; kullanıcı sunumunda varsayılan `Europe/Istanbul`dır.
 - PostgreSQL production kullanımı ve deployment şekli IT onayına bağlıdır; SQLite production fallback oluşturma.
 - Mimari kararı sessizce değiştirme.
@@ -276,9 +276,9 @@ Her `ISSUE` şunları immutable tarihsel bağlam olarak korur:
 
 Employee master değişse bile receiver snapshot okunabilir kalır. Normal kullanıcı original transaction timestamp'i değiştiremez.
 
-`DEC-HG-003`: Production line controlled reference list veya başka onaylı yapı seçilmeden ISSUE data/UI implementation başlatma; fabrika hatlarını uydurma. Actual usage location warehouse `Location`dan ayrı kalır ve iş sahibi başka model onaylayana kadar text olabilir.
+`DEC-HG-003` (**DECIDED**, `DEC-025`): `ProductionLine` dynamic master-data entity (`inventory` app); recursive hierarchy; code/name lifecycle. Exact usage place ayrı required free text; `UsagePlace` modeli yok. ISSUE data/UI inventory hard gate'lerini bekler; fabrika hatları uydurulmaz/seed edilmez.
 
-`DEC-HG-004`: Employee number uniqueness/reuse ve Employee–ApplicationUser relationship accounts/import matching öncesi çözülmelidir. Personal/photo/audit retention pilot öncesi karara bağlanır; receiver snapshot her durumda korunur.
+`DEC-HG-004` (**DECIDED**, `DEC-024`): `accounts.Employee` ayrı entity; sicil string/global unique/editable; nullable one-to-one User link (ownership Employee, SET_NULL). Phase 3.2 Employee foundation implementation sıradaki adım. Personal/photo/audit retention pilot öncesi karara bağlanır; receiver snapshot her durumda korunur. Managed permissions: `accounts.view_employee`, `accounts.add_employee`, `accounts.change_employee`.
 
 ## 14. Corrections
 

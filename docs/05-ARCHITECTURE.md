@@ -406,13 +406,13 @@ Phase 2.9B erişim yönetimi politikası (`DEC-022`):
 
 Template/HTMX response içinde buton görünürlüğü kullanıcı deneyimidir; her state-changing endpoint ayrıca server-side permission kontrolü yapar. Permission check tek başına yeterli değildir: correction, count, attachment ve benzeri kayıtlarda gerekli object/state-level authorization service/view sınırında uygulanır. Bir teknisyen başka kullanıcının correction evidence'ına sırf ID bildiği için erişemez. QR taramak yetki vermez.
 
-`Employee` ve `ApplicationUser` ayrıdır. İlişki kardinalitesi ve AD/LDAP gereksinimi **TBD**'dir.
+`Employee` ve `ApplicationUser` ayrıdır (`DEC-024`). Nullable one-to-one link ownership Employee tarafında; delete `SET_NULL`. AD/LDAP gereksinimi **IT dependency**'dir.
 
 ### Feature hard gates
 
 - **`DEC-HG-002` Corrections:** Tek/cumulative correction, partial line semantics, original-line linkage, over-correction, later movements, correction-of-correction, requester=approver ve yetersiz current stock kararlaştırılmadan correction schema/service implementation yoktur.
-- **`DEC-HG-003` Issue:** Production line controlled reference list veya başka onaylı yapı seçilmeden ISSUE data/UI implementation yoktur. Gerçek factory line değerleri uydurulmaz; usage location warehouse `Location`dan ayrı kalır ve başka model onaylanana kadar text olabilir.
-- **`DEC-HG-004` Accounts/import matching:** Employee number uniqueness/reuse ve Employee–ApplicationUser relationship belirlenmeden ilgili implementation yoktur. Receiver snapshot değişmeden korunur; personal/photo/audit retention pilot öncesi çözülür.
+- **`DEC-HG-003` ProductionLine foundation:** **DECIDED** (`DEC-025`). `ProductionLine` dynamic master-data entity (`inventory` app); recursive hierarchy; exact usage place ayrı free text. ISSUE data/UI inventory hard gate'lerini bekler.
+- **`DEC-HG-004` Employee foundation:** **DECIDED** (`DEC-024`). `accounts.Employee` ayrı entity; sicil/User link/lifecycle kararlı. Phase 3.2 implementation sıradaki adım. Retention pilot öncesi kararları açık kalır; receiver snapshot korunur.
 - **`DEC-HG-005` Return:** Prior ISSUE, partial quantity, condition authority, serialized current-state ve never-issued found/wrong-delivery semantics çözülmeden RETURN schema/service/UI ve aktif menü yoktur.
 
 ## 16. Web / UI Architecture
@@ -793,13 +793,13 @@ Bu legacy özet tüm projeyi bloke etmez. Güncel status, owner, source mapping 
 
 | Konu | İlgili feature/modül | Kaynak |
 |---|---|---|
-| Employee number ve material code uniqueness/reuse | accounts, catalog, imports | DM-B01; Location code `DEC-023` |
+| Employee number ve material code uniqueness/reuse | accounts, catalog, imports | Employee number `DEC-024`; Location code `DEC-023`; Material code remainder `DEC-OPEN-021` |
 | Serialized zorunlu identifier ve state kodları | serialized receipt/issue/transfer | DM-B02, DM-B03 |
 | Kondisyonun available/minimum stok etkisi | inventory, low stock, return | DM-B04 |
 | Minimum stok aggregation | reports/low stock | DM-B05 |
 | Birim bazlı decimal precision/kısmi miktar | quantity mutation | DM-B06 |
 | Production line / usage location veri modeli | issue | DM-B07 |
-| Employee–ApplicationUser ilişkisi | accounts, receiver lookup | DM-B08 |
+| Employee–ApplicationUser ilişkisi | accounts, receiver lookup | `DEC-024` (nullable one-to-one, ownership Employee) |
 | Location hierarchy/code, `can_hold_stock` ve stoklu pasifleştirme `DEC-023` ile kararlı; inventory enforcement sonraki entegrasyon | locations, counting | DM-B09 |
 | Exceptional tracking-mode migration istenirse dönüşüm politikası; normal edit `DEC-013` ile yasak | catalog | DM-B10 |
 | `DEC-HG-005` Return semantics ve permission | return | DM-B11 |
@@ -879,9 +879,13 @@ Re-audit başarılı olmadan Phase 1 otomatik başlamaz.
 
 Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs/06-DECISION-REGISTER.md` §4.3) → Phase 2 başladı → Phase 2 tamamlandı → **Gate 2 PASS** (2026-09-11; bkz. `docs/06-DECISION-REGISTER.md` §4.4) → **Phase 2: CLOSED**.
 
-**Phase 3.0:** Location foundation decisions — COMPLETE (`DEC-023`). Location henüz implement edilmemiştir.
+**Phase 3.0:** Location foundation decisions — COMPLETE (`DEC-023`).
 
-**Sıradaki implementation alanı:** Phase 3.1 — Location foundation implementation. Inventory başlamamıştır.
+**Phase 3.1:** Location foundation implementation — COMPLETE.
+
+**Phase 3.2-0:** Employee + ProductionLine decision pack — COMPLETE (`DEC-024`, `DEC-025`, 2026-09-11).
+
+**Sıradaki implementation alanı:** Phase 3.2 — Employee foundation implementation. Employee ve ProductionLine henüz implement edilmemiştir. Inventory başlamamıştır.
 
 ## 37. Dynamic Configuration Architecture
 
@@ -896,8 +900,9 @@ Onaylı mimari ilke (`DEC-021`):
 - Category hiyerarşisi
 - `UnitOfMeasure`
 - `Material`
-- Location hiyerarşisi (`DEC-023`; implementasyon Phase 3.1)
-- `ProductionLine` (implementasyon Phase 3 sonrası karar; `DEC-HG-003`)
+- Location hiyerarşisi (`DEC-023`; Phase 3.1 COMPLETE)
+- `ProductionLine` (`DEC-025`; implementasyon Employee sonrası)
+- `Employee` (`DEC-024`; implementasyon Phase 3.2)
 - Onaylı reason/reference listeleri
 - Technical-field tanımları (`DEC-OPEN-019`)
 - Yapılandırılabilir eşikler
@@ -971,8 +976,11 @@ Kanonik sıra (`DEC-021`):
 | Görev | Kapsam |
 |---|---|
 | 3.0 | Location foundation decisions — **COMPLETE** (`DEC-023`, 2026-09-11) |
-| 3.1 | Location foundation implementation — sıradaki. Location henüz implement edilmemiştir. |
+| 3.1 | Location foundation implementation — **COMPLETE** |
+| 3.2-0 | Employee + ProductionLine decision pack — **COMPLETE** (`DEC-024`, `DEC-025`, 2026-09-11) |
+| 3.2 | Employee foundation implementation — sıradaki. Employee henüz implement edilmemiştir. |
+| 3.x | ProductionLine foundation implementation — Employee sonrası |
 
-**Sıradaki:** Phase 3.1 — Location foundation implementation.
+**Sıradaki:** Phase 3.2 — Employee foundation implementation.
 
-Location henüz implement edilmemiştir. Inventory mutation implementasyonu henüz başlamamıştır. `ProductionLine` ve `Employee` sonraki Phase 3 kararlarındadır. Açık hard gate'ler (`DEC-HG-001`–`DEC-HG-005`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur.
+Employee ve ProductionLine henüz implement edilmemiştir. Inventory mutation implementasyonu henüz başlamamıştır. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur.

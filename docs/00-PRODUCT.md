@@ -83,7 +83,7 @@ Mimari ilke (`DEC-021`): envanter doğruluğunu tehlikeye atmadan güvenle yöne
 - **SEC-004:** Kullanıcı ve çalışan kimliği bilgileri desteklenmelidir.
 - **SEC-005:** Normal kullanıcı, sistemce kaydedilen işlem zamanını sessizce değiştirememelidir.
 
-Phase 2 rol atama ve erişim yönetimi politikası `DEC-022` ile kararlıdır (`accounts.manage_access`, güvenli catalog permission allowlist, anti-escalation, audited mutation). Kullanıcı hesabı ile çalışan sicil kaydı arasındaki ilişki (`DEC-HG-004`) ve Depo Görevlisi “operasyonel depo işleri” ayrıntılı izin matrisi (`DEC-OPEN-005`) **TBD**'dir.
+Phase 2 rol atama ve erişim yönetimi politikası `DEC-022` ile kararlıdır (`accounts.manage_access`, güvenli catalog permission allowlist, anti-escalation, audited mutation). Kullanıcı hesabı ile çalışan sicil kaydı arasındaki ilişki `DEC-024` ile kararlıdır (nullable one-to-one, ownership Employee). Depo Görevlisi “operasyonel depo işleri” ayrıntılı izin matrisi (`DEC-OPEN-005`) **TBD**'dir.
 
 ## 7. Material Scope
 

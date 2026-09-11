@@ -9,9 +9,11 @@
 - **Gate 2:** PASS
 - **Phase 2.8B:** DEFER (`DEC-OPEN-019` OPEN)
 - **Phase 2.9C:** SKIPPED
-- **Sıradaki:** Phase 3.1 — Location foundation implementation
+- **Sıradaki:** Phase 3.2 — Employee foundation implementation
 - **Phase 3.0:** Location foundation decisions COMPLETE (`DEC-023`)
-- **İlk çalışma:** Location henüz implement edilmemiştir
+- **Phase 3.1:** Location foundation implementation COMPLETE
+- **Phase 3.2-0:** Employee + ProductionLine decision pack COMPLETE (`DEC-024`, `DEC-025`)
+- **Henüz implement edilmemiş:** Employee, ProductionLine; inventory mutation başlamamıştır
 
 Phase 2 ayrıntıları için bkz. [Yol Haritası](#yol-haritası).
 
@@ -149,9 +151,13 @@ python manage.py setup_roles
 
 **Phase 3.0:** Location foundation decisions — COMPLETE (`DEC-023`, 2026-09-11)
 
-**Sıradaki:** Phase 3.1 — Location foundation implementation. Location henüz implement edilmemiştir.
+**Phase 3.1:** Location foundation implementation — COMPLETE
 
-Inventory mutation implementasyonu henüz başlamamıştır. Açık hard gate'ler (`DEC-HG-001`–`DEC-HG-005`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur.
+**Phase 3.2-0:** Employee + ProductionLine decision pack — COMPLETE (`DEC-024`, `DEC-025`, 2026-09-11)
+
+**Sıradaki:** Phase 3.2 — Employee foundation implementation. Employee ve ProductionLine henüz implement edilmemiştir.
+
+Inventory mutation implementasyonu henüz başlamamıştır. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
 
 ### Sağlık kontrolü
 

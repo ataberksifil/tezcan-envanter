@@ -167,7 +167,7 @@ Onaylı politika: `DEC-022`. Bu akışlar generic IAM değildir; küçük uygula
 
 **TBD / Open Decisions**
 - Kullanıcı hesabı oluşturma/parola yönetimi bu akışın dışındadır.
-- Employee–ApplicationUser ilişkisi `DEC-HG-004` altında açıktır.
+- Employee–ApplicationUser ilişkisi `DEC-024` ile kararlıdır: nullable one-to-one, ownership Employee; Phase 2.9B User.groups UI'sı Employee link yönetmez.
 
 ## 5. Stock Viewing and Search
 
@@ -472,9 +472,9 @@ flowchart TD
 - Acting user, sistem zamanı, alıcı snapshot'ları ledger/context'te.
 
 **TBD / Open Decisions**
-- `DEC-HG-003`: Üretim hattının controlled reference list veya başka onaylı yapısı ISSUE data/UI başlamadan seçilmelidir; gerçek hatlar uydurulamaz.
-- `DEC-HG-004`: Employee seçimi/manuel giriş, sicil uniqueness/reuse ve user linkage accounts/import matching öncesi çözülmelidir.
-- Fiili kullanım yeri warehouse `Location`dan ayrı kalır ve iş sahibi başka model onaylayana kadar text olabilir.
+- ISSUE data/UI inventory hard gate'leri (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) çözülene kadar implement edilmez.
+- ProductionLine foundation `DEC-025` ile kararlıdır; structured selectable context; exact usage place ayrı required free text.
+- Employee foundation `DEC-024` ile kararlıdır; receiver Employee UUID + snapshot; inactive Employee yeni ISSUE'da seçilemez.
 
 ### UF-ISS-002 — Hızlı Çıkış
 
@@ -1446,16 +1446,16 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 |---|---|
 | `DEC-HG-001` | Count/reconciliation schema, service ve UI; stock-stability modeli seçilmeden başlayamaz. |
 | `DEC-HG-002` | Correction schema/service; bounds ve lineage kararı olmadan başlayamaz. |
-| `DEC-HG-003` | ISSUE data/UI; production line yapısı onaylanmadan başlayamaz. |
-| `DEC-HG-004` | Accounts/import matching; employee number/reuse ve user link kararı olmadan başlayamaz. |
+| `DEC-HG-003` | **DECIDED** (`DEC-025`). ProductionLine foundation kararlı; ISSUE implementasyonu inventory gate'lerini bekler. |
+| `DEC-HG-004` | **DECIDED** (`DEC-024`). Employee foundation kararlı; Phase 3.2 implementation sıradaki adım. |
 | `DEC-HG-005` | RETURN schema/service/UI ve aktif menü; beş return kararı olmadan başlayamaz. |
 
 ### BLOCKS UI IMPLEMENTATION
 
 | ID | Konu | Etki |
 |---|---|---|
-| UF-O-01 | Üretim hattı ve fiili kullanım yeri: serbest metin vs sözlük | Issue/Quick Issue form alanları |
-| UF-O-02 | Alıcı Employee seçimi vs manuel giriş | Issue form UX |
+| UF-O-01 | ProductionLine structured seçim + exact usage place ayrı free text (`DEC-025`); ISSUE UI inventory gate'lerini bekler | Issue/Quick Issue form alanları |
+| UF-O-02 | Alıcı active Employee seçimi; snapshot zorunlu (`DEC-024`); ISSUE UI inventory gate'lerini bekler | Issue form UX |
 | UF-O-03 | Minimum stok aggregation (global/lokasyon/kondisyon) | Low stock ekranı |
 | UF-O-04 | `DEC-HG-005` Return yetkileri ve form alanları | Return ekranı |
 | UF-O-05 | Transfer yetkileri | Transfer menü görünürlüğü |
@@ -1474,7 +1474,7 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 | UF-O-13 | `DEC-HG-002` Controlled correction bounds ve lineage | Approval sonrası ledger |
 | UF-O-14 | Normal change `DEC-013` ile yasak; exceptional migration policy açık | Material edit |
 | UF-O-15 | Stoklu lokasyon pasifleştirme `DEC-023` ile kararlı | Location deactivate; inventory enforcement sonraki entegrasyon |
-| UF-O-16 | Employee/user kardinalitesi | Receiver lookup |
+| UF-O-16 | Employee/user nullable one-to-one (`DEC-024`); ISSUE UI inventory gate'lerini bekler | Receiver lookup |
 | UF-O-17 | Material/employee code uniqueness | Duplicate handling (`DEC-OPEN-021` Material remainder; Location code `DEC-023`) |
 | UF-O-18 | Decimal precision per unit | Quantity validation messages |
 | UF-O-19 | Ret gerekçesi zorunluluğu (PROPOSED) | Reject form |

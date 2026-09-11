@@ -47,40 +47,21 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 | Column | Conceptual Type | Null | Constraint | Description |
 |---|---|---:|---|---|
 | `id` | UUID | Hayır | PK | Sistem içi kimlik. |
-| `employee_number` | VARCHAR | Hayır | Benzersizlik TBD | Çalışan sicil numarası. |
+| `employee_number` | VARCHAR | Hayır | UNIQUE | Çalışan sicil numarası; string; leading zero korunur; case-sensitive global unique; editable (`DEC-024`). |
 | `first_name` | VARCHAR | Hayır | Boş olamaz | Güncel ad. |
 | `last_name` | VARCHAR | Hayır | Boş olamaz | Güncel soyad. |
 | `active` | BOOLEAN | Hayır | Default true | Kullanım durumu. |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Oluşturma zamanı. |
+| `user_id` | Auth user PK tipi | Evet | FK, UNIQUE | Nullable one-to-one `accounts.User` bağlantısı; ownership Employee tarafında (`DEC-024`). |
 | `updated_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Son güncelleme zamanı. |
 
 - **Primary Key:** `id`
-- **Foreign Keys:** Yok.
-- **Unique Constraints:** `employee_number` için global benzersizlik tercih edilir; iş varsayımı doğrulanmadığı için **BLOCKS IMPLEMENTATION** kararıdır.
-- **Check Constraints:** Ad, soyad ve sicil numarası normalize edildikten sonra boş olamaz.
-- **Recommended Indexes:** `employee_number`; gerektiğinde `last_name, first_name`.
-- **Delete Policy:** `SOFT DELETE / DEACTIVATE`; işlem snapshot'ları çalışan değişikliğinden etkilenmez.
-- **Notes / TBD:** Sicil numarasının yeniden kullanım ve benzersizlik kuralı TBD'dir.
-
-### 4.2 `application_user_profiles`
-
-**Purpose:** Django auth kullanıcısını isteğe bağlı `Employee` kaydına bağlar; auth kimliğini yeniden tasarlamaz.
-
-| Column | Conceptual Type | Null | Constraint | Description |
-|---|---|---:|---|---|
-| `id` | UUID | Hayır | PK | Profil kimliği. |
-| `user_id` | Auth user PK tipi | Hayır | FK, UNIQUE | Django auth kullanıcısına bire bir bağ. |
-| `employee_id` | UUID | Evet | FK | İsteğe bağlı çalışan bağı. |
-| `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Oluşturma zamanı. |
-| `updated_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Son güncelleme zamanı. |
-
-- **Primary Key:** `id`
-- **Foreign Keys:** `user_id → Django auth user`; `employee_id → employees.id`.
-- **Unique Constraints:** `user_id`. `employee_id` benzersizliği ilişki kardinalitesi kesinleşmeden uygulanmaz.
-- **Check Constraints:** Yok.
-- **Recommended Indexes:** FK indeksleri; `user_id` unique indeksi yeterlidir.
-- **Delete Policy:** Profil, tarihsel auth referanslarını bozmadan yönetilir; kullanıcı silmek yerine auth tarafında pasifleştirme önerilir.
-- **Notes / TBD:** `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` başlangıç rol şablonlarıdır; gelecekte ek roller UI ile tanımlanabilir (`DEC-021`). Runtime authorization permission/policy tabanlı olmalıdır; hard-coded Group adı kontrolü yeterli değildir. Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration izinlerini expose eder (`DEC-022`). Rol atama/onay süreci `DEC-022` ile kararlıdır; user–employee kardinalitesi `DEC-HG-004` altında TBD'dir. SSO varsayılmaz.
+- **Foreign Keys:** `user_id → accounts.User`; delete `SET_NULL`.
+- **Unique Constraints:** `employee_number` globally unique (case-sensitive); `user_id` unique when not null.
+- **Check Constraints:** Ad, soyad ve sicil numarası outer trim sonrası boş olamaz.
+- **Recommended Indexes:** Unique `employee_number`; unique partial `user_id`; gerektiğinde `last_name, first_name`.
+- **Delete Policy:** Hard delete application surface yok; `active/inactive` lifecycle. User silinince link `SET_NULL`. Transaction snapshot'ları çalışan değişikliğinden etkilenmez.
+- **Notes / TBD:** Eski sicil numarası ayrı historical registry ile rezerve edilmez; import/matching immutable identity key varsaymamalıdır. Gelecek audit: `accounts.employee.created/updated/deactivated/reactivated`. Permissions: `accounts.view_employee`, `accounts.add_employee`, `accounts.change_employee` (`DEC-024`). Employee henüz implement edilmemiştir.
 
 ## 5. Catalog Tabloları
 
@@ -203,6 +184,32 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 - **Delete Policy:** Hard delete iş operasyonu yoktur; `SOFT DELETE / DEACTIVATE`. FK'ler restricted.
 - **Notes:** `location_type` Phase 3.1'de yoktur; `WAREHOUSE`/`WORKSHOP`/`SHELF`/`BIN` sabit enum implement edilmez. Hiyerarşi dinamik recursive parent ile arbitrary depth'tir; path/depth cache persist edilmez; generic tree framework yoktur. Self-parent ve descendant/cycle parenting servis katmanında engellenir. Parent sonradan değiştirilebilir. Parent status children'a cascade etmez; inactive parent'ın active child'ı olabilir. `can_hold_stock` leaf/child/name/depth/type'tan türetilmez; parent ve child bağımsız `True` olabilir. Yeni fiziksel stok yalnız `active=true AND can_hold_stock=true` lokasyona bağlanabilir; sonraki pasifleştirme historical FK'leri geçersiz yapmaz. Yetkili envanter varken non-zero stock pasifleştirme ve `can_hold_stock` True→False yasaktır (`DEC-023`); inventory entegrasyonu bunu otoritatif uygular. Tahmini fabrika Location satırları seed edilmez.
 
+## 6A. ProductionLine Tabloları (inventory app)
+
+Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain yapısıdır (`DEC-025`). ProductionLine henüz implement edilmemiştir.
+
+### 6A.1 `production_lines`
+
+**Purpose:** Üretim hattı / fabrika operasyonel bağlamını dinamik master data olarak tutar.
+
+| Column | Conceptual Type | Null | Constraint | Description |
+|---|---|---:|---|---|
+| `id` | UUID | Hayır | PK | Kalıcı ProductionLine kimliği. |
+| `code` | VARCHAR | Hayır | UNIQUE, case-sensitive | İş kodu; UUID kalıcı kimliktir, `code` editable'dır. |
+| `name` | VARCHAR | Hayır | Boş olamaz; unique değil | Görünen ad; editable. |
+| `parent_id` | UUID | Evet | Self FK | Üst hat/bölüm; root'ta null. |
+| `active` | BOOLEAN | Hayır | Default true | Yeni ISSUE seçimine uygunluk. |
+| `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Oluşturma zamanı. |
+| `updated_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Son güncelleme zamanı. |
+
+- **Primary Key:** `id`
+- **Foreign Keys:** `parent_id → production_lines.id`, delete restricted.
+- **Unique Constraints:** `code` globally unique; case-sensitive; outer trim; blank yasak; regex/forced case yok.
+- **Check Constraints:** `parent_id <> id`.
+- **Recommended Indexes:** `parent_id`, unique `code`, `name`, `active`.
+- **Delete Policy:** Hard delete application surface yok; `SOFT DELETE / DEACTIVATE`. Status children'a cascade etmez.
+- **Notes:** Hiyerarşi dinamik recursive parent ile arbitrary depth'tir; fixed type enum yok; path/depth cache yok; generic tree framework yoktur. Self-parent ve cycle servis katmanında engellenir. Inactive ProductionLine yeni ISSUE seçiminde kullanılamaz. Gelecek ISSUE `production_line_id` + code/name snapshot taşır. Tahmin edilmiş fabrika hatları seed edilmez. Planlanan permissions: `inventory.view_productionline`, `inventory.add_productionline`, `inventory.change_productionline`.
+
 ## 7. Serialized Asset Tabloları
 
 ### 7.1 `serialized_assets`
@@ -316,21 +323,23 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 | Column | Conceptual Type | Null | Constraint | Description |
 |---|---|---:|---|---|
 | `transaction_id` | UUID | Hayır | PK, FK, UNIQUE | İlgili `ISSUE` transaction. |
-| `receiver_employee_id` | UUID | Evet | FK | Varsa güncel Employee bağlantısı. |
+| `receiver_employee_id` | UUID | Hayır | FK | Teslim alan Employee UUID referansı (`DEC-024`). |
 | `receiver_first_name_snapshot` | VARCHAR | Hayır | Boş olamaz | Teslim anındaki ad. |
 | `receiver_last_name_snapshot` | VARCHAR | Hayır | Boş olamaz | Teslim anındaki soyad. |
 | `receiver_employee_number_snapshot` | VARCHAR | Hayır | Boş olamaz | Teslim anındaki sicil no. |
-| `production_line` | VARCHAR | Hayır | Boş olamaz | Zorunlu tarihsel üretim hattı değeri. |
-| `usage_location_text` | VARCHAR | Hayır | Boş olamaz | Zorunlu fiili kullanım yeri. |
+| `production_line_id` | UUID | Hayır | FK | Seçilen ProductionLine UUID referansı (`DEC-025`). |
+| `production_line_code_snapshot` | VARCHAR | Hayır | Boş olamaz | Teslim anındaki hat kodu. |
+| `production_line_name_snapshot` | VARCHAR | Hayır | Boş olamaz | Teslim anındaki hat adı. |
+| `usage_location_text` | VARCHAR | Hayır | Boş olamaz | Zorunlu fiili kullanım yeri (exact usage place; ayrı free text). |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Snapshot kayıt zamanı. |
 
 - **Primary Key:** `transaction_id`
-- **Foreign Keys:** `transaction_id → inventory_transactions.id`; `receiver_employee_id → employees.id`; delete restricted/set null kararı ilgili identity implementation gate'inde belirlenir.
+- **Foreign Keys:** `transaction_id → inventory_transactions.id`; `receiver_employee_id → employees.id`; `production_line_id → production_lines.id`; delete restricted.
 - **Unique Constraints:** PK transaction başına en fazla bir issue context sağlar.
 - **Check Constraints:** Snapshot ve iki kullanım alanı normalize edildikten sonra boş olamaz.
 - **Recommended Indexes:** `receiver_employee_id`, gerekirse `receiver_employee_number_snapshot`; transaction PK indeksi yeterlidir.
 - **Delete Policy:** İlgili transaction gibi `IMMUTABLE / NO DELETE`.
-- **Notes / TBD:** Ayrı tablo önerilir; ISSUE dışı işlemlerde gereksiz nullable kolonları önler. Servis `transaction_type = ISSUE` olmasını ve her ISSUE için context bulunmasını atomik doğrular. Production line/usage location genel warehouse `locations` tablosuna zorlanmaz. Production line controlled reference list veya başka onaylı yapı olmalıdır; yapı ve gerçek değerler `DEC-HG-003` çözülmeden ISSUE data/UI implementation başlayamaz. `usage_location_text`, iş sahibi başka model onaylayana kadar ayrı free text kalabilir.
+- **Notes / TBD:** Ayrı tablo; ISSUE dışı işlemlerde gereksiz nullable kolonları önler. Servis `transaction_type = ISSUE` olmasını ve her ISSUE için context bulunmasını atomik doğrular. ProductionLine foundation `DEC-025` ile kararlıdır; Employee foundation `DEC-024` ile kararlıdır. ISSUE data/UI inventory hard gate'leri çözülene kadar implement edilmez. `usage_location_text` exact usage place olarak ayrı required free text kalır; `UsagePlace` modeli yoktur; Location veya ProductionLine'dan infer edilmez.
 
 ## 11. Correction Tabloları
 
@@ -631,8 +640,8 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 
 | Parent / Source | Child / Target | Cardinality | FK / Not |
 |---|---|---|---|
-| `employees` | `application_user_profiles` | 1 : 0..N TBD | `employee_id`; bire bir olup olmadığı açık. |
-| Django auth user | `application_user_profiles` | 1 : 0..1 | `user_id UNIQUE`. |
+| `employees` | Django auth user | 0..1 : 0..1 | `employees.user_id` nullable one-to-one; ownership Employee; delete `SET_NULL` (`DEC-024`). |
+| `production_lines` | child `production_lines` | 1 : 0..N | `parent_id`; Location'dan bağımsız (`DEC-025`). |
 | `categories` | child `categories` | 1 : 0..N | `parent_id`. |
 | `categories` | `materials` | 1 : 0..N | Her material bir category'ye bağlı. |
 | `units_of_measure` | `materials` | 1 : 0..N | QUANTITY material için temel unit zorunlu; serialized material unit zorunluluğu TBD. |
@@ -645,7 +654,8 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `locations` | target transaction lines | 1 : 0..N | `target_location_id`. |
 | `material_conditions` | transaction lines | 1 : 0..N | Hareket türünden ayrı. |
 | `inventory_transactions` | `issue_contexts` | 1 : 0..1 | Yalnızca ISSUE için zorunlu 1:1. |
-| `employees` | `issue_contexts` | 1 : 0..N | Employee referansı nullable; snapshot zorunlu. |
+| `employees` | `issue_contexts` | 1 : 0..N | Receiver UUID referansı; snapshot zorunlu (`DEC-024`). |
+| `production_lines` | `issue_contexts` | 1 : 0..N | Hat UUID referansı; code/name snapshot zorunlu (`DEC-025`). |
 | `inventory_transactions` | `correction_requests` | 1 : 0..N | Birden çok talep davranışı TBD. |
 | `correction_requests` | `attachments` | 1 : 1..N | Gönderilmiş talepte en az bir fotoğraf servis invariant'ı. |
 | `correction_requests` | result transactions | 1 : 0..N | Downstream-owned association; exact shape `DEC-HG-002` ile gated. Ledger reverse FK taşımaz. |
@@ -740,8 +750,8 @@ Return ve controlled correction semantics kesinleşmeden DB'ye yanlış zorunlul
 
 | Table | Strategy | Rationale / retention |
 |---|---|---|
-| `employees` | SOFT DELETE / DEACTIVATE | Kullanıcı/issue referansları korunur. |
-| `application_user_profiles` | DEACTIVATE AUTH USER / RESTRICT | Tarihsel aktör referansı auth kimliğinde kalır. |
+| `employees` | SOFT DELETE / DEACTIVATE | Hard delete surface yok; User link `SET_NULL`; issue snapshot'ları korunur (`DEC-024`). |
+| `production_lines` | SOFT DELETE / DEACTIVATE | Hard delete surface yok; inactive yeni ISSUE seçiminde kullanılamaz (`DEC-025`). |
 | `categories` | SOFT DELETE / DEACTIVATE | Material ve alt kategori bağları korunur. |
 | `units_of_measure` | SOFT DELETE / DEACTIVATE | Tarihsel miktar anlamı korunur. |
 | `material_conditions` | SOFT DELETE / DEACTIVATE | Ledger kondisyon geçmişi korunur. |
@@ -948,14 +958,14 @@ Bu legacy tablo güncel karar statüsünün kanonik kaydı değildir. `docs/06-D
 
 | ID | Decision | Etkilenen model |
 |---|---|---|
-| DM-B01 | `employee_number` ve `material_code` global benzersiz mi; eski numara/kod yeniden kullanılabilir mi? | Unique constraints, import duplicate yönetimi |
+| DM-B01 | `employee_number` global unique, editable, eski numara ayrı registry ile rezerve edilmez (`DEC-024`); `material_code` remainder açık | Unique constraints, import duplicate yönetimi |
 | DM-B02 | Serialized asset için hangi iş tanımlayıcısı zorunlu ve seri numarası hangi scope'ta unique? | `serialized_assets` |
 | DM-B03 | `current_state_code` sözlüğü ve issued/stockta/unknown state'leri nedir? | Serialized projection |
 | DM-B04 | Bozuk/çıkma kondisyon kullanılabilir ve minimum stoğa dahil mi? | `stock_balances`, reporting, service |
 | DM-B05 | Minimum stok toplam, depo, lokasyon veya kondisyon bazında mı? | Material column veya policy table |
 | DM-B06 | Ondalık hassasiyet, kısmi miktar ve unit conversion davranışı nedir? | `NUMERIC` doğrulaması, UoM |
-| DM-B07 | Production line ve usage location yapılandırılmış entity mi, snapshot text mi; aralarındaki ilişki nedir? | `issue_contexts` |
-| DM-B08 | `ApplicationUser`–`Employee` kardinalitesi ve rol atama/onay akışı nedir? | Identity FK/unique ve permissions |
+| DM-B07 | ProductionLine `DEC-025` ile kararlı dynamic entity; exact usage place ayrı free text; ISSUE henüz implement edilmez | `production_lines`, `issue_contexts` |
+| DM-B08 | `ApplicationUser`–`Employee` nullable one-to-one ownership Employee (`DEC-024`); rol atama/onay `DEC-022` ile kararlı | Identity FK/unique ve permissions |
 | DM-B09 | Location type/hiyerarşi/kod ve stoklu deactivation `DEC-023` ile kararlıdır. Inventory aynı lifecycle invariant'ını otoritatif uygulamak zorundadır. | `locations` |
 | DM-B10 | Olağan değişiklik `DEC-013` ile yasak; exceptional migration istenirse ayrı iş kararı gerekir. | `materials`, ledger validation |
 | DM-B11 | Return eligibility, source/target, kondisyon ve özgün issue ilişkisi nedir? | Ledger service/FK kuralları |

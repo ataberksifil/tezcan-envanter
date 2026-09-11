@@ -172,8 +172,8 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
 - **Status:** `DECIDED`
 - **Required before:** İlk Django migration
 - **Decision:** `AUTH_USER_MODEL`, ilk Django migration/bootstrap'tan itibaren minimal proje sahipli `accounts.User` modeline (`AbstractUser` tabanlı) işaret eder. Başlangıçta spekülatif employee/iş alanları eklenmez; `Employee` ayrı domain kavramı olarak kalır.
-- **Reason:** Django default `User` modelinden sonradan custom `User`'a geçiş, migration ve bağımlı tablolar oluştuktan sonra gereksiz yere yıkıcıdır. Minimal `AbstractUser` alt sınıfı, `DEC-HG-004` employee business semantiği çözülmeden gelecek seçenekleri korur.
-- **Consequence:** `django.contrib.auth.models.User`'a geri dönülmez. `Employee` ile `User` birleştirilmez; `DEC-HG-004` çözülmeden employee alanları `User`'a taşınmaz.
+- **Reason:** Django default `User` modelinden sonradan custom `User`'a geçiş, migration ve bağımlı tablolar oluştuktan sonra gereksiz yere yıkıcıdır. Minimal `AbstractUser` alt sınıfı, employee business semantiğinin ayrı `Employee` entity'sinde kalması için gelecek seçenekleri korur (`DEC-024`).
+- **Consequence:** `django.contrib.auth.models.User`'a geri dönülmez. `Employee` ile `User` birleştirilmez. Employee foundation `DEC-024` ile kararlıdır; employee business alanları `User`'a taşınmaz.
 
 ### DEC-020 — Teknisyen saha/atölye alım talebi ve onay zorunluluğu
 
@@ -231,14 +231,14 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   11. **Django Admin boundary:** Phase 2.9B audited management implement edildiğinde `auth.Group` writable Admin yüzeyi kaldırılır; `accounts.User` groups/user_permissions/privilege flag'leri için writable Admin yüzeyi kazanmaz; `AuditEvent` read-only kalır. Normal rol/kullanıcı–rol yönetimi audited application service'ler üzerinden yapılır.
   12. **UI boundary:** Phase 2.9B küçük uygulama UI'dır, generic IAM değildir. Planlanan yüzeyler: Yönetim → Roller ve Yetkiler; Yönetim → Kullanıcılar. Rol: list, create, custom-role rename, safe permission management. Kullanıcı: list, user-role assignment. Yok: rol delete, direct-permission editor, password/user account editor, generic permission browser, hierarchy engine, approval engine.
   13. **Phase 3 Location permission extension:** Phase 3, DEC-022-style managed allowlist'i şu üç izinle genişletir: `locations.view_location`, `locations.add_location`, `locations.change_location`. `delete_location` application access management'ta expose edilmez. `add_location` veya `change_location`, `view_location` gerektirir (mevcut write/view invariant). Varsayılan şablonlar ileride `TECHNICIAN` ve `STOREKEEPER` için `view_location`, `ADMIN_MANAGER` için view/add/change içerebilir. `setup_roles` non-destructive kalır; mevcut Group'lar reconcile edilmez ve sessizce yeni izin almaz. Location şekli, kod ve yaşam döngüsü `DEC-023`tedir.
-- **Consequence:** Phase 2.9B product-policy blocker kapanır. `AUTH-011` rol atama/onay ve Phase 2 tam yönetim sınırı kısmı kararlıdır; operasyonel depo işleri (`DEC-OPEN-005`) ve Employee–ApplicationUser ilişkisi (`DEC-HG-004`) açık kalır. `DEC-020`, inventory permission boundary, `DEC-OPEN-019` ve diğer hard gate'ler değişmez. Phase 3 Location izinleri item 13 ve `DEC-023` ile allowlist'e eklenir; Phase 2 dokuz catalog izni tarihi olarak korunur.
+- **Consequence:** Phase 2.9B product-policy blocker kapanır. `AUTH-011` rol atama/onay ve Phase 2 tam yönetim sınırı kısmı kararlıdır; operasyonel depo işleri (`DEC-OPEN-005`) açık kalır. Employee–ApplicationUser ilişkisi `DEC-024` ile kararlıdır. Phase 3 Employee izinleri `DEC-024` item 8'de planlanır. `DEC-020`, inventory permission boundary, `DEC-OPEN-019` ve diğer inventory hard gate'ler değişmez. Phase 3 Location izinleri item 13 ve `DEC-023` ile allowlist'e eklenir; Phase 2 dokuz catalog izni tarihi olarak korunur.
 
 ### DEC-023 — Phase 3 Location Foundation Policy
 
 - **Status:** `DECIDED`
 - **Required before:** Phase 3.1 Location foundation implementation
 - **Resolves:** Location code portion of `DEC-OPEN-021`; `DEC-OPEN-012`; `OD-016`; `DM-B09` type/hierarchy/code/deactivation; `LOC-007`; `UF-O-15`; `TBD-008` hierarchy/code/lifecycle portion
-- **Does not resolve:** Material code uniqueness/format (`DEC-OPEN-021` remainder); `DEC-HG-001`–`DEC-HG-005`; `ProductionLine`; `Employee`; `DEC-OPEN-019`; inventory mutation
+- **Does not resolve:** Material code uniqueness/format (`DEC-OPEN-021` remainder); `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`; `DEC-OPEN-019`; inventory mutation (`ProductionLine` ve `Employee` foundation kararları Phase 3.2-0'da `DEC-024`/`DEC-025` ile kararlıdır)
 - **Principle:** İş/master veri, envanter doğruluğunu tehlikeye atmadan mümkün olduğunca dinamik yapılandırılabilir ve güvenle düzenlenebilir olmalıdır. Kararlı kimlik UUID'dir; iş yüzü ad/kod ve hiyerarşi evrilebilir. Hiyerarşik entity'ler, pratik olduğu yerde sabit warehouse/shelf/line-level enum yerine dinamik recursive parent kullanır. Generic tree framework tanıtılmaz. Historical/audit/inventory gerçekleri, güncel master data sonradan düzenlense bile immutable kalır.
 - **Decision:**
   1. **Minimal Location shape (Phase 3.1):** UUID primary key; `code`; `name`; nullable recursive `parent`; `active`; `can_hold_stock`; `created_at`; `updated_at`. `location_type` Phase 3.1 için zorunlu değildir ve sabit enum olarak implement edilmez.
@@ -251,8 +251,49 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   8. **Permissions:** Phase 3 managed izinler: `locations.view_location`, `locations.add_location`, `locations.change_location`. Application access management `delete` izni expose etmez. `add_location` veya `change_location` `view_location` gerektirir. Allowlist genişlemesi `DEC-022` item 13'tedir. `setup_roles` non-destructive kalır.
   9. **Management / audit:** Location mevcut Yönetim shell üzerinden yönetilir. Writable Django Admin Location yüzeyi yoktur. Gelecekteki Location write servisleri `transaction + service-layer mutation + AuditEvent` kullanır. Planlanan event ailesi: `locations.location.created`, `locations.location.updated`, `locations.location.deactivated`, `locations.location.reactivated`. Canonical identity Location UUID'dir. Delete operasyonu olmadığı için delete event yoktur.
   10. **Seed data:** Tahmin edilmiş fabrika Location satırları seed edilmez. Elektrik Deposu, Alkali Elektrik, Enstrüman Atölyesi, Bobinaj Atölyesi gibi bilinen adlar örnek / gerçek dünya girdisidir; kesin hiyerarşi, kod, `can_hold_stock` ve child yapısı henüz yeterince tanımlı değildir. Onaylandığında yönetim UI'sı üzerinden dinamik oluşturulurlar.
-  11. **Phase 3 roadmap:** Phase 3.0 Location foundation decisions COMPLETE. Sıradaki: Phase 3.1 Location foundation implementation. Location henüz implement edilmemiştir. Inventory başlamamıştır.
-- **Consequence:** Phase 3.1 Location CRUD `DEC-023` şekline uyar. Material code, ProductionLine, Employee ve inventory hard gate'leri açık kalır.
+  11. **Phase 3 roadmap:** Phase 3.0 Location foundation decisions COMPLETE. Phase 3.1 Location foundation implementation COMPLETE. Inventory başlamamıştır.
+- **Consequence:** Phase 3.1 Location CRUD `DEC-023` şekline uyar. Material code, ProductionLine ve Employee foundation kararları Phase 3.2-0'da (`DEC-024`, `DEC-025`); inventory hard gate'leri (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) açık kalır.
+
+### DEC-024 — Phase 3 Employee Foundation Policy
+
+- **Status:** `DECIDED`
+- **Required before:** Phase 3.2 Employee foundation implementation
+- **Resolves:** `DEC-HG-004` (employee identity foundation); employee number portion of `DEC-OPEN-021`; `DM-B01`, `DM-B08`, `UF-O-02`, `UF-O-16`, `UF-O-17` (employee linkage/number); Gate0-AUD-017 (identity foundation portion)
+- **Does not resolve:** Personal/photo/audit retention (`DEC-OPEN-013`, `DEC-OPEN-018`); Material code remainder (`DEC-OPEN-021`); inventory mutation; ISSUE implementation
+- **Principle:** İş/master veri dinamik yapılandırılabilir olmalıdır. Kararlı kimlik UUID'dir; sicil numarası ve ad/soyad düzenlenebilir. Historical transaction/audit snapshot'ları immutable kalır.
+- **Decision:**
+  1. **Entity:** `accounts.Employee` ayrı dedicated entity'dir. `accounts.User` authentication/authorization actor; `Employee` business/physical receiver identity. İkisi de birbirinin varlığını gerektirmez; birleştirilmez.
+  2. **Minimal shape (Phase 3.2):** UUID PK; `employee_number`; `first_name`; `last_name`; nullable one-to-one `User` link (ownership `Employee` tarafında); `active`; `created_at`; `updated_at`.
+  3. **`employee_number`:** Zorunlu; string; leading zero korunur; numeric-only constraint yok; regex format yok; outer trim; case preserved; globally unique (PostgreSQL case-sensitive); editable; UUID kalıcı kimliktir. Numara değişince Employee kimliği değişmez. Eski numara Phase 3.2'de ayrı historical registry ile rezerve edilmez; teknik olarak başka aktif Employee tarafından yeniden kullanılabilir. Tarihsel doğruluk immutable transaction snapshot'larıyla korunur. Import/matching logic `employee_number`'ı immutable identity key varsaymamalıdır. `EmployeeNumberHistory`/alias tablosu şimdi yoktur.
+  4. **User link:** `Employee.user` nullable one-to-one → `accounts.User`; delete behavior `SET_NULL`. Bir User en fazla bir Employee; bir Employee en fazla bir User. Link düzenlenebilir; permission/rol vermez; `TECHNICIAN` bir Employee type değildir. `Employee.active` ve `User.is_active` bağımsızdır; biri diğerini otomatik mutate etmez.
+  5. **Lifecycle:** Hard-delete application surface yok; active/inactive; create active; inactive okunabilir kalır; inactive yeni ISSUE receiver seçilemez; reactivation UUID/history korur; status değişimi explicit. Normal editable: `employee_number`, `first_name`, `last_name`, user link. Protected: UUID, `active` (normal edit form üzerinden), timestamps.
+  6. **Audit:** Gelecek Employee write'ları immutable `AuditEvent` kullanır. Planlanan aile: `accounts.employee.created`, `accounts.employee.updated`, `accounts.employee.deactivated`, `accounts.employee.reactivated`.
+  7. **Future ISSUE contract:** Receiver `Employee` UUID referansı; transaction `employee_number`, `first_name`, `last_name` snapshot'lar; sonraki Employee edit historical ISSUE'yu rewrite etmez; inactive Employee yeni ISSUE için kullanılamaz. ISSUE henüz implement edilmez.
+  8. **Permissions:** Phase 3 managed: `accounts.view_employee`, `accounts.add_employee`, `accounts.change_employee`. `delete_employee` expose edilmez. `add_employee` ve `change_employee`, `view_employee` gerektirir. User-link editing `change_employee` kapsamındadır; `manage_access` gerekmez.
+  9. **Default role templates (yalnız NEW/MISSING bootstrap Groups):** TECHNICIAN + `view_employee`; STOREKEEPER + `view_employee`; ADMIN_MANAGER + view/add/change. `setup_roles` non-destructive; mevcut Group'lar reconcile edilmez.
+  10. **Phase 3 roadmap:** Phase 3.2-0 Employee + ProductionLine decision pack COMPLETE. Sıradaki: Phase 3.2 Employee foundation implementation. Employee henüz implement edilmemiştir.
+- **Consequence:** `DEC-HG-004` employee foundation kısmı kapanır. Employee implementation Phase 3.2'de `DEC-024` şekline uyar. Retention pilot öncesi kararları açık kalır.
+
+### DEC-025 — Phase 3 ProductionLine Foundation Policy
+
+- **Status:** `DECIDED`
+- **Required before:** ProductionLine foundation implementation (Phase 3.2 sonrası)
+- **Resolves:** `DEC-HG-003` (ProductionLine foundation); `OD-007`, `DM-B07`, `UF-O-01` (production line structure); Gate0-AUD-010 (controlled reference structure)
+- **Does not resolve:** ISSUE schema/service/UI; exact `UsagePlace` model; inventory mutation; `DEC-HG-005`
+- **Module owner:** `inventory` app (ProductionLine master data).
+- **Principle:** Dinamik master data; UUID kararlı kimlik; code/name editable; recursive hierarchy preferred; Location hiyerarşisinden ayrı domain yapısı; generic tree framework yok.
+- **Decision:**
+  1. **Entity:** `ProductionLine` gerçek dynamic master-data entity'dir. Minimal shape: UUID PK; `code`; `name`; nullable recursive `parent`; `active`; `created_at`; `updated_at`. Henüz implement edilmez.
+  2. **Hierarchy:** Dinamik, arbitrary depth (ör. Plant → Line → Section → Sub-section). `parent` nullable; editable/reparentable; self-parent yasak; cycle yasak; fixed type enum yok; max depth yok; path/depth cache yok. Location hiyerarşisine bağlanmaz; ayrı domain yapılarıdır.
+  3. **`code`:** Zorunlu; outer trim; blank yasak; globally unique; case-sensitive; editable; regex/forced case yok; UUID gerçek kimlik.
+  4. **`name`:** Zorunlu; trimmed; editable; non-unique.
+  5. **Lifecycle:** Active/inactive; hard-delete application surface yok; inactive tarihsel okunabilir; inactive yeni ISSUE seçiminde kullanılamaz; status children'a cascade etmez.
+  6. **Future ISSUE contract:** Seçilen `ProductionLine` UUID referansı; transaction `code`/`name` snapshot'lar. ISSUE henüz implement edilmez.
+  7. **Exact usage place:** V1 future ISSUE ayrı required free-text exact usage-place değeri gerektirir. `ProductionLine` structured selectable context; exact usage place ayrı kalır. `UsagePlace` modeli şimdi yoktur. Location veya ProductionLine'dan infer edilmez.
+  8. **Permissions (planlanan):** `inventory.view_productionline`, `inventory.add_productionline`, `inventory.change_productionline`. `delete` expose edilmez. Write requires view. Yönetim shell üzerinden dinamik yönetim. Bu docs görevinde permission kodu değiştirilmez.
+  9. **Seed:** Tahmin edilmiş fabrika hatları seed edilmez.
+  10. **Phase 3 roadmap:** ProductionLine foundation implementation Employee'den sonra gelir.
+- **Consequence:** `DEC-HG-003` ProductionLine foundation kısmı kapanır. ISSUE data/UI hâlâ inventory hard gate'leri (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005` vb.) ve implementasyon görevleri bekler.
 
 ## 3. Açık İş Kararları
 
@@ -262,8 +303,8 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 |---|---|---|---|---|---|---|
 | `DEC-HG-001` | Physical count stock-stability strategy | `DEFERRED_WITH_HARD_GATE` | OD-011, OD-012, DM-B14, UF-O-06, Gate0-AUD-001 | Herhangi bir count/reconciliation schema/service/UI implementasyonu | İş sahibi + operasyon + mimari review | Scoped freeze, as-of snapshot/replay veya kanıtlanmış revalidation/reconfirmation seçeneklerinden biri seçilmeli. Explicit scope, expected timing, idempotent reconciliation, double-apply guard ve serialized discrepancy çözümü zorunlu. |
 | `DEC-HG-002` | Correction bounds ve lineage | `DEFERRED_WITH_HARD_GATE` | OD-017, COR-011, DM-B13, UF-O-13, Gate0-AUD-006 | Correction schema/service implementation | İş sahibi + inventory architect | Tek/cumulative approval, partial correction, original-line link, over-correction, later movement, correction-of-correction, requester=approver ve yetersiz current stock cevaplanmalı. |
-| `DEC-HG-003` | Production line veri modeli | `DEFERRED_WITH_HARD_GATE` | OD-007, DM-B07, UF-O-01, Gate0-AUD-010 | ISSUE data/UI implementation | Fabrika iş sahibi | Controlled reference list veya başka onaylı yapı seçilmeli; line values uydurulamaz. Usage location warehouse `Location`dan ayrı kalır; başlangıçta text olabilir. |
-| `DEC-HG-004` | Employee identity linkage ve number reuse | `DEFERRED_WITH_HARD_GATE` | OD-026 (employee linkage), DM-B01, DM-B08, UF-O-02, UF-O-16, UF-O-17, Gate0-AUD-017 | Accounts/import matching; retention pilot öncesi | HR/iş sahibi + security/privacy | Number uniqueness/reuse ve Employee↔ApplicationUser ilişkisi accounts öncesi; kişisel veri/photo/audit retention pilot öncesi. Receiver snapshot her durumda korunur. Rol atama/onay süreci `DEC-022` ile kararlıdır. |
+| `DEC-HG-003` | Production line veri modeli | `DECIDED` | OD-007, DM-B07, UF-O-01, Gate0-AUD-010 | ProductionLine foundation implementation | — | `DEC-025` ile kapatıldı. `ProductionLine` dynamic master-data entity; recursive hierarchy; code/name lifecycle; exact usage place ayrı free text. ISSUE henüz implement edilmez. |
+| `DEC-HG-004` | Employee identity linkage ve number reuse | `DECIDED` | OD-026 (employee linkage), DM-B01, DM-B08, UF-O-02, UF-O-16, UF-O-17, Gate0-AUD-017 | Employee foundation implementation (Phase 3.2) | — | `DEC-024` ile kapatıldı (foundation). `accounts.Employee` ayrı entity; sicil string/global unique/editable; nullable one-to-one User link SET_NULL; lifecycle active/inactive. Retention pilot öncesi kararları (`DEC-OPEN-013`, `DEC-OPEN-018`) açık kalır. Receiver snapshot korunur. |
 | `DEC-HG-005` | RETURN semantics | `DEFERRED_WITH_HARD_GATE` | OD-004, RET-004, DM-B11, UF-O-04, UF-O-12, Gate0-AUD-018 | Return schema/service/UI | İş sahibi | Prior ISSUE zorunluluğu, partial quantity, condition actor, serialized state ve sistemde issue edilmemiş found/wrong-delivery davranışı cevaplanmalı. RETURN aktif UI'da yer alamaz. |
 | `DEC-OPEN-001` | Condition'ın available/minimum stock etkisi | `OPEN` | OD-001, OD-002, OD-003, OD-027, DM-B04, UF-O-11 | Issue availability, return, low-stock report | İş sahibi | Condition ile movement type ayrımı değişmez. |
 | `DEC-OPEN-002` | Quantity stock için çoklu lokasyondan seçim/dağıtım | `OPEN` | OD-005 | İlgili issue/picking feature | İş sahibi | Çoklu lokasyonda stok tutabilme modeli desteklenir. |
@@ -285,7 +326,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | `DEC-OPEN-018` | Ledger/audit/photo/import retention periods | `OPEN` | OD-024, TIME-006, DM-P01, UF-O-24 | Pilot/go-live policy | İş sahibi + legal/privacy + IT | Karar çıkana kadar destructive deletion yok. |
 | `DEC-OPEN-019` | Category-specific technical attribute schema | `OPEN` | OD-025, MAT-004, Ürün TBD-001/TBD-002 | Catalog/import mapping | Gerçek material/workbook examples | JSONB teknik yönü korunur. |
 | `DEC-OPEN-020` | Quantitative stock accuracy target | `OPEN` | OD-028, DM-P04, Ürün TBD-021 | Pilot acceptance calibration | İş sahibi | Fiziksel bulunabilirlik hedefini zayıflatmaz. |
-| `DEC-OPEN-021` | Material code uniqueness and format | `OPEN` | DM-B01, UF-O-17 | Catalog/import matching | İş sahibi + existing data | Location code policy `DEC-023` ile kararlıdır ve bu kayıttan ayrılmıştır. Material code uniqueness/format ve import matching açık kalır. Employee number `DEC-HG-004` içindedir. |
+| `DEC-OPEN-021` | Material code uniqueness and format | `OPEN` | DM-B01, UF-O-17 | Catalog/import matching | İş sahibi + existing data | Location code policy `DEC-023` ile kararlıdır ve bu kayıttan ayrılmıştır. Employee number policy `DEC-024` ile kararlıdır ve ayrılmıştır. Material code uniqueness/format ve import matching açık kalır. |
 | `DEC-OPEN-022` | Technical attribute advanced search | `OPEN` | UF-O-20 | Advanced search feature | Kullanıcı ihtiyaçları + ölçülmüş sorgular | JSONB GIN/trigram ihtiyaç doğrulanmadan eklenmez. |
 | `DEC-OPEN-023` | Offline/mobile retry UX ve sync semantics | `OPEN` | Ürün TBD-029, UF-O-22 | V1 sonrası offline/mobile feature | İş sahibi + mimari review | V1 online web-first; `operation_id`/fingerprint hazırlığı offline sync implementasyonu değildir. |
 | `DEC-OPEN-024` | Login/export/security audit detail | `OPEN` | UF-O-23 | Security reporting feature | Security + iş sahibi | Inventory ledger gereksiz generic audit olarak kopyalanmaz. |
@@ -310,9 +351,10 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Before | Mandatory decisions / gates |
 |---|---|
 | First Django migration / Django bootstrap | `DEC-019`: project-owned `AUTH_USER_MODEL` (`accounts.User`, minimal `AbstractUser`) |
-| Accounts implementation | `DEC-HG-004`: employee number uniqueness/reuse ve Employee–ApplicationUser ilişkisi |
-| Catalog/import identity matching | `DEC-OPEN-004`, `DEC-OPEN-021` (Material code; Location code `DEC-023` ile kararlı); history sonrası tracking mode için `DEC-013` zaten kararlı |
-| Issue data/UI | `DEC-HG-003`; receiver snapshots değişmez |
+| Employee foundation implementation (Phase 3.2) | `DEC-024`; Employee şekli, sicil, User link, lifecycle, permission ve audit politikası kararlıdır. Employee henüz implement edilmemiştir. |
+| ProductionLine foundation implementation | `DEC-025`; şekil, hiyerarşi, code/name, lifecycle ve permission politikası kararlıdır. ProductionLine henüz implement edilmemiştir. |
+| Catalog/import identity matching | `DEC-OPEN-004`, `DEC-OPEN-021` (Material code; Location code `DEC-023`; Employee number `DEC-024` ile kararlı); history sonrası tracking mode için `DEC-013` zaten kararlı |
+| Issue data/UI | `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005` ve inventory implementasyonu; `DEC-HG-003`/`DEC-HG-004` foundation kararlı (`DEC-024`, `DEC-025`); receiver snapshots değişmez |
 | Technician field intake request/approval workflow | `DEC-020` kararlıdır; talep/onay schema/service/UI implementasyonu ayrı görevdir; hareket türü eşlemesi `DEC-HG-005` çözülmeden yapılmaz |
 | Return | `DEC-HG-005`; cevaplanmadan schema/service/UI ve aktif menü yok |
 | Corrections | `DEC-HG-002`; ayrıca `DEC-OPEN-006` yalnız PROPOSED kalır |
@@ -328,9 +370,11 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 2.6 UnitOfMeasure UI | `DEC-021` UoM policy; `DEC-OPEN-010` rounding/conversion çözülmeden precision semantics uydurulmaz |
 | Phase 2.8B technical specifications | **Disposition: `DEFER`** (2026-09-11). `DEC-021`, `DEC-OPEN-019` (`OPEN` kalır; yeni DEC yok). Bkz. §4.1. |
 | Phase 2.9C technical-field configuration | **Disposition: `SKIPPED`** (2026-09-11). Onaylı gerçek fabrika teknik alan kanıtı yok; Phase 2.8B DEFER otoritatif kalır. `DEC-OPEN-019` (`OPEN` kalır; yeni DEC yok). Bkz. §4.2. |
-| Location / ProductionLine UI | Location foundation `DEC-023` (Phase 3.0 COMPLETE). Sıradaki: Phase 3.1 implementation. Location henüz implement edilmemiştir. `ProductionLine` `DEC-HG-003` ile açık kalır. |
-| Phase 3.0 Location foundation decisions | **COMPLETE** (2026-09-11). `DEC-023`. Bkz. §4.1 Phase 3.0. Location henüz implement edilmemiştir. |
-| Phase 3.1 Location foundation implementation | `DEC-023`; kod, hiyerarşi, `can_hold_stock`, lifecycle, izin ve audit politikası kararlıdır. Location henüz implement edilmemiştir. Inventory başlamamıştır. |
+| Location / ProductionLine UI | Location foundation `DEC-023` (Phase 3.0 COMPLETE). Phase 3.1 Location implementation COMPLETE. `ProductionLine` foundation `DEC-025` (Phase 3.2-0 COMPLETE); implementasyon Employee sonrası. |
+| Phase 3.0 Location foundation decisions | **COMPLETE** (2026-09-11). `DEC-023`. Bkz. §4.1 Phase 3.0. |
+| Phase 3.1 Location foundation implementation | **COMPLETE**. `DEC-023`. Bkz. §4.1. |
+| Phase 3.2-0 Employee + ProductionLine decision pack | **COMPLETE** (2026-09-11). `DEC-024`, `DEC-025`. Bkz. §4.1 Phase 3.2-0. Employee ve ProductionLine henüz implement edilmemiştir. |
+| Phase 3.2 Employee foundation implementation | `DEC-024`; sicil, User link, lifecycle, izin ve audit politikası kararlıdır. Employee henüz implement edilmemiştir. Inventory başlamamıştır. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 
@@ -384,10 +428,23 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
   - `location_type` Phase 3.1 için zorunlu değildir
   - `DEC-OPEN-012` kapatıldı
   - `DEC-OPEN-021` Location code portion'ı ayrılıp kapatıldı; Material code remainder `OPEN` kalır
-  - Location henüz implement edilmemiştir
   - Inventory başlamamıştır
-- **Sıradaki:** Phase 3.1 — Location foundation implementation
-- **Açık kalan:** `DEC-HG-001`–`DEC-HG-005`, `ProductionLine`, `Employee`, `DEC-OPEN-019`
+- **Sıradaki (tarihsel):** Phase 3.1 — Location foundation implementation (**COMPLETE**)
+- **Açık kalan (tarihsel):** `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-003`, `DEC-HG-004`, `DEC-HG-005`, `DEC-OPEN-019` (son ikisi Phase 3.2-0'da kapatıldı)
+
+#### Phase 3.2-0 — Employee + ProductionLine Decision Pack
+
+- **Disposition:** `COMPLETE` (2026-09-11)
+- **Anlam:**
+  - Phase 3 master-data principle Employee ve ProductionLine foundation kararlarıyla genişletildi
+  - `DEC-HG-003` ProductionLine foundation kısmı `DEC-025` ile kapatıldı
+  - `DEC-HG-004` Employee foundation kısmı `DEC-024` ile kapatıldı
+  - Employee number policy `DEC-024`; Material code remainder `DEC-OPEN-021`'de açık kalır
+  - Employee ve ProductionLine henüz implement edilmemiştir
+  - Inventory başlamamıştır
+- **Sıradaki:** Phase 3.2 — Employee foundation implementation
+- **Sonra:** ProductionLine foundation implementation
+- **Açık kalan hard gate'ler:** `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`
 
 ## 5. Audit Finding Disposition
 
@@ -402,21 +459,21 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | `AUD-007` | HIGH | `ACCEPT_NOW` | operation_id conflicting payload'u ayıramıyor | Payload fingerprint | `DEC-009`; server-generated SHA-256 canonical fingerprint | `02`, `03`, `04`, `05`, `AGENTS` |
 | `AUD-008` | HIGH | `ACCEPT_NOW` | Projection rebuild/verify yalnız teorik | Verify ve protected rebuild operation | `DEC-014` | `02`, `03`, `05`, `AGENTS` |
 | `AUD-009` | HIGH | `ACCEPT_NOW` | Reverse workflow FKs ve barcode ownership dependency cycle yaratıyor | İlişkileri downstream'e taşı; neutral identification | `DEC-010`, `DEC-011` | `02`, `03`, `04`, `05`, `AGENTS` |
-| `AUD-010` | MEDIUM | `DEFER_WITH_HARD_GATE` | Free-text production line reporting kalitesini bozar | Controlled reference list | `DEC-HG-003`; yapı ve değerler iş sahibinden, usage location ayrı | `02`, `03`, `04`, `05`, `AGENTS` |
+| `AUD-010` | MEDIUM | `ACCEPT_NOW` | Free-text production line reporting kalitesini bozar | Controlled reference list | `DEC-025`; `ProductionLine` dynamic master-data entity; exact usage place ayrı free text; ISSUE henüz implement edilmez | `02`, `03`, `04`, `05`, `AGENTS` |
 | `AUD-011` | MEDIUM | `ACCEPT_WITH_DIFFERENT_SOLUTION` | Quantity/serialized cross-table corruption için DB backstop yok | Redundant mode kolonları + composite FK | `DEC-012`, `DEC-013`; service + targeted DB guards, redundant mode kolonları varsayılan değil | `02`, `03`, `05`, `AGENTS` |
 | `AUD-012` | MEDIUM | `ACCEPT_NOW` | Admin bypass yüzeyi eksik tanımlı | Explicit read-only/no-actions/no-inline policy | `DEC-016` | `05`, `AGENTS` |
 | `AUD-013` | MEDIUM | `ACCEPT_NOW` | Attachment IDOR, parser exhaustion ve formula injection riskleri | Permission view, bounded parser, export neutralization | `DEC-017` | `04`, `05`, `AGENTS` |
 | `AUD-014` | MEDIUM | `ACCEPT_NOW` | Direction inference normatif değil | Source decreases, target increases kuralı | `DEC-003` | `02`, `03`, `04`, `05`, `AGENTS` |
 | `AUD-015` | MEDIUM | `ACCEPT_WITH_DIFFERENT_SOLUTION` | DB/media consistency ve restore verification eksik | Media-first backup ve cross-check | `DEC-018`; file-before-DB invariant'ı altında DB-first then media, deletion sonrası coordinated snapshot | `05`, `AGENTS` |
 | `AUD-016` | MEDIUM | `ACCEPT_NOW` | Tek dev INITIAL_BALANCE transaction cutover riski | Scoped multiple transactions | `DEC-015` | `02`, `03`, `04`, `05`, `AGENTS` |
-| `AUD-017` | LOW | `DEFER_WITH_HARD_GATE` | Employee number reuse ve retention belirsiz | Uniqueness/reuse ve privacy kararları | `DEC-HG-004` | `02`, `03`, `04`, `05`, `AGENTS` |
+| `AUD-017` | LOW | `ACCEPT_WITH_DIFFERENT_SOLUTION` | Employee number reuse ve retention belirsiz | Uniqueness/reuse ve privacy kararları | `DEC-024`; foundation identity/link kararlı; retention pilot öncesi `DEC-OPEN-013`/`018` açık; eski sicil ayrı registry ile rezerve edilmez, snapshot korunur | `02`, `03`, `04`, `05`, `AGENTS` |
 | `AUD-018` | LOW | `DEFER_WITH_HARD_GATE` | RETURN enum'da var fakat semantiği belirsiz | Beş business decision | `DEC-HG-005`; karar olmadan implementation/UI yok | `02`, `03`, `04`, `05`, `AGENTS` |
 
 Disposition toplamı:
 
-- `ACCEPT_NOW`: **11**
-- `ACCEPT_WITH_DIFFERENT_SOLUTION`: **2**
-- `DEFER_WITH_HARD_GATE`: **5**
+- `ACCEPT_NOW`: **12**
+- `ACCEPT_WITH_DIFFERENT_SOLUTION`: **3**
+- `DEFER_WITH_HARD_GATE`: **3**
 - `REJECT_WITH_REASON`: **0**
 - Toplam: **18**
 
@@ -430,7 +487,7 @@ Legacy kimlikler silinmez; toplu eşlemeler aşağıdaki kanonik kayıtlara yön
 | `OD-004`, `DM-B11`, `UF-O-04`, `UF-O-12` | `DEC-HG-005` |
 | `OD-005` | `DEC-OPEN-002` |
 | `OD-006`, `DM-B05`, `UF-O-03` | `DEC-OPEN-003` |
-| `OD-007`, `DM-B07`, `UF-O-01` | `DEC-HG-003` |
+| `OD-007`, `DM-B07`, `UF-O-01` | `DEC-025` (`DEC-HG-003` DECIDED) |
 | `OD-008`, `DM-B02`, `DM-B03`, `UF-O-08` | `DEC-OPEN-004` |
 | `OD-009`, `UF-O-09` | `DEC-OPEN-005` |
 | `OD-010`, `UF-O-19` | `DEC-OPEN-006` |
@@ -450,7 +507,7 @@ Legacy kimlikler silinmez; toplu eşlemeler aşağıdaki kanonik kayıtlara yön
 | `OD-024`, `DM-P01`, `UF-O-24` | `DEC-OPEN-018` |
 | `OD-025` | `DEC-OPEN-019` |
 | `OD-026` (rol atama/onay) | `DEC-022` |
-| `OD-026` (employee linkage), `DM-B01`, `DM-B08`, `UF-O-02`, `UF-O-16`, `UF-O-17` | `DEC-HG-004`, `DEC-OPEN-021` |
+| `OD-026` (employee linkage), `DM-B01`, `DM-B08`, `UF-O-02`, `UF-O-16`, `UF-O-17` | `DEC-024` (`DEC-HG-004` DECIDED); Material code remainder `DEC-OPEN-021` |
 | `OD-028`, `DM-P04` | `DEC-OPEN-020` |
 
 `ADR-*` kimlikleri `docs/05-ARCHITECTURE.md` içindeki architecture summary kayıtları olarak korunur. `DOC-*` maddeleri dokümantasyon borcu kimlikleridir; iş kararı değildir. `DM-S*` teknik safe default, `DM-P*` pilot deferral kayıtlarıdır ve ilgili kanonik kararlara referans olabilir.
@@ -466,8 +523,8 @@ Legacy kimlikler silinmez; toplu eşlemeler aşağıdaki kanonik kayıtlara yön
 | `TBD-006` | `DEC-OPEN-009` |
 | `TBD-007` | `DEC-OPEN-010` |
 | `TBD-008` | `DEC-023` (hiyerarşi/kod/lifecycle); çoklu konum `DEC-OPEN-002`; sayım alanı `DEC-HG-001` |
-| `TBD-009` | `DEC-HG-003` |
-| `TBD-010` | `DEC-HG-004` |
+| `TBD-009` | `DEC-025` |
+| `TBD-010` | `DEC-024` |
 | `TBD-011` | `DEC-OPEN-005`, `DEC-OPEN-007`, `DEC-OPEN-008`, `DEC-OPEN-009` |
 | `TBD-012` | `DEC-HG-002`, `DEC-OPEN-006` |
 | `TBD-013` | `DEC-OPEN-013`, `DEC-OPEN-018` |

@@ -67,9 +67,15 @@ Bu belge:
 
 ### Employee
 
-`Employee`, fabrika çalışanını temsil eder. Bilinen iş kimliği bilgileri ad, soyad ve çalışan sicil numarasıdır. Sicil numarasının benzersizlik ve yaşam döngüsü kuralları ayrıca doğrulanmalıdır.
+`Employee` (`accounts.Employee`), fabrika çalışanını ve malzeme teslim alan kişiyi temsil eden ayrı dedicated entity'dir (`DEC-024`). Bilinen iş kimliği alanları: `employee_number`, `first_name`, `last_name`.
 
-Bir stok çıkışındaki teslim alan kişi, uygulamaya giriş yapan kullanıcı olmak zorunda değildir. Bu nedenle `Employee` ile `ApplicationUser` aynı entity olarak modellenmemelidir.
+Bir stok çıkışındaki teslim alan kişi, uygulamaya giriş yapan kullanıcı olmak zorunda değildir. `Employee` ile `ApplicationUser` aynı entity olarak modellenmemelidir; authentication actor ile business receiver identity ayrı kalır.
+
+**Sicil numarası (`employee_number`):** Zorunlu string; leading zero korunur; numeric-only veya regex format kısıtı yok; outer trim; case preserved; mevcut Employee satırları arasında globally unique (PostgreSQL case-sensitive); editable. UUID kalıcı Employee kimliğidir; sicil değişince kimlik değişmez. Eski sicil Phase 3.2'de ayrı historical registry ile rezerve edilmez; immutable transaction snapshot'ları tarihsel doğruluğu korur.
+
+**User bağlantısı:** Nullable one-to-one `Employee.user → accounts.User`; ownership Employee tarafında; delete `SET_NULL`. User ve Employee birbirini gerektirmez. Link permission/rol vermez; `TECHNICIAN` bir Employee type değildir. `Employee.active` ve `User.is_active` bağımsızdır.
+
+**Yaşam döngüsü:** Hard-delete application surface yok; active/inactive; create active; inactive okunabilir kalır; inactive yeni ISSUE receiver seçilemez; reactivation UUID/history korur.
 
 ### ApplicationUser
 
@@ -81,7 +87,7 @@ Bir stok çıkışındaki teslim alan kişi, uygulamaya giriş yapan kullanıcı
 
 Bu üç kod başlangıç şablonlarıdır; sistemin gelecekte sahip olabileceği tek roller değildir. Runtime authorization permission/policy tabanlı olmalıdır; hard-coded Group adı kontrolü yeterli değildir (`DEC-021`). Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration izinlerini expose eder.
 
-Bir `ApplicationUser` bir `Employee` kaydına bağlanabilir. Bağın zorunlu olup olmadığı ve bire bir mi başka bir kardinalitede mi olacağı **TBD**'dir. SSO, Active Directory veya LDAP bu modelin varsayımı değildir.
+Bir `Employee` isteğe bağlı olarak tam bir `ApplicationUser` kaydına bağlanabilir (`DEC-024`): nullable one-to-one, ownership Employee tarafında. SSO, Active Directory veya LDAP bu modelin varsayımı değildir.
 
 ### IssueContext ve tarihsel kişi bilgisi
 
@@ -90,7 +96,7 @@ Bir `ISSUE` işlemi:
 - mümkün olduğunda teslim alan `Employee` kaydına referans verebilmeli;
 - her durumda teslim anındaki ad, soyad ve sicil numarasının tarihsel kopyasını korumalıdır.
 
-Bu öneri, çalışan adı veya çalışan kaydı sonradan değişse dahi eski çıkışın ilk kaydedildiği kimlikle anlaşılmasını sağlar. `Employee` referansının zorunluluğu **TBD**, tarihsel alıcı bilgilerinin işlem üzerinde korunması ise ISS-002–ISS-004 nedeniyle zorunludur.
+Bu tasarım, çalışan adı veya sicil numarası sonradan değişse dahi eski çıkışın ilk kaydedildiği kimlikle anlaşılmasını sağlar. Gelecek ISSUE contract'ında receiver `Employee` UUID referansı taşır; transaction `employee_number`, `first_name`, `last_name` snapshot'larını korur (`DEC-024`). Tarihsel alıcı bilgilerinin işlem üzerinde korunması ISS-002–ISS-004 nedeniyle zorunludur. ISSUE henüz implement edilmemiştir.
 
 ## 5. Malzeme Kataloğu Domaini
 
@@ -338,15 +344,13 @@ Her `ISSUE` işlemi aşağıdaki tarihsel iş bağlamını korur:
 - fiili kullanım yeri,
 - sistem işlem zamanı.
 
-Alıcı için isteğe bağlı `Employee` referansı ve zorunlu kimlik anlık görüntüsü önerilir. Üretim hattı ve fiili kullanım yeri iki ayrı zorunlu iş bilgisidir. Bunların depo `Location` hiyerarşisine zorla bağlanması önerilmez; çünkü depo konumu ile kullanım bağlamının aynı sınıflandırma olduğu onaylanmamıştır.
+Alıcı için `Employee` UUID referansı ve zorunlu kimlik snapshot'ı (`employee_number`, `first_name`, `last_name`) taşınır (`DEC-024`). Üretim hattı ve fiili kullanım yeri iki ayrı zorunlu iş bilgisidir; depo `Location` hiyerarşisine zorla bağlanmaz.
 
-İlgili ISSUE feature kararı için seçenekler:
+**ProductionLine (`DEC-025`):** Üretim hattı, `inventory` app sahipliği altında dinamik master-data entity'dir. UUID kalıcı kimlik; `code` (globally unique, case-sensitive, editable) ve `name` (non-unique, editable); nullable recursive `parent`; arbitrary depth hierarchy; self-parent ve cycle yasak; Location hiyerarşisinden bağımsız. Active/inactive lifecycle; inactive yeni ISSUE seçiminde kullanılamaz. Gelecek ISSUE, seçilen `ProductionLine` UUID'sini ve `code`/`name` snapshot'larını taşır. Tahmin edilmiş fabrika hatları seed edilmez. ProductionLine henüz implement edilmemiştir.
 
-1. İki değeri tarihsel metin/kod anlık görüntüsü olarak saklamak;
-2. ayrı `ProductionLine` ve `UsageLocation` referans kavramları oluşturup ayrıca tarihsel görünen değeri korumak;
-3. iş birimi doğrularsa yalnızca uygun kullanım konumlarını genel `Location` hiyerarşisine bağlamak.
+**Fiili kullanım yeri (exact usage place):** V1 future ISSUE ayrı required free-text değer gerektirir. `ProductionLine` structured selectable context sağlar; exact usage place ayrı kalır. `UsagePlace` modeli yoktur; Location veya ProductionLine'dan infer edilmez.
 
-Seçim `DEC-HG-003` hard gate'idir ve ISSUE data/UI implementation başlamadan çözülmelidir. Üretim hattı controlled reference list veya başka onaylı yapı olmalıdır; gerçek hatlar uydurulmaz. Fiili kullanım yeri warehouse `Location` hiyerarşisinden ayrı kalır ve iş sahibi başka bir model onaylayana kadar text olabilir. Hangi seçenek seçilirse seçilsin iki zorunlu değerin eski işlem üzerinde anlaşılır kalması gerekir.
+ISSUE data/UI implementation inventory hard gate'leri (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005` vb.) çözülene kadar başlamaz.
 
 ### Kavramsal işlem akışı
 
@@ -571,9 +575,11 @@ Bu seçeneklerden hiçbiri seçilmiş değildir. `MinimumStockStatus`, ledger ve
 | `InventoryTransactionLine` | referans verir | `Material` | Her satır bir malzeme bağlamına sahiptir. |
 | `InventoryTransactionLine` | referans verir | `SerializedAsset` | Serialized satır tam `1`, quantity satır `0` varlık taşır. |
 | `InventoryTransactionLine` | kaynak/hedef kullanır | `Location` | İşlem türüne göre `0..1` kaynak ve `0..1` hedef; normatif matris Bölüm 10'dadır. |
-| `ApplicationUser` | bağlanabilir | `Employee` | Kardinalite ve zorunluluk **TBD**. |
+| `Employee` | isteğe bağlı bağlanır | `ApplicationUser` | Nullable one-to-one; ownership Employee; delete `SET_NULL` (`DEC-024`). |
+| `ProductionLine` | üstüdür | `ProductionLine` | Nullable recursive parent; arbitrary depth; Location'dan bağımsız (`DEC-025`). |
 | `InventoryTransaction` | taşıyabilir | `IssueContext` | `ISSUE` için tam `1`; diğer türler için yoktur. |
-| `IssueContext` | referans verebilir | `Employee` | `0..1`; tarihsel ad/soyad/sicil anlık görüntüsü zorunludur. |
+| `IssueContext` | referans verir | `Employee` | Receiver UUID referansı; tarihsel ad/soyad/sicil snapshot zorunlu (`DEC-024`). |
+| `IssueContext` | referans verir | `ProductionLine` | Seçilen hat UUID referansı; tarihsel code/name snapshot zorunlu (`DEC-025`). |
 | `CorrectionRequest` | düzeltir | `InventoryTransaction` | Her talep tam `1` özgün işleme; işlem `0..N` talebe konu olabilir. Birden çok talep davranışı **TBD**. |
 | `CorrectionRequest` | sonuçlanır | `InventoryTransaction` | Onaylı talep `0..N` kontrollü düzeltme işlemine bağlanabilir; kesin mekanizma **TBD**. |
 | `CorrectionRequest` | kanıt içerir | `Attachment` | En az `1` güncel destekleyici fotoğraf gerekir. |
@@ -710,8 +716,8 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 | OD-006 | Minimum stok toplam, lokasyon, depo veya kondisyon kapsamı | `MinimumStockPolicy` kardinalitesi ve değerlendirme boyutları |
 | OD-008 | Serialized varlığın zorunlu ve benzersiz iş tanımlayıcıları | `SerializedAsset` kimlik kuralları |
 | OD-014 | Ondalık hassasiyet, kısmi miktar ve birim dönüşümü | Miktar ve `UnitOfMeasure` kısıtları |
-| OD-007 | Üretim hattı ile fiili kullanım yeri modeli | `IssueContext` referansları ve tarihsel snapshot |
-| OD-026 | `ApplicationUser`–`Employee` ilişkisi (`DEC-HG-004`); rol atama `DEC-022` ile kararlı | Kimlik kardinaliteleri (employee linkage açık) |
+| OD-007 | Üretim hattı `DEC-025` ile kararlı; exact usage place ayrı free text | `ProductionLine`, `IssueContext` referansları ve snapshot |
+| OD-026 | `ApplicationUser`–`Employee` ilişkisi `DEC-024` ile kararlı; rol atama `DEC-022` ile kararlı | Kimlik kardinaliteleri kararlı |
 | OD-016 | Lokasyon hiyerarşisi/kodu ve stoklu lokasyonun pasifleştirilmesi `DEC-023` ile kararlı | `Location` ilişkileri ve yaşam döngüsü (inventory enforcement sonraki entegrasyon) |
 | OD-015 | Olağan değişiklik `DEC-013` ile yasak; exceptional migration istenirse iş kararı | `Material`, ledger ve kontrollü dönüşüm |
 | OD-011, OD-012 | Sayım onayı, tolerans, baseline onayı ve otorite kesim ölçütü | `PhysicalCountSession` ve `InventoryBaseline` yaşam döngüsü |
@@ -752,7 +758,7 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 
 - bozuk kondisyonun “kullanılabilir” stok üzerindeki etkisi;
 - minimum stok aggregation kapsamı;
-- üretim hattı ve fiili kullanım yerinin referans modeli;
+- exact usage place'in ileride ayrı model olup olmayacağı (`UsagePlace`; şimdilik free text);
 - iadeye uygunluk;
 - sayım ve baseline onay seviyesi;
 - düzeltmenin ters/dengeleyici işlem mekaniği;
@@ -765,7 +771,7 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 
 İlişkisel model ve sonraki uygulama aşağıdaki kavramsal kararları korumalıdır:
 
-1. `Employee` ile `ApplicationUser` ayrı entity'lerdir; ilişki zorunluluğu TBD'dir.
+1. `Employee` ile `ApplicationUser` ayrı entity'lerdir; nullable one-to-one link ownership Employee tarafındadır (`DEC-024`).
 2. `Material`, ürün tanımıdır; `SerializedAsset`, bunun tek fiziksel örneğidir.
 3. `TrackingMode`, material bazında `QUANTITY` veya `SERIALIZED` seçer.
 4. `TransactionType` ve `MaterialCondition` ayrı kavramlardır.
