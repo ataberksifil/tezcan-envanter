@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Ölçü Birimleri — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">Ölçü Birimleri</h1>
+    {% if perms.catalog.add_unitofmeasure %}
+        <a class="btn btn-primary" href="{% url 'catalog:unit-create' %}">Yeni ölçü birimi</a>
+    {% endif %}
+</div>
+
+<p class="text-body-secondary small mb-3">
+    Ondalık basamak alanı yalnızca kayıtlı bir değeri gösterir; yuvarlama, birim dönüşümü veya miktar doğrulama davranışı henüz tanımlanmamıştır.
+</p>
+
+<form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-md-6">
+        <label class="form-label" for="id_q">Ara</label>
+        <input
+            type="search"
+            class="form-control"
+            id="id_q"
+            name="q"
+            value="{{ q }}"
+            placeholder="Kod veya ad"
+        >
+    </div>
+    <div class="col-md-3">
+        <label class="form-label" for="id_status">Durum</label>
+        <select class="form-select" id="id_status" name="status">
+            <option value="all"{% if status == "all" %} selected{% endif %}>Tümü</option>
+            <option value="active"{% if status == "active" %} selected{% endif %}>Aktif</option>
+            <option value="inactive"{% if status == "inactive" %} selected{% endif %}>Pasif</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <button type="submit" class="btn btn-outline-secondary">Filtrele</button>
+    </div>
+</form>
+
+{% if units %}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead>
+                <tr>
+                    <th scope="col">Kod</th>
+                    <th scope="col">Ad</th>
+                    <th scope="col">Ondalık basamak</th>
+                    <th scope="col">Durum</th>
+                    <th scope="col" class="text-nowrap">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for unit in units %}
+                    <tr>
+                        <td>
+                            <span title="{{ unit.id }}">{{ unit.code }}</span>
+                            <div class="small text-body-secondary font-monospace">{{ unit.id }}</div>
+                        </td>
+                        <td>{{ unit.name }}</td>
+                        <td>
+                            {% if unit.decimal_places is None %}
+                                Belirlenmedi
+                            {% else %}
+                                {{ unit.decimal_places }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if unit.active %}
+                                <span class="badge text-bg-success">Aktif</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary">Pasif</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% if perms.catalog.change_unitofmeasure %}
+                                    <a class="btn btn-sm btn-outline-primary" href="{% url 'catalog:unit-update' unit.pk %}">Düzenle</a>
+                                    {% if unit.active %}
+                                        <form method="post" action="{% url 'catalog:unit-deactivate' unit.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-warning">Pasifleştir</button>
+                                        </form>
+                                    {% else %}
+                                        <form method="post" action="{% url 'catalog:unit-reactivate' unit.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-success">Aktifleştir</button>
+                                        </form>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <p class="text-body-secondary mb-0">Ölçü birimi bulunamadı.</p>
+{% endif %}
+
+{% if is_paginated %}
+    <nav class="mt-3" aria-label="Ölçü birimi sayfaları">
+        <ul class="pagination mb-0">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">Önceki</a>
+                </li>
+            {% endif %}
+            <li class="page-item disabled">
+                <span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span>
+            </li>
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{% querystring page=page_obj.next_page_number %}">Sonraki</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+{% endif %}
+{% endblock %}

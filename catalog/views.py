@@ -8,12 +8,17 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, ListView, UpdateView
 
-from catalog.forms import CategoryForm
-from catalog.models import Category
+from catalog.forms import CategoryForm, UnitOfMeasureForm
+from catalog.models import Category, UnitOfMeasure
 from catalog.services.categories import (
     create_category,
     set_category_active,
     update_category,
+)
+from catalog.services.units_of_measure import (
+    create_unit_of_measure,
+    set_unit_of_measure_active,
+    update_unit_of_measure,
 )
 
 CATEGORY_LIST_PAGE_SIZE = 50
@@ -30,7 +35,16 @@ def normalize_category_status(value: str | None) -> str:
 
 
 def _attach_validation_error(form, exc: ValidationError) -> None:
-    form.add_error(None, exc)
+    if hasattr(exc, "error_dict"):
+        for field, errors in exc.error_dict.items():
+            if field == "__all__":
+                for error in errors:
+                    form.add_error(None, error)
+            else:
+                for error in errors:
+                    form.add_error(field, error)
+    else:
+        form.add_error(None, exc)
 
 
 class CategoryListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -162,3 +176,133 @@ class CategoryReactivateView(CategoryStateView):
     target_active = True
     success_message = "Kategori aktifleştirildi."
     noop_message = "Kategori zaten aktif."
+
+
+UNIT_LIST_PAGE_SIZE = 50
+
+
+class UnitOfMeasureListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = "catalog.view_unitofmeasure"
+    model = UnitOfMeasure
+    context_object_name = "units"
+    template_name = "catalog/unit_list.html"
+    paginate_by = UNIT_LIST_PAGE_SIZE
+
+    def get_queryset(self):
+        queryset = UnitOfMeasure.objects.order_by("code", "id")
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(Q(name__icontains=query) | Q(code__icontains=query))
+
+        status = self._status_filter()
+        if status == STATUS_ACTIVE:
+            queryset = queryset.filter(active=True)
+        elif status == STATUS_INACTIVE:
+            queryset = queryset.filter(active=False)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["q"] = self.request.GET.get("q", "").strip()
+        context["status"] = self._status_filter()
+        return context
+
+    def _status_filter(self) -> str:
+        return normalize_category_status(self.request.GET.get("status", STATUS_ALL))
+
+
+class UnitOfMeasureCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = "catalog.add_unitofmeasure"
+    form_class = UnitOfMeasureForm
+    template_name = "catalog/unit_form.html"
+    success_url = reverse_lazy("catalog:unit-list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["form_title"] = "Yeni ölçü birimi"
+        context["submit_label"] = "Kaydet"
+        return context
+
+    def form_valid(self, form):
+        try:
+            result = create_unit_of_measure(
+                actor=self.request.user,
+                code=form.cleaned_data["code"],
+                name=form.cleaned_data["name"],
+            )
+        except ValidationError as exc:
+            _attach_validation_error(form, exc)
+            return self.form_invalid(form)
+        self.object = result.unit
+        messages.success(self.request, "Ölçü birimi oluşturuldu.")
+        return redirect(self.get_success_url())
+
+
+class UnitOfMeasureUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = "catalog.change_unitofmeasure"
+    model = UnitOfMeasure
+    form_class = UnitOfMeasureForm
+    template_name = "catalog/unit_form.html"
+    success_url = reverse_lazy("catalog:unit-list")
+    context_object_name = "unit"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["form_title"] = "Ölçü birimini düzenle"
+        context["submit_label"] = "Kaydet"
+        return context
+
+    def form_valid(self, form):
+        try:
+            result = update_unit_of_measure(
+                actor=self.request.user,
+                unit_of_measure_id=self.object.pk,
+                code=form.cleaned_data["code"],
+                name=form.cleaned_data["name"],
+            )
+        except UnitOfMeasure.DoesNotExist as exc:
+            raise Http404("No unit of measure found matching the query") from exc
+        except ValidationError as exc:
+            _attach_validation_error(form, exc)
+            return self.form_invalid(form)
+        self.object = result.unit
+        if result.changed:
+            messages.success(self.request, "Ölçü birimi güncellendi.")
+        else:
+            messages.success(self.request, "Değişiklik yapılmadı.")
+        return redirect(self.get_success_url())
+
+
+class UnitOfMeasureStateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "catalog.change_unitofmeasure"
+    http_method_names = ["post"]
+    target_active: bool
+    success_message: str
+    noop_message: str
+
+    def post(self, request, pk):
+        try:
+            result = set_unit_of_measure_active(
+                actor=request.user,
+                unit_of_measure_id=pk,
+                active=self.target_active,
+            )
+        except UnitOfMeasure.DoesNotExist as exc:
+            raise Http404("No unit of measure found matching the query") from exc
+        if result.changed:
+            messages.success(request, self.success_message)
+        else:
+            messages.success(request, self.noop_message)
+        return redirect("catalog:unit-list")
+
+
+class UnitOfMeasureDeactivateView(UnitOfMeasureStateView):
+    target_active = False
+    success_message = "Ölçü birimi pasifleştirildi."
+    noop_message = "Ölçü birimi zaten pasif."
+
+
+class UnitOfMeasureReactivateView(UnitOfMeasureStateView):
+    target_active = True
+    success_message = "Ölçü birimi aktifleştirildi."
+    noop_message = "Ölçü birimi zaten aktif."

@@ -35,6 +35,11 @@
                                 <a class="nav-link" href="{% url 'catalog:category-list' %}">Kategoriler</a>
                             </li>
                         {% endif %}
+                        {% if perms.catalog.view_unitofmeasure %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'catalog:unit-list' %}">Ölçü Birimleri</a>
+                            </li>
+                        {% endif %}
                     </ul>
                 </nav>
             {% endif %}

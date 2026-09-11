@@ -22,4 +22,21 @@ urlpatterns = [
         views.CategoryReactivateView.as_view(),
         name="category-reactivate",
     ),
+    path("units/", views.UnitOfMeasureListView.as_view(), name="unit-list"),
+    path("units/new/", views.UnitOfMeasureCreateView.as_view(), name="unit-create"),
+    path(
+        "units/<uuid:pk>/edit/",
+        views.UnitOfMeasureUpdateView.as_view(),
+        name="unit-update",
+    ),
+    path(
+        "units/<uuid:pk>/deactivate/",
+        views.UnitOfMeasureDeactivateView.as_view(),
+        name="unit-deactivate",
+    ),
+    path(
+        "units/<uuid:pk>/reactivate/",
+        views.UnitOfMeasureReactivateView.as_view(),
+        name="unit-reactivate",
+    ),
 ]

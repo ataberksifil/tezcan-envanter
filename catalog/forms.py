@@ -4,7 +4,7 @@ import uuid
 
 from django import forms
 
-from catalog.models import Category
+from catalog.models import Category, UnitOfMeasure
 
 
 def category_choice_label(category: Category) -> str:
@@ -69,3 +69,17 @@ class CategoryForm(forms.ModelForm):
                 for category in visible
             ],
         ]
+
+
+class UnitOfMeasureForm(forms.ModelForm):
+    class Meta:
+        model = UnitOfMeasure
+        fields = ["code", "name"]
+        labels = {
+            "code": "Kod",
+            "name": "Ad",
+        }
+        widgets = {
+            "code": forms.TextInput(attrs={"class": "form-control"}),
+            "name": forms.TextInput(attrs={"class": "form-control"}),
+        }
