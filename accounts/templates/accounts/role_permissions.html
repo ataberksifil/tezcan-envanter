@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Rol İzinleri — Yönetim{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+    <h1 class="h3 mb-1">Rol izinleri</h1>
+    <p class="text-body-secondary">{{ role.name }}</p>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+        <fieldset class="mb-4"><legend class="h5">{{ form.catalog_permissions.label }}</legend>
+            {{ form.catalog_permissions }}
+            {% for error in form.catalog_permissions.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+        </fieldset>
+        {% if form.manage_access %}<div class="form-check mb-4">{{ form.manage_access }} <label class="form-check-label" for="{{ form.manage_access.id_for_label }}">{{ form.manage_access.label }}</label></div>{% endif %}
+        <button class="btn btn-primary" type="submit">İzinleri kaydet</button>
+        <a class="btn btn-outline-secondary" href="{% url 'accounts:role-list' %}">İptal</a>
+    </form>
+</div></div>
+{% endblock %}

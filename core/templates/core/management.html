@@ -7,7 +7,7 @@
     <div class="col-lg-10">
         <h1 class="h3 mb-4">Yönetim</h1>
         <p class="text-body-secondary mb-4">
-            Katalog yapılandırma ekranlarına buradan erişebilirsiniz.
+            Katalog ve erişim yönetimi ekranlarına buradan erişebilirsiniz.
         </p>
         <div class="row g-3">
             {% if show_category_management %}
@@ -45,6 +45,26 @@
                                 Malzeme tanımlarını oluşturun ve düzenleyin.
                             </p>
                             <a class="stretched-link" href="{% url 'catalog:material-list' %}">Malzemelere git</a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            {% if show_access_management %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="h5 card-title">Roller ve Yetkiler</h2>
+                            <p class="card-text text-body-secondary">Rolleri ve onaylı katalog izinlerini yönetin.</p>
+                            <a class="stretched-link" href="{% url 'accounts:role-list' %}">Rollere git</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="h5 card-title">Kullanıcılar</h2>
+                            <p class="card-text text-body-secondary">Kullanıcıların rol üyeliklerini yönetin.</p>
+                            <a class="stretched-link" href="{% url 'accounts:access-user-list' %}">Kullanıcılara git</a>
                         </div>
                     </div>
                 </div>

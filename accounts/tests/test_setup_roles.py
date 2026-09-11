@@ -16,6 +16,7 @@ from accounts.roles import (
     MANAGED_CATALOG_CODENAMES,
     STOREKEEPER,
     TECHNICIAN,
+    MANAGE_ACCESS_PERMISSION,
     catalog_codenames_for_role,
 )
 from audit.models import AuditEvent
@@ -259,6 +260,24 @@ def test_missing_expected_permission_raises_before_any_partial_group_creation(
 
 
 def test_setup_roles_does_not_create_audit_events():
+    assert AuditEvent.objects.count() == 0
+
+
+def test_setup_roles_never_injects_manage_access_and_leaves_custom_roles_untouched():
+    custom = Group.objects.create(name="CUSTOM")
+    manage_access = Permission.objects.get(
+        content_type__app_label="accounts", codename="manage_access"
+    )
+    custom.permissions.add(manage_access)
+    before = _permission_pks_for_group(custom.name)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(custom.name) == before
+    for role_name in DEFAULT_ROLE_NAMES:
+        assert not Group.objects.get(name=role_name).permissions.filter(
+            content_type__app_label="accounts", codename="manage_access"
+        ).exists()
     assert AuditEvent.objects.count() == 0
     _run_setup_roles()
     assert AuditEvent.objects.count() == 0

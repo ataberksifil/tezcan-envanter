@@ -27,6 +27,28 @@ DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
 }
 
 DEFAULT_ROLE_NAMES: tuple[str, ...] = (TECHNICIAN, STOREKEEPER, ADMIN_MANAGER)
+RESERVED_ROLE_NAMES: frozenset[str] = frozenset(DEFAULT_ROLE_NAMES)
+
+# DEC-022: this is deliberately explicit. It must never expand merely because
+# another catalog or workflow permission is added to Django.
+SAFE_CATALOG_PERMISSION_LABELS: tuple[str, ...] = (
+    "catalog.view_category",
+    "catalog.add_category",
+    "catalog.change_category",
+    "catalog.view_unitofmeasure",
+    "catalog.add_unitofmeasure",
+    "catalog.change_unitofmeasure",
+    "catalog.view_material",
+    "catalog.add_material",
+    "catalog.change_material",
+)
+SAFE_CATALOG_PERMISSION_SET: frozenset[str] = frozenset(
+    SAFE_CATALOG_PERMISSION_LABELS
+)
+MANAGE_ACCESS_PERMISSION = "accounts.manage_access"
+SUPPORTED_ACCESS_PERMISSION_SET: frozenset[str] = (
+    SAFE_CATALOG_PERMISSION_SET | {MANAGE_ACCESS_PERMISSION}
+)
 
 # Backward-compatible aliases. Runtime authorization uses permissions, not group names.
 ROLE_NAMES = DEFAULT_ROLE_NAMES

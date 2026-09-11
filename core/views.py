@@ -36,6 +36,7 @@ class ManagementView(LoginRequiredMixin, TemplateView):
         context['show_category_management'] = user_can_manage_categories(user)
         context['show_unit_management'] = user_can_manage_units(user)
         context['show_material_management'] = user_can_manage_materials(user)
+        context['show_access_management'] = user.has_perm('accounts.manage_access')
         return context
 
 

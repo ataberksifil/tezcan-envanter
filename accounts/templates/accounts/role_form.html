@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} — Yönetim{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-7">
+    <h1 class="h3 mb-4">{{ form_title }}</h1>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+        <div class="mb-3">
+            <label class="form-label" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+            {{ form.name }}
+            {% for error in form.name.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+        </div>
+        <button class="btn btn-primary" type="submit">{{ submit_label }}</button>
+        <a class="btn btn-outline-secondary" href="{% url 'accounts:role-list' %}">İptal</a>
+    </form>
+</div></div>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Kullanıcılar — Yönetim{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-1">Kullanıcılar</h1>
+<p class="text-body-secondary mb-4">Bu ekran yalnız rol üyeliklerini yönetir.</p>
+<div class="table-responsive"><table class="table align-middle">
+    <thead><tr><th>Kullanıcı</th><th>Durum</th><th>Roller</th><th>Erişim</th></tr></thead>
+    <tbody>{% for row in user_rows %}<tr>
+        <td>{{ row.user.username }}</td>
+        <td>{% if row.user.is_active %}Aktif{% else %}Pasif{% endif %}{% if row.user.is_staff %}, personel{% endif %}{% if row.user.is_superuser %}, superuser{% endif %}</td>
+        <td>{% for role in row.roles %}{{ role.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
+        <td>{% if row.protection %}<span class="text-body-secondary">Korunuyor / salt okunur</span>{% else %}<a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:access-user-roles' row.user.pk %}">Rolleri yönet</a>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="4">Kullanıcı yok.</td></tr>{% endfor %}</tbody>
+</table></div>
+<a href="{% url 'management' %}">Yönetime dön</a>
+{% endblock %}

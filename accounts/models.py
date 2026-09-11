@@ -9,4 +9,7 @@ class User(AbstractUser):
     Employee remains a separate domain concept in a later task.
     """
 
-    pass
+    class Meta(AbstractUser.Meta):
+        permissions = [
+            ("manage_access", "Rol ve kullanıcı erişimlerini yönetebilir"),
+        ]

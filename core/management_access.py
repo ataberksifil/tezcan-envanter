@@ -45,7 +45,10 @@ def user_can_manage_materials(user) -> bool:
 
 
 def user_has_management_access(user) -> bool:
-    return (
+    return bool(
+        getattr(user, "is_authenticated", False)
+        and user.has_perm("accounts.manage_access")
+    ) or (
         user_can_manage_categories(user)
         or user_can_manage_units(user)
         or user_can_manage_materials(user)
