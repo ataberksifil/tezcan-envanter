@@ -182,27 +182,26 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 
 ### 6.1 `locations`
 
-**Purpose:** Raf/bin seviyesine kadar genişleyebilen hiyerarşik fiziksel stok yerlerini tutar.
+**Purpose:** Raf/bin seviyesine kadar genişleyebilen hiyerarşik fiziksel stok yerlerini tutar. Phase 3.1 onaylı minimal şekil (`DEC-023`).
 
 | Column | Conceptual Type | Null | Constraint | Description |
 |---|---|---:|---|---|
-| `id` | UUID | Hayır | PK | Lokasyon kimliği. |
-| `code` | VARCHAR | Hayır | Benzersizlik TBD | İş lokasyon kodu. |
-| `name` | VARCHAR | Hayır | Boş olamaz | Görünen ad. |
-| `parent_id` | UUID | Evet | Self FK | Üst lokasyon. |
-| `location_type` | VARCHAR | Hayır | Kontrollü değer | Lokasyon sınıfı. |
+| `id` | UUID | Hayır | PK | Kalıcı lokasyon kimliği. |
+| `code` | VARCHAR | Hayır | UNIQUE, case-sensitive | İş lokasyon kodu; UUID kalıcı kimliktir, `code` editable'dır. |
+| `name` | VARCHAR | Hayır | Boş olamaz; unique değil | Görünen ad; editable. |
+| `parent_id` | UUID | Evet | Self FK | Üst lokasyon; root'ta null. |
 | `active` | BOOLEAN | Hayır | Default true | Yeni operasyonel harekete uygunluk. |
-| `can_hold_stock` | BOOLEAN | Hayır | Explicit capability | Lokasyonun fiziksel stok tutup tutamayacağı. |
+| `can_hold_stock` | BOOLEAN | Hayır | Default false; explicit capability | Lokasyonun fiziksel stok tutup tutamayacağı. |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Oluşturma zamanı. |
 | `updated_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Son güncelleme zamanı. |
 
 - **Primary Key:** `id`
 - **Foreign Keys:** `parent_id → locations.id`, delete restricted.
-- **Unique Constraints:** `code` için global unique önerilir; kod formatı ve kesin benzersizlik iş kararıdır.
+- **Unique Constraints:** `code` globally unique; case-sensitive. Dış boşluk trim edilir; blank yasaktır. Regex format ve forced upper/lowercase yoktur.
 - **Check Constraints:** `parent_id <> id`.
-- **Recommended Indexes:** `parent_id`, `code`, `name`, `active`; stok seçicileri için ihtiyaç doğrulanırsa `(active, can_hold_stock)`.
-- **Delete Policy:** Stok/history referansı sonrası `SOFT DELETE / DEACTIVATE`; FK'ler restricted.
-- **Notes / TBD:** `WAREHOUSE`, `WORKSHOP`, `AREA`, `SHELF`, `BIN`, `LINE`, `MACHINE`, `PANEL`, `EXTERNAL` aday değerlerdir; kullanılmayanlar zorunlu değildir. Kesin type listesi/hiyerarşi TBD. Derin çevrim servis katmanında engellenir. `can_hold_stock`, leaf/child durumundan ve type'tan bağımsızdır. Yeni fiziksel stok yalnız `active=true AND can_hold_stock=true` lokasyona bağlanabilir; sonraki pasifleştirme historical FK'leri geçersiz yapmaz.
+- **Recommended Indexes:** `parent_id`, unique `code`, `name`, `active`; stok seçicileri için ihtiyaç doğrulanırsa `(active, can_hold_stock)`.
+- **Delete Policy:** Hard delete iş operasyonu yoktur; `SOFT DELETE / DEACTIVATE`. FK'ler restricted.
+- **Notes:** `location_type` Phase 3.1'de yoktur; `WAREHOUSE`/`WORKSHOP`/`SHELF`/`BIN` sabit enum implement edilmez. Hiyerarşi dinamik recursive parent ile arbitrary depth'tir; path/depth cache persist edilmez; generic tree framework yoktur. Self-parent ve descendant/cycle parenting servis katmanında engellenir. Parent sonradan değiştirilebilir. Parent status children'a cascade etmez; inactive parent'ın active child'ı olabilir. `can_hold_stock` leaf/child/name/depth/type'tan türetilmez; parent ve child bağımsız `True` olabilir. Yeni fiziksel stok yalnız `active=true AND can_hold_stock=true` lokasyona bağlanabilir; sonraki pasifleştirme historical FK'leri geçersiz yapmaz. Yetkili envanter varken non-zero stock pasifleştirme ve `can_hold_stock` True→False yasaktır (`DEC-023`); inventory entegrasyonu bunu otoritatif uygular. Tahmini fabrika Location satırları seed edilmez.
 
 ## 7. Serialized Asset Tabloları
 
@@ -957,7 +956,7 @@ Bu legacy tablo güncel karar statüsünün kanonik kaydı değildir. `docs/06-D
 | DM-B06 | Ondalık hassasiyet, kısmi miktar ve unit conversion davranışı nedir? | `NUMERIC` doğrulaması, UoM |
 | DM-B07 | Production line ve usage location yapılandırılmış entity mi, snapshot text mi; aralarındaki ilişki nedir? | `issue_contexts` |
 | DM-B08 | `ApplicationUser`–`Employee` kardinalitesi ve rol atama/onay akışı nedir? | Identity FK/unique ve permissions |
-| DM-B09 | Location type listesi, hiyerarşi, kod standardı ve stoklu lokasyon deactivation süreci nedir? | `locations` |
+| DM-B09 | Location type/hiyerarşi/kod ve stoklu deactivation `DEC-023` ile kararlıdır. Inventory aynı lifecycle invariant'ını otoritatif uygulamak zorundadır. | `locations` |
 | DM-B10 | Olağan değişiklik `DEC-013` ile yasak; exceptional migration istenirse ayrı iş kararı gerekir. | `materials`, ledger validation |
 | DM-B11 | Return eligibility, source/target, kondisyon ve özgün issue ilişkisi nedir? | Ledger service/FK kuralları |
 | DM-B12 | Transfer yetkileri ve zorunlu iş senaryoları nelerdir? | Permissions ve line validation |

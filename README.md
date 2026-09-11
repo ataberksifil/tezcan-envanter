@@ -9,8 +9,9 @@
 - **Gate 2:** PASS
 - **Phase 2.8B:** DEFER (`DEC-OPEN-019` OPEN)
 - **Phase 2.9C:** SKIPPED
-- **Sıradaki:** Phase 3 — fiziksel envanter altyapısı
-- **İlk çalışma:** Location foundation / preflight
+- **Sıradaki:** Phase 3.1 — Location foundation implementation
+- **Phase 3.0:** Location foundation decisions COMPLETE (`DEC-023`)
+- **İlk çalışma:** Location henüz implement edilmemiştir
 
 Phase 2 ayrıntıları için bkz. [Yol Haritası](#yol-haritası).
 
@@ -146,9 +147,11 @@ python manage.py setup_roles
 - Phase 2.9C — Technical-field configuration **SKIPPED** (onaylı gerçek fabrika teknik alan kanıtı yok; Phase 2.8B DEFER otoritatif)
 - Phase 2.10 — Gate 2 **PASS**
 
-**Sıradaki:** Phase 3 — fiziksel envanter altyapısı. İlk çalışma: Location foundation / preflight.
+**Phase 3.0:** Location foundation decisions — COMPLETE (`DEC-023`, 2026-09-11)
 
-Inventory mutation implementasyonu henüz başlamamıştır. Açık hard gate'ler (`DEC-HG-001`–`DEC-HG-005`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021`) korunur.
+**Sıradaki:** Phase 3.1 — Location foundation implementation. Location henüz implement edilmemiştir.
+
+Inventory mutation implementasyonu henüz başlamamıştır. Açık hard gate'ler (`DEC-HG-001`–`DEC-HG-005`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur.
 
 ### Sağlık kontrolü
 

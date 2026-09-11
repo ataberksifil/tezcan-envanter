@@ -72,8 +72,8 @@ Bilinen başlangıç alanları Elektrik Deposu, Alkali Elektrik alanındaki kabl
 | LOC-004 | CONFIRMED | Lokasyonlar arası stok değişimi kaynak ve hedef lokasyonlarıyla izlenebilir olmalıdır. | Hareket sonrası stok iki lokasyonda doğru yansımalıdır. |
 | LOC-005 | CONFIRMED | Geçmiş işlemde referans verilen lokasyon bilgisi denetim geçmişinden kaybolmamalıdır. | Lokasyon sonradan kullanımdan kalksa bile eski hareket anlaşılabilir kalmalıdır. |
 | LOC-006 | CONFIRMED | Kullanımdan kaldırılmış bir lokasyon yeni stok hareketleri için seçilememelidir. | Aktif olmayan lokasyona yeni giriş veya transfer engellenmelidir. |
-| LOC-007 | TBD DEPENDENCY | İçinde stok bulunan lokasyonun pasifleştirilmesi/silinmesi için taşınma, sayım veya onay koşulları belirlenmemiştir. | Mevcut stok sahipsiz bırakılamaz; ayrıntılı engel ve yetki kuralı TBD'dir. |
-| LOC-008 | TBD DEPENDENCY | Hiyerarşi katmanları, lokasyon kodu biçimi, sayım alanları ve çoklu lokasyon dağıtım kuralları belirlenmemiştir. | Faz 0.3 veri modeli bu kararları varsaymamalıdır. |
+| LOC-007 | CONFIRMED | Yetkili envanter varken non-zero stock'lu lokasyon pasifleştirilemez ve `can_hold_stock` True→False yapılamaz; stok önce taşınmalı veya mutabakatla sıfırlanmalıdır (`DEC-023`). Hard delete iş operasyonu yoktur. | Mevcut stok sahipsiz bırakılamaz. Inventory entegrasyonu aynı invariant'ı otoritatif uygular; Phase 3.1 CRUD stok satırı yokken güvenle uygulanabilir. |
+| LOC-008 | PARTIALLY CONFIRMED | Lokasyon kodu, dinamik hiyerarşi ve `can_hold_stock` `DEC-023` ile kararlıdır. Sayım alanları (`DEC-HG-001`) ve çoklu lokasyon dağıtımı (`DEC-OPEN-002`) açık kalır. | Phase 3.1 Location foundation bu açık konulara bağlı değildir. |
 
 ## 7. Stok Giriş Kuralları
 
@@ -168,7 +168,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | AUTH-008 | CONFIRMED | Depo Görevlisi ayrıca açıkça yetkilendirilmedikçe düzeltme talebi onaylayamaz veya reddedemez. | Mevcut onay yetkisi Yönetici/Müdür rolündedir. |
 | AUTH-009 | CONFIRMED | Yönetici/Müdür uygulama içinde tam yönetim yetkisine, ana veri yönetimine ve kontrollü düzeltme yönetimine sahiptir. | Bu rol giriş, çıkış ve düzeltme kararlarını gerçekleştirebilmelidir. |
 | AUTH-010 | CONFIRMED | Yönetici/Müdür düzeltme taleplerini onaylayabilir veya reddedebilir. | Karar kullanıcı ve zamanla kaydedilmelidir. |
-| AUTH-011 | PARTIALLY CONFIRMED | Phase 2 erişim yönetimi (`DEC-022`): Django Group rol modeli; `accounts.manage_access` delegation capability; dokuz güvenli catalog permission allowlist; write/view invariant; rol lifecycle; yalnız `User.groups` yönetimi; anti-escalation kuralları; ikinci manager onayı yok; audited mutation. **Açık kalan:** “Operasyonel depo işleri” ayrıntılı izin listesi (`DEC-OPEN-005`); kullanıcı–çalışan sicil kaydı ilişkisi (`DEC-HG-004`). | Phase 2 rol/kullanıcı–rol yönetimi geniş yorumlanamaz; operasyonel depo ve Employee linkage kararları beklenir. |
+| AUTH-011 | PARTIALLY CONFIRMED | Phase 2 erişim yönetimi (`DEC-022`): Django Group rol modeli; `accounts.manage_access` delegation capability; dokuz güvenli catalog permission allowlist; write/view invariant; rol lifecycle; yalnız `User.groups` yönetimi; anti-escalation kuralları; ikinci manager onayı yok; audited mutation. Phase 3 Location izni genişlemesi (`DEC-022` item 13, `DEC-023`): `locations.view_location`, `locations.add_location`, `locations.change_location`; `add`/`change` `view` gerektirir; `delete` expose edilmez; `setup_roles` non-destructive kalır ve mevcut Group'lara sessizce izin eklemez. **Açık kalan:** “Operasyonel depo işleri” ayrıntılı izin listesi (`DEC-OPEN-005`); kullanıcı–çalışan sicil kaydı ilişkisi (`DEC-HG-004`). | Phase 2/3 rol/kullanıcı–rol yönetimi geniş yorumlanamaz; operasyonel depo ve Employee linkage kararları beklenir. |
 
 ## 13. Audit ve İzlenebilirlik Kuralları
 
@@ -270,7 +270,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | OD-013 | Eksik karar | Transfer gereken senaryolar ve transfer yetkileri bilinmiyor. | Transfer yalnızca uygulanabilirliği doğrulanan senaryolar için kapsamdır. |
 | OD-014 | Eksik karar | Birim dönüşümü, ondalık hassasiyet ve kısmi miktar davranışı bilinmiyor. | Otomatik dönüşüm varsayılmaz. |
 | OD-015 | Eksik karar | Aktif stok/hareket geçmişi bulunan malzemenin takip modu değiştirilebilir mi bilinmiyor. | Değişiklik koşulu kesinleştirilemez. |
-| OD-016 | Eksik karar | İçinde stok bulunan veya geçmişte kullanılmış lokasyonun pasifleştirme/silme süreci bilinmiyor. | Geçmiş referans korunmalı, mevcut stok sahipsiz kalmamalıdır. |
+| OD-016 | Kararlı | İçinde stok bulunan lokasyonun pasifleştirme/silme süreci `DEC-023` ile kararlıdır. Hard delete yoktur. Non-zero stock pasifleştirilemez ve `can_hold_stock` True→False yapılamaz. Inventory entegrasyonu aynı kuralı otoritatif uygular. | Geçmiş referans korunur; mevcut stok sahipsiz kalmaz. |
 | OD-017 | Eksik karar | Düzeltme talep eden ile karar veren aynı kişi olabilir mi; iptal/yeniden gönderim nasıl işler bilinmiyor. | Görev ayrılığı varsayılmaz. |
 | OD-018 | Eksik karar | Düzeltme fotoğrafının güncellik, biçim, boyut, erişim ve saklama koşulları bilinmiyor. | Güncel fotoğraf zorunluluğu korunur. |
 | OD-019 | Eksik karar | Rapor hafta sınırları, kullanım tanımı, azalış hesabı, filtre ve gruplamalar bilinmiyor. | Rapor türleri zorunlu, hesap ayrıntıları TBD'dir. |

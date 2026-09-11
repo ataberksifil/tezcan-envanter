@@ -147,30 +147,37 @@ Esnek nitelikler `Material` tanımına aittir; tekil fiziksel varlığın konum/
 
 ## 6. Lokasyon Domaini
 
-`Location`, fiziksel stok yerini ve hiyerarşisini temsil eden entity/aggregate root'tur. Kavramsal özellikleri:
+`Location`, fiziksel stok yerini ve hiyerarşisini temsil eden entity/aggregate root'tur. Kavramsal özellikleri (`DEC-023`):
 
-- benzersiz kimlik,
-- görünen ad,
-- isteğe bağlı üst lokasyon,
-- lokasyon türü,
+- benzersiz kimlik (UUID; kalıcı kimlik),
+- iş kodu (`code`; globally unique, case-sensitive, editable),
+- görünen ad (`name`; required, non-unique, editable),
+- isteğe bağlı üst lokasyon (nullable recursive parent),
 - aktif/pasif durum,
-- stok tutma yeteneği (`can_hold_stock`),
+- stok tutma yeteneği (`can_hold_stock`; default `False`),
+- `created_at` / `updated_at`,
 - ileride bağlanabilecek QR/barkod kimliği.
 
-Bilinen başlangıç alanları Elektrik Deposu, Alkali Elektrik alanındaki kablo stoğu, Enstrüman Atölyesi ve Bobinaj Atölyesi'dir.
+Zorunlu `location_type` / sabit WAREHOUSE/WORKSHOP/SHELF/BIN enum Phase 3.1'de yoktur. Sınıflandırma ileride gerekirse dinamik yapılandırma tercih edilir.
 
-Location hiyerarşisi dinamik ve arbitrary-depth'tir; hard-coded warehouse/corridor/rack/bin schema seviyeleri zorunlu değildir (`DEC-021`). Fabrika → Alan → Hat → Makine → Pano → Raf/Bin olası bir örnek hiyerarşidir; zorunlu yapı değildir. `can_hold_stock` presentation/type label'larından ayrı kalır. Location implementasyonu Phase 2 dışındadır. Kesin katmanlar ve lokasyon kodu **TBD**'dir.
+Elektrik Deposu, Alkali Elektrik, Enstrüman Atölyesi ve Bobinaj Atölyesi bilinen örnek / gerçek dünya girdileridir; tahmini hiyerarşi/kod/`can_hold_stock` seed satırı oluşturulmaz.
+
+Location hiyerarşisi dinamik ve arbitrary-depth'tir; hard-coded warehouse/corridor/rack/bin schema seviyeleri zorunlu değildir (`DEC-021`, `DEC-023`). Örnek evrim `site → workshop → warehouse → area → shelf → sub-shelf` olabilir; zorunlu yapı değildir. Generic tree framework tanıtılmaz. Path/depth cache bu fazda persist edilmez. `can_hold_stock` leaf/child/name/depth/type'tan türetilmez. Location henüz implement edilmemiştir; Phase 3.1 foundation implementation sıradadır.
 
 Domain davranışı:
 
 - mevcut fiziksel stok yalnız `active = true` ve `can_hold_stock = true` olan bir `Location` ile ilişkilidir;
+- yeni stok yerleşimi aynı `active && can_hold_stock` kuralını gerektirir (inventory logic bu karar kaydında implement edilmez);
 - raf seviyesi belirlenebilir olmalıdır;
 - lokasyon değişimi `InventoryTransaction` ile izlenir;
 - pasif lokasyon yeni operasyonel stok hareketinin hedefi olamaz;
-- `can_hold_stock`, lokasyonun leaf olması veya çocuk lokasyona sahip olmasıyla türetilmez;
-- parent/area/warehouse düğümleri aggregation/navigation için non-stock olabilir; shelf/bin düğümleri normalde stok lokasyonudur fakat type tek başına bu davranışı dayatmaz;
+- `can_hold_stock`, lokasyonun leaf olması, çocuk sayısı, adı, derinliği veya type ile türetilmez;
+- parent ve child bağımsız olarak stok tutabilir;
+- inactive parent'ın active child'ı olabilir; parent status children'a cascade etmez;
 - geçmiş bir işlemde kullanılan lokasyon pasif olsa dahi işlem anlaşılabilir kalır;
-- içinde stok bulunan lokasyonun pasifleştirme/silme süreci **TBD**'dir.
+- self-parent ve descendant/cycle parenting yasaktır; parent sonradan değiştirilebilir;
+- hard delete iş operasyonu yoktur;
+- yetkili envanter varken non-zero stock'lu Location pasifleştirilemez ve `can_hold_stock` True→False yapılamaz; stok önce taşınmalı/mutabakatla sıfırlanmalıdır (`DEC-023`). Inventory entegrasyonu aynı invariant'ı otoritatif uygular.
 
 ## 7. Envanter Domaini
 
@@ -589,7 +596,7 @@ Bu invariant'lar ilişkisel kısıtlara, servis doğrulamalarına ve otomatik te
 - **DI-005:** Miktar bazlı `StockBalance`, en az `Material + Location + MaterialCondition` boyutlarıyla ayırt edilebilir olmalıdır.
 - **DI-006:** Serialized bir işlem satırı birden çok anonim fiziksel varlığı miktar olarak temsil edemez; tam bir `SerializedAsset` kimliğine referans verir.
 - **DI-007:** Düzeltme, özgün `InventoryTransaction` izini yok edemez; özgün işlem, talep, karar ve sonuç ilişkili kalır.
-- **DI-008:** Fiziksel stok yalnız `active = true` ve `can_hold_stock = true` `Location` üzerinde bulunabilir; history sonraki pasifleştirmeden etkilenmez.
+- **DI-008:** Fiziksel stok yalnız `active = true` ve `can_hold_stock = true` `Location` üzerinde bulunabilir; history sonraki pasifleştirmeden etkilenmez. Yetkili envanter varken non-zero stock'lu Location pasifleştirilemez ve `can_hold_stock` True→False yapılamaz (`DEC-023`).
 - **DI-009:** Excel import commit'i ledger/`StockBalance` stok etkisi oluşturamaz; candidate data stok değildir.
 - **DI-010:** `Material.trackingMode`, işlemin miktar kimliğiyle mi yoksa `SerializedAsset` kimliğiyle mi yürütüleceğini belirler.
 - **DI-011:** Bir `InventoryTransactionLine` aynı anda hem anonim miktar hem de serialized varlık etkisi taşıyamaz.
@@ -654,7 +661,10 @@ Aşağıdaki olaylar kavramsal domain bildirimleridir:
 - `ImportValidated`
 - `ImportCommittedAsCandidate`
 - `InventoryBaselineEstablished`
+- `LocationCreated`
+- `LocationUpdated`
 - `LocationDeactivated`
+- `LocationReactivated`
 
 Bu olaylar modüller arası iş sonucunu ifade edebilir ve rapor/audit güncellemesini tetikleyebilir. V1 için full event sourcing gerekli değildir. `InventoryTransaction` denetlenebilir stok ledger'ıdır; kavramsal event listesi sistemi event store üzerinden yeniden kurma zorunluluğu doğurmaz. Ayrı CQRS altyapısı da bu modelin gereği değildir.
 
@@ -702,7 +712,7 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 | OD-014 | Ondalık hassasiyet, kısmi miktar ve birim dönüşümü | Miktar ve `UnitOfMeasure` kısıtları |
 | OD-007 | Üretim hattı ile fiili kullanım yeri modeli | `IssueContext` referansları ve tarihsel snapshot |
 | OD-026 | `ApplicationUser`–`Employee` ilişkisi (`DEC-HG-004`); rol atama `DEC-022` ile kararlı | Kimlik kardinaliteleri (employee linkage açık) |
-| OD-016 | Lokasyon hiyerarşisi/kodu ve stoklu lokasyonun pasifleştirilmesi | `Location` ilişkileri ve yaşam döngüsü |
+| OD-016 | Lokasyon hiyerarşisi/kodu ve stoklu lokasyonun pasifleştirilmesi `DEC-023` ile kararlı | `Location` ilişkileri ve yaşam döngüsü (inventory enforcement sonraki entegrasyon) |
 | OD-015 | Olağan değişiklik `DEC-013` ile yasak; exceptional migration istenirse iş kararı | `Material`, ledger ve kontrollü dönüşüm |
 | OD-011, OD-012 | Sayım onayı, tolerans, baseline onayı ve otorite kesim ölçütü | `PhysicalCountSession` ve `InventoryBaseline` yaşam döngüsü |
 | OD-017 | `DEC-HG-002`: düzeltme bounds, görev ayrılığı, partial/cumulative ve lineage | `CorrectionRequest` kardinalite ve durum geçişleri |

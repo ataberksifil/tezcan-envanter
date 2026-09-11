@@ -139,7 +139,7 @@ Tekil takipte zorunlu tanımlayıcılar, seri numarası kuralları ve takip biç
 
 ## 9. Location Requirements
 
-Bilinen depolama/atölye alanları:
+Bilinen depolama/atölye alanları (örnek / gerçek dünya girdisi; seed satırı değildir — `DEC-023`):
 
 - Elektrik Deposu
 - Alkali Elektrik alanındaki kablo stoğu
@@ -152,7 +152,7 @@ Bilinen depolama/atölye alanları:
 - **LOC-004:** Bir malzemenin mevcut olduğu fiziksel konum, gerekli depolama ayrıntı seviyesinde bilinebilmelidir.
 - **LOC-005:** Konumlar QR/barkod ile tanımlanabilmelidir.
 
-Konum hiyerarşisinin katmanları, konum kodlama standardı, bir malzemenin birden fazla konumda tutulma kuralları ve sayım alanlarının sınırları **TBD**'dir. Bunlar sonraki iş kuralı ve veri modeli çalışmalarında kesinleştirilecektir.
+Konum hiyerarşisi dinamik recursive parent ile arbitrary depth'tir; katmanlar hard-coded değildir (`DEC-023`). Konum kod politikası `DEC-023` ile kararlıdır. Bir malzemenin birden fazla konumda tutulma/dağıtım kuralları (`DEC-OPEN-002`) ve sayım alanlarının sınırları (`DEC-HG-001`) **TBD** kalır.
 
 ## 10. Inventory Movement Requirements
 
@@ -357,7 +357,7 @@ Onaylanmış V1 taahhüdü oluşturmayan gelecek değerlendirmeleri:
 | TBD-005 | İade, söküm, arıza ve düzeltme mekanikleri | Ters/dengeleyici hareketler ile miktar ve seri bazlı etkiler sonraki fazlarda belirlenecek. |
 | TBD-006 | Transfer gereksinimi | Hangi operasyonlarda transferin zorunlu olduğu ve kaynak/hedef kuralları doğrulanacak. |
 | TBD-007 | Ölçü birimleri ve kısmi miktarlar | Kablo gibi malzemeler dahil birim ve dönüşüm kuralları belirlenmedi. |
-| TBD-008 | Konum hiyerarşisi | Katmanlar, kodlama, çoklu konum ve sayım alanı sınırları belirlenecek. |
+| TBD-008 | Konum hiyerarşisi | Hiyerarşi, kod, `can_hold_stock` ve yaşam döngüsü `DEC-023` ile kararlıdır. Çoklu konum dağıtımı (`DEC-OPEN-002`) ve sayım alanı sınırları (`DEC-HG-001`) açık kalır. |
 | TBD-009 | Üretim hattı ve fiili kullanım yeri | Sözlükler, aralarındaki ilişki ve doğrulama biçimi belirlenecek. |
 | TBD-010 | Teslim alan kişi ve kullanıcı ilişkisi | Teslim alan kişinin sistem kullanıcısı olma zorunluluğu ve çalışan kaynağı netleştirilecek. |
 | TBD-011 | Rol ve yetki matrisi | Operasyonel depo görevleri, yönetici yetkileri, rol atama ve onay sınırları ayrıntılandırılacak. |

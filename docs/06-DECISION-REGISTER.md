@@ -57,7 +57,7 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
 - **Status:** `DECIDED`
 - **Audit:** `Gate0-AUD-003`
 - **Decision:** `Location.can_hold_stock` açık bir capability'dir. Fiziksel stok yalnız `active = true` ve `can_hold_stock = true` lokasyonda tutulabilir.
-- **Consequence:** `can_hold_stock`, leaf olma veya çocuk lokasyona sahip olma durumundan bağımsızdır. Parent/area/warehouse düğümleri aggregation/navigation için non-stock olabilir. Geçmiş referanslar sonraki pasifleştirmeden etkilenmez.
+- **Consequence:** `can_hold_stock`, leaf olma, çocuk sayısı, ad, hiyerarşi derinliği veya spekülatif `location_type` etiketinden türetilmez. Parent ve child bağımsız olarak stok tutabilir. Geçmiş referanslar sonraki pasifleştirmeden etkilenmez. Phase 3 şekil, kod, hiyerarşi ve yaşam döngüsü `DEC-023` ile kararlıdır.
 
 ### DEC-005 — Committed ledger için DB-level immutability guard
 
@@ -205,7 +205,7 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   5. **`UnitOfMeasure` policy (Phase 2.6):** `code` yetkili yönetici tarafından düzenlenebilir kalır; UUID kararlı kimliktir; `code` uniqueness korunur; `code` değişiklikleri audit edilir; case-insensitive normalization kuralı uydurulmaz; `decimal_places` semantik olarak `DEC-OPEN-010` altında çözülmemiş kalır; rounding/conversion davranışı oluşturulmaz. Referanslı bir UoM deaktive edilebilir: mevcut referanslar korunur, Material'lara cascade/mutation yapılmaz, yeni atama UI'larında inactive UoM sunulmaz, tarihsel/mevcut referanslar geçerli kalır. Seed UoM'ler özel koruma almaz.
   6. **Concurrency:** Phase 2 catalog master data için optimistic locking/`state_version` zorunlu değildir; geçici davranış last-write-wins kalır. Bu, gelecekteki stok mutation concurrency'sine uygulanmaz; stok tarafı transactional/locked kalır.
   7. **Technical specifications:** `Material.technical_specs` unrestricted raw JSON editor olarak expose edilmez. Gelecekteki kategori-özel teknik alanlar controlled `TechnicalFieldDefinition`-style metadata ile yönetilir: stable key, display label, closed data type, required flag, optional unit/choice metadata, ordering, active/inactive, safe bounded validation metadata. Arbitrary Python/SQL/plugin execution yoktur. Exact definition modeli sonraki gate'e bırakılır (`DEC-OPEN-019`).
-  8. **Location:** Gelecekteki Location hiyerarşisi dinamik ve arbitrary-depth'tir. Hard-coded warehouse/corridor/rack/bin schema seviyeleri zorunlu değildir. `can_hold_stock` presentation/type label'larından ayrı kalır. Location implementasyonu Phase 2 dışındadır.
+  8. **Location:** Gelecekteki Location hiyerarşisi dinamik ve arbitrary-depth'tir. Hard-coded warehouse/corridor/rack/bin schema seviyeleri zorunlu değildir. `can_hold_stock` presentation/type label'larından ayrı kalır. Location implementasyonu Phase 2 dışındadır. Phase 3.0 foundation `DEC-023` ile kararlıdır; implementasyon Phase 3.1'dir.
   9. **Hard invariant boundary:** Aşağıdakiler yönetici tarafından devre dışı bırakılabilir configuration haline gelemez: negatif stok yasağı; immutable `InventoryTransaction` ledger; immutable `AuditEvent`; yalnız inventory-service mutation; atomik stok mutation; idempotency; Decimal quantity semantics; doğrudan `StockBalance` edit yasağı; serialized identity integrity; `DEC-020` pending Teknisyen intake'in otoritatif stok etkisi olmaması; diğer onaylı inventory hard gate'ler. Movement mathematics generic configuration ile oluşturulamaz.
   10. **Movement / condition boundary:** Movement semantic type'lar code-controlled kalır. Condition label/reference metadata gelecekte dinamik olabilir; availability effect ve allowed transition'lar code/policy controlled kalır. `RETURN` ve Teknisyen movement classification çözülmez (`DEC-HG-005`, `DEC-020`).
   11. **Audit:** Her başarılı dynamic configuration mutation sonunda `permission → service → transaction → mutation + AuditEvent` yolu kullanılmalıdır. No-op veya başarısız/reddedilen işlem başarılı configuration mutation audit event'i üretmez. Audit schema değiştirilmez.
@@ -230,7 +230,29 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   10. **Audit events:** Onaylı aileler: `accounts.role.created`, `accounts.role.updated`, `accounts.role.permissions_changed`, `accounts.user.roles_changed`. No-op audit üretmez. Reddedilen/denied başarılı mutation audit'i değildir. Mutation ve audit aynı transaction içindedir; audit failure mutation rollback üretir.
   11. **Django Admin boundary:** Phase 2.9B audited management implement edildiğinde `auth.Group` writable Admin yüzeyi kaldırılır; `accounts.User` groups/user_permissions/privilege flag'leri için writable Admin yüzeyi kazanmaz; `AuditEvent` read-only kalır. Normal rol/kullanıcı–rol yönetimi audited application service'ler üzerinden yapılır.
   12. **UI boundary:** Phase 2.9B küçük uygulama UI'dır, generic IAM değildir. Planlanan yüzeyler: Yönetim → Roller ve Yetkiler; Yönetim → Kullanıcılar. Rol: list, create, custom-role rename, safe permission management. Kullanıcı: list, user-role assignment. Yok: rol delete, direct-permission editor, password/user account editor, generic permission browser, hierarchy engine, approval engine.
-- **Consequence:** Phase 2.9B product-policy blocker kapanır. `AUTH-011` rol atama/onay ve Phase 2 tam yönetim sınırı kısmı kararlıdır; operasyonel depo işleri (`DEC-OPEN-005`) ve Employee–ApplicationUser ilişkisi (`DEC-HG-004`) açık kalır. `DEC-020`, inventory permission boundary, `DEC-OPEN-019` ve diğer hard gate'ler değişmez.
+  13. **Phase 3 Location permission extension:** Phase 3, DEC-022-style managed allowlist'i şu üç izinle genişletir: `locations.view_location`, `locations.add_location`, `locations.change_location`. `delete_location` application access management'ta expose edilmez. `add_location` veya `change_location`, `view_location` gerektirir (mevcut write/view invariant). Varsayılan şablonlar ileride `TECHNICIAN` ve `STOREKEEPER` için `view_location`, `ADMIN_MANAGER` için view/add/change içerebilir. `setup_roles` non-destructive kalır; mevcut Group'lar reconcile edilmez ve sessizce yeni izin almaz. Location şekli, kod ve yaşam döngüsü `DEC-023`tedir.
+- **Consequence:** Phase 2.9B product-policy blocker kapanır. `AUTH-011` rol atama/onay ve Phase 2 tam yönetim sınırı kısmı kararlıdır; operasyonel depo işleri (`DEC-OPEN-005`) ve Employee–ApplicationUser ilişkisi (`DEC-HG-004`) açık kalır. `DEC-020`, inventory permission boundary, `DEC-OPEN-019` ve diğer hard gate'ler değişmez. Phase 3 Location izinleri item 13 ve `DEC-023` ile allowlist'e eklenir; Phase 2 dokuz catalog izni tarihi olarak korunur.
+
+### DEC-023 — Phase 3 Location Foundation Policy
+
+- **Status:** `DECIDED`
+- **Required before:** Phase 3.1 Location foundation implementation
+- **Resolves:** Location code portion of `DEC-OPEN-021`; `DEC-OPEN-012`; `OD-016`; `DM-B09` type/hierarchy/code/deactivation; `LOC-007`; `UF-O-15`; `TBD-008` hierarchy/code/lifecycle portion
+- **Does not resolve:** Material code uniqueness/format (`DEC-OPEN-021` remainder); `DEC-HG-001`–`DEC-HG-005`; `ProductionLine`; `Employee`; `DEC-OPEN-019`; inventory mutation
+- **Principle:** İş/master veri, envanter doğruluğunu tehlikeye atmadan mümkün olduğunca dinamik yapılandırılabilir ve güvenle düzenlenebilir olmalıdır. Kararlı kimlik UUID'dir; iş yüzü ad/kod ve hiyerarşi evrilebilir. Hiyerarşik entity'ler, pratik olduğu yerde sabit warehouse/shelf/line-level enum yerine dinamik recursive parent kullanır. Generic tree framework tanıtılmaz. Historical/audit/inventory gerçekleri, güncel master data sonradan düzenlense bile immutable kalır.
+- **Decision:**
+  1. **Minimal Location shape (Phase 3.1):** UUID primary key; `code`; `name`; nullable recursive `parent`; `active`; `can_hold_stock`; `created_at`; `updated_at`. `location_type` Phase 3.1 için zorunlu değildir ve sabit enum olarak implement edilmez.
+  2. **Location code:** Zorunlu; dış boşluk trim edilir; blank yasaktır; globally unique; case-sensitive; editable; regex format yoktur; forced upper/lowercase yoktur. Kalıcı kimlik UUID'dir, `code` değildir.
+  3. **Location name:** Zorunlu; trim edilir; non-unique; editable.
+  4. **Hierarchy:** Dinamik ve arbitrary depth. Örnek evrim `site → workshop → warehouse → area → shelf → sub-shelf` olabilir; bu seviyeler hard-coded değildir. Root: `parent = null`. Parent sonradan değiştirilebilir. Self-parent yasaktır. Descendant/cycle parenting yasaktır. Sabit maksimum derinlik yoktur. Sabit level/type enum yoktur. Parent ve child bağımsız olarak stok tutabilir. Inactive parent'ın active child'ı olabilir. Parent status children'a cascade etmez. Bu fazda path/depth cache persist edilmez. Generic tree framework yoktur.
+  5. **`location_type`:** Daha önce önerilen zorunlu `location_type` Phase 3.1'den çıkarılır/ertelenir. `WAREHOUSE`, `WORKSHOP`, `SHELF`, `BIN` gibi sabit enum değerleri implement edilmez. Phase 3.1 operasyonel capability `can_hold_stock`tır. Sınıflandırma ileride gerekirse spekülatif hard-coded enum yerine dinamik yapılandırma tercih edilir.
+  6. **`can_hold_stock`:** Düzenlenebilir, bağımsız capability. Leaf status, child count, name, hierarchy depth veya type'tan türetilmez. Parent ve child ikisi de `True` olabilir. Default: `False`. Gelecekteki yeni stok yerleşimi `active=True AND can_hold_stock=True` gerektirir. Bu karar kaydı stok logic implement etmez.
+  7. **Active/inactive lifecycle:** Hard delete iş operasyonu yoktur. Inactive Location okunabilir ve tarihsel olarak referanslanabilir kalır; gelecekteki YENİ stok yerleşimini alamaz. Deactivation children'a cascade etmez. Reactivation children/history mutate etmez. Yetkili envanter varken non-zero stock'lu Location pasifleştirilemez ve `can_hold_stock=True` → `False` yapılamaz; stok önce taşınmalı/mutabakatla sıfırlanmalıdır. Envanter satırları yokken Phase 3.1 Location CRUD bu kuralı stok satırı incelemeden uygulayabilir. Inventory entegrasyonu aynı invariant'ı sonradan otoritatif olarak uygulamak zorundadır.
+  8. **Permissions:** Phase 3 managed izinler: `locations.view_location`, `locations.add_location`, `locations.change_location`. Application access management `delete` izni expose etmez. `add_location` veya `change_location` `view_location` gerektirir. Allowlist genişlemesi `DEC-022` item 13'tedir. `setup_roles` non-destructive kalır.
+  9. **Management / audit:** Location mevcut Yönetim shell üzerinden yönetilir. Writable Django Admin Location yüzeyi yoktur. Gelecekteki Location write servisleri `transaction + service-layer mutation + AuditEvent` kullanır. Planlanan event ailesi: `locations.location.created`, `locations.location.updated`, `locations.location.deactivated`, `locations.location.reactivated`. Canonical identity Location UUID'dir. Delete operasyonu olmadığı için delete event yoktur.
+  10. **Seed data:** Tahmin edilmiş fabrika Location satırları seed edilmez. Elektrik Deposu, Alkali Elektrik, Enstrüman Atölyesi, Bobinaj Atölyesi gibi bilinen adlar örnek / gerçek dünya girdisidir; kesin hiyerarşi, kod, `can_hold_stock` ve child yapısı henüz yeterince tanımlı değildir. Onaylandığında yönetim UI'sı üzerinden dinamik oluşturulurlar.
+  11. **Phase 3 roadmap:** Phase 3.0 Location foundation decisions COMPLETE. Sıradaki: Phase 3.1 Location foundation implementation. Location henüz implement edilmemiştir. Inventory başlamamıştır.
+- **Consequence:** Phase 3.1 Location CRUD `DEC-023` şekline uyar. Material code, ProductionLine, Employee ve inventory hard gate'leri açık kalır.
 
 ## 3. Açık İş Kararları
 
@@ -254,7 +276,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | `DEC-OPEN-009` | Transfer permissions ve zorunlu senaryolar | `OPEN` | OD-013, DM-B12, UF-O-05 | Transfer implementation | İş sahibi | Atomik source/target semantiği `DEC-003` ile şimdiden sabittir. |
 | `DEC-OPEN-010` | Unit decimal precision ve unit conversion | `OPEN` | OD-014, DM-B06, UF-O-18 | Unit-specific validation | İş sahibi | Technical default `NUMERIC(18,3)`; conversion yok. |
 | `DEC-OPEN-011` | Exceptional tracking-mode migration policy | `OPEN` | OD-015, DM-B10, UF-O-14 | Böyle bir dönüşüm talep edilirse | İş sahibi + migration review | Normal edit yasağı `DEC-013` ile kararlıdır. |
-| `DEC-OPEN-012` | Stocked location deactivation | `OPEN` | OD-016, DM-B09, UF-O-15 | Location deactivation feature | İş sahibi | `can_hold_stock` eligibility `DEC-004` ile kararlıdır; existing-stock lifecycle açık kalır. |
+| `DEC-OPEN-012` | Stocked location deactivation | `DECIDED` | OD-016, DM-B09, UF-O-15 | Inventory integration (authoritative stock-row enforcement) | — | `DEC-023` ile kapatıldı. Non-zero stock Location pasifleştirilemez ve `can_hold_stock` True→False yapılamaz; stok önce sıfırlanmalıdır. Phase 3.1 CRUD, stok satırı yokken güvenle uygulanabilir. Inventory aynı invariant'ı otoritatif uygulamak zorundadır. |
 | `DEC-OPEN-013` | Photo format/size/currentness/retention | `OPEN` | OD-018, COR-013, DM-P01 | Attachment feature; retention pilot öncesi | Security + iş sahibi | Güvenlik sınırları `DEC-017`, storage/backup sırası `DEC-018` ile kararlıdır. |
 | `DEC-OPEN-014` | Report periods, usage/decrease definitions | `OPEN` | OD-019, REP-007, UF-O-10 | Reporting implementation | İş sahibi | Europe/Istanbul presentation default'u korunur. |
 | `DEC-OPEN-015` | Excel workbook mapping ve cleansing | `OPEN` | OD-020, IMP-006 | Import implementation | Gerçek workbook + iş sahibi | Candidate stock yasağı `DEC-001` ile kararlıdır. |
@@ -263,7 +285,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | `DEC-OPEN-018` | Ledger/audit/photo/import retention periods | `OPEN` | OD-024, TIME-006, DM-P01, UF-O-24 | Pilot/go-live policy | İş sahibi + legal/privacy + IT | Karar çıkana kadar destructive deletion yok. |
 | `DEC-OPEN-019` | Category-specific technical attribute schema | `OPEN` | OD-025, MAT-004, Ürün TBD-001/TBD-002 | Catalog/import mapping | Gerçek material/workbook examples | JSONB teknik yönü korunur. |
 | `DEC-OPEN-020` | Quantitative stock accuracy target | `OPEN` | OD-028, DM-P04, Ürün TBD-021 | Pilot acceptance calibration | İş sahibi | Fiziksel bulunabilirlik hedefini zayıflatmaz. |
-| `DEC-OPEN-021` | Material/location code uniqueness and format | `OPEN` | DM-B01, DM-B09, UF-O-17 | Catalog/locations/import matching | İş sahibi + existing data | Employee number konusu `DEC-HG-004` içindedir. |
+| `DEC-OPEN-021` | Material code uniqueness and format | `OPEN` | DM-B01, UF-O-17 | Catalog/import matching | İş sahibi + existing data | Location code policy `DEC-023` ile kararlıdır ve bu kayıttan ayrılmıştır. Material code uniqueness/format ve import matching açık kalır. Employee number `DEC-HG-004` içindedir. |
 | `DEC-OPEN-022` | Technical attribute advanced search | `OPEN` | UF-O-20 | Advanced search feature | Kullanıcı ihtiyaçları + ölçülmüş sorgular | JSONB GIN/trigram ihtiyaç doğrulanmadan eklenmez. |
 | `DEC-OPEN-023` | Offline/mobile retry UX ve sync semantics | `OPEN` | Ürün TBD-029, UF-O-22 | V1 sonrası offline/mobile feature | İş sahibi + mimari review | V1 online web-first; `operation_id`/fingerprint hazırlığı offline sync implementasyonu değildir. |
 | `DEC-OPEN-024` | Login/export/security audit detail | `OPEN` | UF-O-23 | Security reporting feature | Security + iş sahibi | Inventory ledger gereksiz generic audit olarak kopyalanmaz. |
@@ -289,7 +311,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 |---|---|
 | First Django migration / Django bootstrap | `DEC-019`: project-owned `AUTH_USER_MODEL` (`accounts.User`, minimal `AbstractUser`) |
 | Accounts implementation | `DEC-HG-004`: employee number uniqueness/reuse ve Employee–ApplicationUser ilişkisi |
-| Catalog/import identity matching | `DEC-OPEN-004`, `DEC-OPEN-021`; history sonrası tracking mode için `DEC-013` zaten kararlı |
+| Catalog/import identity matching | `DEC-OPEN-004`, `DEC-OPEN-021` (Material code; Location code `DEC-023` ile kararlı); history sonrası tracking mode için `DEC-013` zaten kararlı |
 | Issue data/UI | `DEC-HG-003`; receiver snapshots değişmez |
 | Technician field intake request/approval workflow | `DEC-020` kararlıdır; talep/onay schema/service/UI implementasyonu ayrı görevdir; hareket türü eşlemesi `DEC-HG-005` çözülmeden yapılmaz |
 | Return | `DEC-HG-005`; cevaplanmadan schema/service/UI ve aktif menü yok |
@@ -306,7 +328,9 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 2.6 UnitOfMeasure UI | `DEC-021` UoM policy; `DEC-OPEN-010` rounding/conversion çözülmeden precision semantics uydurulmaz |
 | Phase 2.8B technical specifications | **Disposition: `DEFER`** (2026-09-11). `DEC-021`, `DEC-OPEN-019` (`OPEN` kalır; yeni DEC yok). Bkz. §4.1. |
 | Phase 2.9C technical-field configuration | **Disposition: `SKIPPED`** (2026-09-11). Onaylı gerçek fabrika teknik alan kanıtı yok; Phase 2.8B DEFER otoritatif kalır. `DEC-OPEN-019` (`OPEN` kalır; yeni DEC yok). Bkz. §4.2. |
-| Location / ProductionLine UI | Phase 2 dışı; `DEC-004`, `DEC-HG-003` korunur |
+| Location / ProductionLine UI | Location foundation `DEC-023` (Phase 3.0 COMPLETE). Sıradaki: Phase 3.1 implementation. Location henüz implement edilmemiştir. `ProductionLine` `DEC-HG-003` ile açık kalır. |
+| Phase 3.0 Location foundation decisions | **COMPLETE** (2026-09-11). `DEC-023`. Bkz. §4.1 Phase 3.0. Location henüz implement edilmemiştir. |
+| Phase 3.1 Location foundation implementation | `DEC-023`; kod, hiyerarşi, `can_hold_stock`, lifecycle, izin ve audit politikası kararlıdır. Location henüz implement edilmemiştir. Inventory başlamamıştır. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 
@@ -350,7 +374,20 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
   - Phase 2.8B `DEFER` kalır (§4.1)
   - `DEC-OPEN-019` `OPEN` kalır
 - **Kanıt özeti (2026-09-11):** PostgreSQL/model/migration consistency PASS; Category/UoM/Material PASS; immutable audit PASS; `DEC-022` access management PASS; inactive-user security fix PASS; Django Admin bypass closure PASS; targeted suite PASS; full suite 478 passed; repository clean; blocking finding yok.
-- **Not:** Gate 2 PASS, `DEC-HG-001`–`DEC-HG-005`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019` ve `DEC-OPEN-021` dahil gelecek faz hard gate/open kararlarını çözmez.
+- **Not:** Gate 2 PASS, `DEC-HG-001`–`DEC-HG-005`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019` ve `DEC-OPEN-021` (Material code remainder) dahil gelecek faz hard gate/open kararlarını çözmez. Location foundation `DEC-023` ile Phase 3.0'da ayrıca kararlaştırılmıştır.
+
+#### Phase 3.0 — Location Foundation Decisions
+
+- **Disposition:** `COMPLETE` (2026-09-11)
+- **Anlam:**
+  - Phase 3 master-data principle ve Location şekli/kod/hiyerarşi/`can_hold_stock`/lifecycle/permission/audit/seed politikası `DEC-023` ile kararlıdır
+  - `location_type` Phase 3.1 için zorunlu değildir
+  - `DEC-OPEN-012` kapatıldı
+  - `DEC-OPEN-021` Location code portion'ı ayrılıp kapatıldı; Material code remainder `OPEN` kalır
+  - Location henüz implement edilmemiştir
+  - Inventory başlamamıştır
+- **Sıradaki:** Phase 3.1 — Location foundation implementation
+- **Açık kalan:** `DEC-HG-001`–`DEC-HG-005`, `ProductionLine`, `Employee`, `DEC-OPEN-019`
 
 ## 5. Audit Finding Disposition
 
@@ -402,7 +439,7 @@ Legacy kimlikler silinmez; toplu eşlemeler aşağıdaki kanonik kayıtlara yön
 | `OD-013`, `DM-B12`, `UF-O-05` | `DEC-OPEN-009` |
 | `OD-014`, `DM-B06`, `UF-O-18` | `DEC-OPEN-010` |
 | `OD-015`, `DM-B10`, `UF-O-14` | `DEC-013`, `DEC-OPEN-011` |
-| `OD-016`, `DM-B09`, `UF-O-15` | `DEC-004`, `DEC-OPEN-012` |
+| `OD-016`, `DM-B09`, `UF-O-15` | `DEC-004`, `DEC-023` (`DEC-OPEN-012` DECIDED) |
 | `OD-017`, `DM-B13`, `UF-O-13` | `DEC-HG-002` |
 | `OD-018`, `DM-P01` | `DEC-OPEN-013` |
 | `OD-019`, `UF-O-10` | `DEC-OPEN-014` |
@@ -428,7 +465,7 @@ Legacy kimlikler silinmez; toplu eşlemeler aşağıdaki kanonik kayıtlara yön
 | `TBD-005` | `DEC-HG-002`, `DEC-HG-005` |
 | `TBD-006` | `DEC-OPEN-009` |
 | `TBD-007` | `DEC-OPEN-010` |
-| `TBD-008` | `DEC-OPEN-012`, `DEC-OPEN-021`, `DEC-HG-001` |
+| `TBD-008` | `DEC-023` (hiyerarşi/kod/lifecycle); çoklu konum `DEC-OPEN-002`; sayım alanı `DEC-HG-001` |
 | `TBD-009` | `DEC-HG-003` |
 | `TBD-010` | `DEC-HG-004` |
 | `TBD-011` | `DEC-OPEN-005`, `DEC-OPEN-007`, `DEC-OPEN-008`, `DEC-OPEN-009` |

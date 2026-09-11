@@ -258,6 +258,8 @@ Server-side authorization zorunludur; gizli/disabled button güvenlik değildir.
 | `STOREKEEPER` | View, receipt, issue; diğer operational permissions TBD |
 | `ADMIN_MANAGER` | Full application management, master data, correction approval ve controlled correction |
 
+Phase 3 managed Location permissions (`DEC-023`, `DEC-022` item 13): `locations.view_location`, `locations.add_location`, `locations.change_location`. Application access management `delete_location` expose etmez. `add_location` veya `change_location`, `view_location` gerektirir. Varsayılan şablonlar ileride `TECHNICIAN`/`STOREKEEPER` için `view_location`, `ADMIN_MANAGER` için view/add/change içerebilir. `setup_roles` non-destructive kalır; mevcut Group'lara sessizce yeni izin verilmez.
+
 Return, transfer, count/reconciliation ve reporting permission'larını uydurma.
 
 `DEC-HG-005`: Prior ISSUE zorunluluğu, partial quantity, returned condition'ı belirleyen aktör, serialized current-state ve sistemde issue edilmemiş wrong-delivery/found material davranışı çözülmeden RETURN schema/service/UI veya aktif menü oluşturma.
@@ -328,14 +330,20 @@ Bir `InventoryBaseline`, downstream-owned association ile `1..N` scoped `INITIAL
 ## 16. Locations, Quantities ve Database
 
 - Locations hierarchical'dır; shelf-level inventory zorunludur.
-- `Location.can_hold_stock` explicit capability'dir; leaf/child durumundan ve type'tan türetilmez.
+- Hiyerarşi dinamik recursive parent ile arbitrary depth'tir; sabit warehouse/shelf/line enum ve generic tree framework yoktur (`DEC-023`).
+- UUID kalıcı kimliktir; `code` globally unique, case-sensitive, editable; regex/forced case yoktur.
+- `name` required, trimmed, non-unique, editable.
+- Path/depth cache bu fazda persist edilmez.
+- `Location.can_hold_stock` explicit capability'dir; leaf/child/name/hierarchy depth veya type'tan türetilmez. Default `False`. Parent ve child bağımsız olarak stok tutabilir.
 - Fiziksel stok yalnız `active=true AND can_hold_stock=true` location'a yeni olarak yerleştirilebilir.
-- Parent/area/warehouse node non-stock aggregation/navigation olabilir; shelf/bin normalde stock location olsa da type tek başına bunu dayatmaz.
-- Inactive location yeni operational inventory alamaz.
-- Historical location reference okunabilir kalır.
-- Circular parent hierarchy yasaktır.
-- Referans verilen location hard delete edilmez.
-- Stocked-location deactivation **TBD**'dir.
+- Inactive location yeni operational inventory alamaz; historical location reference okunabilir kalır.
+- Inactive parent'ın active child'ı olabilir; parent status children'a cascade etmez.
+- Circular parent hierarchy yasaktır; self-parent ve descendant/cycle parenting yasaktır; parent sonradan değiştirilebilir.
+- Referans verilen location hard delete edilmez; hard delete iş operasyonu yoktur.
+- Yetkili envanter varken non-zero stock'lu Location pasifleştirilemez ve `can_hold_stock` True→False yapılamaz; stok önce taşınmalı/mutabakatla sıfırlanmalıdır (`DEC-023`). Inventory entegrasyonu aynı invariant'ı otoritatif uygular. Phase 3.1 CRUD, stok satırı yokken güvenle uygulanabilir.
+- Zorunlu `location_type` Phase 3.1'de yoktur.
+- Location writable Django Admin yüzeyi yoktur; Yönetim shell + service + `AuditEvent` kullanılır.
+- Tahmini fabrika Location satırları seed edilmez.
 
 Inventory quantity için float kullanma. Current direction `NUMERIC(18,3)`tır. Her unit'in decimal kabul ettiğini varsayma; per-unit precision **TBD**'dir.
 
@@ -353,6 +361,8 @@ Django Admin'de arbitrary edit sunma:
 - established baseline
 
 Protected model Admin'lerinde ordinary add/change/delete permission kapalı, readonly alanlar explicit, transaction-line inline ve destructive bulk action (`delete_selected` dahil) disabled olmalıdır.
+
+Location writable Django Admin yüzeyi yoktur; Location mevcut Yönetim shell, service-layer mutation ve `AuditEvent` ile yönetilir (`DEC-023`).
 
 Master data kontrollü admin ekranlarıyla yönetilebilir. Admin action/save stok değiştiriyorsa aynı inventory service yolunu kullanmalıdır; doğrudan ORM mutation yasaktır. Admin lockdown DB guard'ın yerine geçmez. Shell/dbshell/`loaddata`/management command Admin koruması dışında olsa da ledger immutability ve cross-table DB guards'ı aşamaz.
 

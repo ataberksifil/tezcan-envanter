@@ -236,7 +236,7 @@ Quantity balance kimliği:
 Kurallar:
 
 - Yalnızca `QUANTITY` material kullanır.
-- Yalnız `active = true AND can_hold_stock = true` location kullanır; eligibility leaf/child durumundan türetilmez.
+- Yalnız `active = true AND can_hold_stock = true` location kullanır; eligibility leaf/child/name/depth/type'tan türetilmez (`DEC-023`).
 - `NUMERIC(18,3)` current recommendation'dır; birim bazlı precision kuralı TBD'dir.
 - Quantity sıfırdan küçük olamaz.
 - Doğrudan kullanıcı, view, form veya admin düzenlemesi yoktur.
@@ -393,7 +393,8 @@ Phase 2.9B erişim yönetimi politikası (`DEC-022`):
 - Django `Group` rol modeli olarak kalır; runtime authorization permission tabanlıdır.
 - Yönetim capability: `accounts.manage_access` (catalog permission allowlist'inin dışında, ayrı delegation capability).
 - Bootstrap otorite: Django superuser; superuser olmayan access manager `manage_access` veremez/alamaz.
-- Safe allowlist (dokuz permission): Category, UnitOfMeasure ve Material için `view_*`, `add_*`, `change_*` yalnızca; `delete_*`, inventory, audit mutation, auth model-management ve workflow permission'ları expose edilmez.
+- Safe Phase 2 allowlist (dokuz permission): Category, UnitOfMeasure ve Material için `view_*`, `add_*`, `change_*` yalnızca; `delete_*`, inventory, audit mutation, auth model-management ve workflow permission'ları expose edilmez.
+- Phase 3 Location allowlist extension (`DEC-022` item 13, `DEC-023`): `locations.view_location`, `locations.add_location`, `locations.change_location`. `delete_location` expose edilmez. `setup_roles` mevcut Group'ları reconcile etmez.
 - Write/view invariant: `add_*`/`change_*`, karşılık gelen `view_*` olmadan yapılandırılamaz; sunucu tarafı service validation otoritedir.
 - User-role boundary: yalnız `User.groups`; password, privilege flag'leri, Employee linkage ve direct `user_permissions` yönetilmez.
 - Anti-escalation: non-superuser access manager kendi üyeliklerini, `manage_access` taşıyan rol/kullanıcıları, superuser/`is_staff`/direct-permission kullanıcıları ve actor kümesini aşan hedefleri değiştiremez.
@@ -656,9 +657,11 @@ Test önceliği: **business invariant > transaction integrity > permission > use
 Django Admin kontrollü master/administrative görevlerde kullanılabilir:
 
 - kategori, birim ve kondisyon referans yönetimi,
-- yetkili material/location master yönetimi,
+- yetkili material master yönetimi,
 - kullanıcı/grup yönetimi,
 - read-only audit/ledger inceleme.
+
+Location writable Django Admin yüzeyi yoktur; Location mevcut Yönetim shell üzerinden yönetilir (`DEC-023`).
 
 Admin'de doğrudan editable olmayacak:
 
@@ -790,14 +793,14 @@ Bu legacy özet tüm projeyi bloke etmez. Güncel status, owner, source mapping 
 
 | Konu | İlgili feature/modül | Kaynak |
 |---|---|---|
-| Employee number ve material code uniqueness/reuse | accounts, catalog, imports | DM-B01 |
+| Employee number ve material code uniqueness/reuse | accounts, catalog, imports | DM-B01; Location code `DEC-023` |
 | Serialized zorunlu identifier ve state kodları | serialized receipt/issue/transfer | DM-B02, DM-B03 |
 | Kondisyonun available/minimum stok etkisi | inventory, low stock, return | DM-B04 |
 | Minimum stok aggregation | reports/low stock | DM-B05 |
 | Birim bazlı decimal precision/kısmi miktar | quantity mutation | DM-B06 |
 | Production line / usage location veri modeli | issue | DM-B07 |
 | Employee–ApplicationUser ilişkisi | accounts, receiver lookup | DM-B08 |
-| Location hierarchy/code ve stoklu pasifleştirme | locations, counting | DM-B09 |
+| Location hierarchy/code, `can_hold_stock` ve stoklu pasifleştirme `DEC-023` ile kararlı; inventory enforcement sonraki entegrasyon | locations, counting | DM-B09 |
 | Exceptional tracking-mode migration istenirse dönüşüm politikası; normal edit `DEC-013` ile yasak | catalog | DM-B10 |
 | `DEC-HG-005` Return semantics ve permission | return | DM-B11 |
 | Transfer senaryosu ve permission | transfer | DM-B12 |
@@ -876,7 +879,9 @@ Re-audit başarılı olmadan Phase 1 otomatik başlamaz.
 
 Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs/06-DECISION-REGISTER.md` §4.3) → Phase 2 başladı → Phase 2 tamamlandı → **Gate 2 PASS** (2026-09-11; bkz. `docs/06-DECISION-REGISTER.md` §4.4) → **Phase 2: CLOSED**.
 
-**Sıradaki implementation alanı:** Phase 3 — physical inventory foundation. İlk planlanan çalışma: Location foundation / pre-inventory domain decisions. Location henüz implement edilmemiştir.
+**Phase 3.0:** Location foundation decisions — COMPLETE (`DEC-023`). Location henüz implement edilmemiştir.
+
+**Sıradaki implementation alanı:** Phase 3.1 — Location foundation implementation. Inventory başlamamıştır.
 
 ## 37. Dynamic Configuration Architecture
 
@@ -891,8 +896,8 @@ Onaylı mimari ilke (`DEC-021`):
 - Category hiyerarşisi
 - `UnitOfMeasure`
 - `Material`
-- Location hiyerarşisi (implementasyon Phase 2 dışı)
-- `ProductionLine` (implementasyon Phase 2 dışı; `DEC-HG-003`)
+- Location hiyerarşisi (`DEC-023`; implementasyon Phase 3.1)
+- `ProductionLine` (implementasyon Phase 3 sonrası karar; `DEC-HG-003`)
 - Onaylı reason/reference listeleri
 - Technical-field tanımları (`DEC-OPEN-019`)
 - Yapılandırılabilir eşikler
@@ -935,7 +940,7 @@ Onaylı politika (`DEC-022`):
 
 - Rol modeli: Django `Group`; bootstrap şablonları runtime identity değildir.
 - Management permission: `accounts.manage_access` — rol yönetimi, onaylı rol permission'ları, kullanıcı–rol atamaları.
-- Safe catalog allowlist: dokuz permission (Category/UoM/Material view/add/change); `accounts.manage_access` allowlist dışındadır.
+- Safe catalog allowlist: dokuz Phase 2 permission (Category/UoM/Material view/add/change); Phase 3 Location extension: `locations.view_location`, `locations.add_location`, `locations.change_location` (`DEC-023`). `accounts.manage_access` allowlist dışındadır. `setup_roles` mevcut Group'ları reconcile etmez.
 - Rol lifecycle: hard delete yok; custom rename mümkün; bootstrap roller canonical ad ile korunur; `setup_roles` non-destructive.
 - Privilege safety: non-superuser actor için self-modification, `manage_access` escalation ve hedef kümesi aşımı engellenir.
 - Audit UUID: `uuid5(ROLE_NAMESPACE, str(group.pk))` ve `uuid5(USER_NAMESPACE, str(user.pk))`; namespace sabitleri kaynak kodda fixed.
@@ -961,6 +966,13 @@ Kanonik sıra (`DEC-021`):
 
 **Phase 2:** CLOSED (2026-09-11).
 
-**Sıradaki:** Phase 3 — physical inventory foundation. İlk planlanan çalışma: Location foundation / pre-inventory domain decisions. Location henüz implement edilmemiştir.
+## 39. Phase 3 Implementation Roadmap
 
-**Phase 2/3 dışı (henüz):** `ProductionLine` ve inventory mutation implementasyonu. Açık hard gate'ler (`DEC-HG-001`–`DEC-HG-005`, `DEC-OPEN-*`) korunur; Gate 2 PASS bunları çözmez.
+| Görev | Kapsam |
+|---|---|
+| 3.0 | Location foundation decisions — **COMPLETE** (`DEC-023`, 2026-09-11) |
+| 3.1 | Location foundation implementation — sıradaki. Location henüz implement edilmemiştir. |
+
+**Sıradaki:** Phase 3.1 — Location foundation implementation.
+
+Location henüz implement edilmemiştir. Inventory mutation implementasyonu henüz başlamamıştır. `ProductionLine` ve `Employee` sonraki Phase 3 kararlarındadır. Açık hard gate'ler (`DEC-HG-001`–`DEC-HG-005`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur.

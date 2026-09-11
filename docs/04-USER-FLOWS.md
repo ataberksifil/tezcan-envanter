@@ -781,41 +781,45 @@ flowchart TD
 
 ### UF-MST-002 — Lokasyon Yönetimi
 
-**Actors:** `ADMIN_MANAGER`
+**Actors:** Yazma: `ADMIN_MANAGER`. Görüntüleme: `locations.view_location` (varsayılan şablonlarda `TECHNICIAN`/`STOREKEEPER`/`ADMIN_MANAGER` için düşünülebilir; `setup_roles` mevcut Group'lara sessizce izin eklemez).
 
 **Preconditions**
-- Yönetici yetkisi.
+- Yönetim shell erişimi ve ilgili Location permission.
 
 **Trigger**
-- Lokasyon oluşturma/düzenleme/pasifleştirme.
+- Lokasyon oluşturma/düzenleme/pasifleştirme/yeniden aktifleştirme.
 
 **Main Flow**
 1. Lokasyon oluştur veya düzenle.
-2. Üst lokasyon, tür, kod ve explicit `can_hold_stock` capability atanır.
-3. Raf/bin hiyerarşisi korunur.
-4. Pasifleştirme yapılır; içinde stok varsa süreç **TBD**.
+2. Kod, ad, üst lokasyon ve explicit `can_hold_stock` capability atanır. `location_type` zorunlu değildir.
+3. Dinamik recursive hiyerarşi korunur; sabit warehouse/shelf enum yoktur.
+4. Pasifleştirme/yeniden aktifleştirme yapılır. Yetkili envanter varken non-zero stock pasifleştirilemez ve `can_hold_stock` True→False yapılamaz (`DEC-023`); stok önce sıfırlanmalıdır.
 
 **Validation Rules**
-- Kendine parent olamaz; çevrim servis katmanında engellenir.
-- Yeni stok için lokasyon `active && can_hold_stock` olmalıdır; `can_hold_stock` leaf/child durumundan türetilmez.
+- Kendine parent olamaz; descendant/cycle parenting servis katmanında engellenir.
+- Kod: required, trim, blank yasak, globally unique, case-sensitive, regex/forced case yok.
+- Ad: required, trim, non-unique.
+- Yeni stok için lokasyon `active && can_hold_stock` olmalıdır; `can_hold_stock` leaf/child/name/depth/type'tan türetilmez. Default `False`.
+- Parent status children'a cascade etmez.
+- Hard delete yoktur.
 
 **Success Result**
 - Lokasyon master güncellenir.
 
 **Failure / Alternate Flows**
-- Çevrimsel hiyerarşi, stoklu pasifleştirme engeli (**TBD**), yetki reddi.
+- Çevrimsel hiyerarşi, stoklu pasifleştirme/capability değişikliği engeli, yetki reddi.
 
 **Permissions**
-- AUTH-009.
+- `locations.view_location`, `locations.add_location`, `locations.change_location` (`DEC-022` item 13, `DEC-023`). `add`/`change` `view` gerektirir. `delete` expose edilmez.
 
 **Inventory / Data Effect**
-- Master tablo; geçmiş referanslar korunur.
+- Master tablo; geçmiş referanslar korunur. Phase 3.0/3.1 stok logic implement etmez.
 
 **Audit Effect**
-- `audit_events`.
+- `locations.location.created` / `.updated` / `.deactivated` / `.reactivated`; canonical identity Location UUID.
 
 **TBD / Open Decisions**
-- Lokasyon kodu/ tipi; stoklu lokasyon pasifleştirme.
+- Inventory entegrasyonu aynı stocked-location invariant'ını otoritatif uygulamak zorundadır. `ProductionLine` ve `Employee` bu akışta yoktur.
 
 ## 12. Physical Count and Reconciliation
 
@@ -1469,9 +1473,9 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 | UF-O-12 | Return–prior issue ilişkisi | Return service |
 | UF-O-13 | `DEC-HG-002` Controlled correction bounds ve lineage | Approval sonrası ledger |
 | UF-O-14 | Normal change `DEC-013` ile yasak; exceptional migration policy açık | Material edit |
-| UF-O-15 | Stoklu lokasyon pasifleştirme | Location deactivate |
+| UF-O-15 | Stoklu lokasyon pasifleştirme `DEC-023` ile kararlı | Location deactivate; inventory enforcement sonraki entegrasyon |
 | UF-O-16 | Employee/user kardinalitesi | Receiver lookup |
-| UF-O-17 | Material/employee code uniqueness | Duplicate handling |
+| UF-O-17 | Material/employee code uniqueness | Duplicate handling (`DEC-OPEN-021` Material remainder; Location code `DEC-023`) |
 | UF-O-18 | Decimal precision per unit | Quantity validation messages |
 | UF-O-19 | Ret gerekçesi zorunluluğu (PROPOSED) | Reject form |
 
@@ -1496,7 +1500,7 @@ Kanonik Phase 0 sırası: 0.1 Product Requirements → 0.2 Business Rules → 0.
 
 Re-audit başarılı olmadan Phase 1 otomatik başlamaz. Sonraki UI/permission/validation implementation aşağıdaki kullanıcı akışlarını temel almalıdır:
 
-1. **Rol matrisi:** Her ekran ve işlem için başlangıç şablon rolleri (TECHNICIAN / STOREKEEPER / ADMIN_MANAGER) ve permission tabanlı sunucu tarafı yetkiler UF belgesinden türetilmeli; hard-coded Group adı kontrolü yeterli değildir (`DEC-021`). Phase 2.9B erişim yönetimi UF-ACC-001/002 ve `DEC-022` ile kararlıdır.
+1. **Rol matrisi:** Her ekran ve işlem için başlangıç şablon rolleri (TECHNICIAN / STOREKEEPER / ADMIN_MANAGER) ve permission tabanlı sunucu tarafı yetkiler UF belgesinden türetilmeli; hard-coded Group adı kontrolü yeterli değildir (`DEC-021`). Phase 2.9B erişim yönetimi UF-ACC-001/002 ve `DEC-022` ile kararlıdır. Phase 3 Location izinleri `DEC-022` item 13 / `DEC-023` ile allowlist'e eklenir; `setup_roles` mevcut Group'ları reconcile etmez.
 2. **Zorunlu form alanları:** Issue (alıcı snapshot, üretim hattı, kullanım yeri), Correction (açıklama, fotoğraf), Receipt (takip moduna göre miktar veya asset).
 3. **Ayrı UX yolları:** Quantity stok tablosu vs serialized asset listesi; karışık tek form kullanılmamalı.
 4. **Hata mesajları:** Yetersiz stok, eşzamanlı tüketim, pasif master, yetki reddi, duplicate operation için standart kullanıcı mesajları.
