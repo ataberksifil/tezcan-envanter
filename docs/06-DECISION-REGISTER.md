@@ -283,10 +283,21 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 2 dynamic role management | `DEC-021`: yalnız güvenli catalog/configuration permission'ları; inventory receipt/issue/approval izinleri expose edilmez |
 | Phase 2.5C `setup_roles` hardening | `DEC-021`: non-destructive bootstrap; mevcut rol permission reconcile yapmaz |
 | Phase 2.6 UnitOfMeasure UI | `DEC-021` UoM policy; `DEC-OPEN-010` rounding/conversion çözülmeden precision semantics uydurulmaz |
-| Phase 2.8B technical specifications | `DEC-021`, `DEC-OPEN-019`; unrestricted raw JSON editor yok |
-| Phase 2.9C technical-field configuration | `DEC-OPEN-019` onayı/hazırlığı olmadan başlanmaz |
+| Phase 2.8B technical specifications | **Disposition: `DEFER`** (2026-09-11). `DEC-021`, `DEC-OPEN-019` (`OPEN` kalır; yeni DEC yok). Bkz. §4.1. |
+| Phase 2.9C technical-field configuration | **Opsiyonel:** yalnız yeterli gerçek ürün sahibi girdisi gelirse; aksi halde atlanır ve 2.10'a geçilir. `DEC-OPEN-019` onayı/hazırlığı olmadan başlanmaz. |
 | Location / ProductionLine UI | Phase 2 dışı; `DEC-004`, `DEC-HG-003` korunur |
 | Gate 2 | Phase 2.10; inventory implementasyonu Phase 2 dışındadır |
+
+### 4.1 Phase Gate Dispositions
+
+#### Phase 2.8B — Technical Specification Write Gate
+
+- **Disposition:** `DEFER` (2026-09-11)
+- **Reason:** `TechnicalFieldDefinition` semantiğini güvenle dondurmak için henüz yeterli gerçek fabrika kanıtı yok. Motor güç/rpm/voltage veya kablo kesit/çekirdek sayısı gibi mevcut örnekler yalnızca illüstratiftir; onaylı kanonik alan tanımı değildir. Şema ve validation semantiği dondurulmadan önce gerçek Excel/malzeme/form örnekleri gerekir.
+- **`DEC-OPEN-019`:** `OPEN` kalır; yeni DEC oluşturulmaz.
+- **Gate yeniden açılana kadar zorunlu davranış:** `Material.technical_specs` read-only kalır; unrestricted raw JSON editor yok; Material create/update service `technical_specs` kabul etmez; mevcut `technical_specs` değerleri Material update'lerinde korunur; Material detail güvenli generic read-only render kullanabilir; `TechnicalFieldDefinition` modeli, migration, technical-field configuration UI yok.
+- **Phase 2.9C:** Opsiyonel kalır — yeterli gerçek ürün sahibi girdisi gelirse uygulanır; aksi halde 2.9C atlanır ve Phase 2.10'a geçilir. Kanıt hâlâ yoksa technical-field configuration daha sonraki bir catalog-enhancement fazına taşınır.
+- **Yeniden açma girdileri (örnekler):** mevcut Excel kolon/sheet'leri; gerçek Motor, Kablo, Electrical/Switchgear, Automation, X-Ray, ShapeMeter kayıtları; zorunlu/opsiyonel beklentiler; alan veri tipleri; controlled choice'lar; birimler; kategori kalıtım beklentileri.
 
 ## 5. Audit Finding Disposition
 

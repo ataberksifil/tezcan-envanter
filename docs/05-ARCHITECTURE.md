@@ -904,7 +904,7 @@ Phase 2 catalog master data için optimistic locking/`state_version` zorunlu de�
 
 ### Technical specifications
 
-`Material.technical_specs` unrestricted raw JSON editor olarak expose edilmez. Kategori-özel teknik alanlar controlled `TechnicalFieldDefinition`-style metadata ile yönetilir; exact model `DEC-OPEN-019` gate'ine bırakılır.
+`Material.technical_specs` unrestricted raw JSON editor olarak expose edilmez. Kategori-özel teknik alanlar controlled `TechnicalFieldDefinition`-style metadata ile yönetilir; exact model `DEC-OPEN-019` gate'ine bırakılır. **Phase 2.8B disposition: `DEFER`** (2026-09-11); `DEC-OPEN-019` `OPEN` kalır. Gate yeniden açılana kadar `technical_specs` write yolu yok; mevcut değerler korunur. Ayrıntılar `docs/06-DECISION-REGISTER.md` §4.1.
 
 ### Configuration mutation audit
 
@@ -921,10 +921,10 @@ Kanonik sıra (`DEC-021`):
 | 2.6 | UnitOfMeasure UI |
 | 2.7 | Material list/search/detail |
 | 2.8A | Material base writes |
-| 2.8B | Technical-specification gate |
+| 2.8B | Technical-specification gate — **DEFER** (`DEC-OPEN-019` OPEN; bkz. `06` §4.1) |
 | 2.9A | Yönetim/configuration shell |
 | 2.9B | Dynamic roles/permissions/user assignment |
-| 2.9C | Technical-field configuration (yalnız onaylı/hazır ise) |
+| 2.9C | Technical-field configuration (**opsiyonel**; yalnız onaylı/hazır ise; aksi halde atlanır → 2.10) |
 | 2.10 | Gate 2 |
 
 **Phase 2 dışı:** Location, `ProductionLine` ve inventory implementasyonu.
