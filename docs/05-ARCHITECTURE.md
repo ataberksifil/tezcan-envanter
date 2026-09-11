@@ -874,7 +874,9 @@ Task 0.9 `AGENTS.md` / repository rules içinde aşağıdaki mimari korumaları 
 
 Re-audit başarılı olmadan Phase 1 otomatik başlamaz.
 
-Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs/06-DECISION-REGISTER.md` §4.3) → Phase 2 başladı.
+Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs/06-DECISION-REGISTER.md` §4.3) → Phase 2 başladı → Phase 2 tamamlandı → **Gate 2 PASS** (2026-09-11; bkz. `docs/06-DECISION-REGISTER.md` §4.4) → **Phase 2: CLOSED**.
+
+**Sıradaki implementation alanı:** Phase 3 — physical inventory foundation. İlk planlanan çalışma: Location foundation / pre-inventory domain decisions. Location henüz implement edilmemiştir.
 
 ## 37. Dynamic Configuration Architecture
 
@@ -955,6 +957,10 @@ Kanonik sıra (`DEC-021`):
 | 2.9B-0 | Access management policy decision (`DEC-022`) |
 | 2.9B | Dynamic roles/permissions/user assignment |
 | 2.9C | Technical-field configuration — **SKIPPED** (`DEC-OPEN-019` OPEN; Phase 2.8B DEFER otoritatif; bkz. `06` §4.2) |
-| 2.10 | Gate 2 |
+| 2.10 | Gate 2 — **PASS** (2026-09-11; bkz. `06` §4.4) |
 
-**Phase 2 dışı:** Location, `ProductionLine` ve inventory implementasyonu.
+**Phase 2:** CLOSED (2026-09-11).
+
+**Sıradaki:** Phase 3 — physical inventory foundation. İlk planlanan çalışma: Location foundation / pre-inventory domain decisions. Location henüz implement edilmemiştir.
+
+**Phase 2/3 dışı (henüz):** `ProductionLine` ve inventory mutation implementasyonu. Açık hard gate'ler (`DEC-HG-001`–`DEC-HG-005`, `DEC-OPEN-*`) korunur; Gate 2 PASS bunları çözmez.

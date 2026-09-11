@@ -308,7 +308,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 2.9C technical-field configuration | **Disposition: `SKIPPED`** (2026-09-11). Onaylı gerçek fabrika teknik alan kanıtı yok; Phase 2.8B DEFER otoritatif kalır. `DEC-OPEN-019` (`OPEN` kalır; yeni DEC yok). Bkz. §4.2. |
 | Location / ProductionLine UI | Phase 2 dışı; `DEC-004`, `DEC-HG-003` korunur |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
-| Gate 2 | Phase 2.10; inventory implementasyonu Phase 2 dışındadır |
+| Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 
 ### 4.1 Phase Gate Dispositions
 
@@ -327,7 +327,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 - **Reason:** Onaylı gerçek fabrika teknik alan kanıtı şu an mevcut değil. Daha önce onaylanmış Phase 2.8B DEFER gate'i otoritatif kalır.
 - **`DEC-OPEN-019`:** `OPEN` kalır; yeni DEC oluşturulmaz.
 - **Zorunlu davranış:** `TechnicalFieldDefinition` modeli, migration, technical-field configuration UI ve technical-field kodu oluşturulmaz; Motor/Kablo vb. alan tanımları uydurulmaz. Phase 2.8B §4.1 read-only `technical_specs` sınırı korunur.
-- **Sonraki adım:** Phase 2.10 Gate 2. Kanıt sonradan gelirse technical-field configuration ayrı catalog-enhancement fazı olarak yeniden değerlendirilir.
+- **Sonraki adım:** Phase 2.10 Gate 2 tamamlandı (§4.4). Kanıt sonradan gelirse technical-field configuration ayrı catalog-enhancement fazı olarak yeniden değerlendirilir.
 
 #### Phase 1 — Gate 1
 
@@ -336,6 +336,21 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 - **Anlam:** Phase 1.1–1.8 foundation kabul edildi ve Phase 2'nin başlamasına izin verildi.
 - **Kanıt temeli:** Phase 1.1–1.8 tamamlandı; son Phase 1 foundation/health endpoint işi commit edildi; önceki Gate 1 audit sonucu `PASS`; ardından Phase 2 çalışmaları bu kabul edilmiş foundation üzerinden ilerledi.
 - **Not:** Bu kayıt yeni bir audit çalıştırması değildir; eksik kalan tarihsel gate disposition'ının backfill'idir.
+
+#### Phase 2 — Gate 2
+
+- **Disposition:** `PASS`
+- **Recorded on:** 2026-09-11
+- **Audit conclusion:** Phase 2 Gate 2 passed; Phase 2 may be closed.
+- **Anlam:**
+  - Phase 2 catalog/configuration foundation kabul edildi
+  - Phase 2 kapatılabilir
+  - Phase 3 çalışması başlayabilir
+  - Phase 2.9C `SKIPPED` kalır (§4.2)
+  - Phase 2.8B `DEFER` kalır (§4.1)
+  - `DEC-OPEN-019` `OPEN` kalır
+- **Kanıt özeti (2026-09-11):** PostgreSQL/model/migration consistency PASS; Category/UoM/Material PASS; immutable audit PASS; `DEC-022` access management PASS; inactive-user security fix PASS; Django Admin bypass closure PASS; targeted suite PASS; full suite 478 passed; repository clean; blocking finding yok.
+- **Not:** Gate 2 PASS, `DEC-HG-001`–`DEC-HG-005`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019` ve `DEC-OPEN-021` dahil gelecek faz hard gate/open kararlarını çözmez.
 
 ## 5. Audit Finding Disposition
 
