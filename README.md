@@ -2,13 +2,14 @@
 
 ## Proje Durumu
 
-**Gate 0:** PASS
-
+- **Gate 0:** PASS
+- **Phase 1 (1.1–1.8):** tamamlandı
+- **Gate 1:** PASS
 - **Durum:** Phase 2.9B tamamlandı
 - **Phase 2.9C:** SKIPPED
 - **Sıradaki:** Phase 2.10 — Gate 2
 
-Phase 1 (1.1–1.8) tamamlandı. Phase 2 ayrıntıları için bkz. [Yol Haritası](#yol-haritası).
+Phase 2 ayrıntıları için bkz. [Yol Haritası](#yol-haritası).
 
 ## Ürün Hedefi
 
@@ -126,7 +127,9 @@ python manage.py setup_roles
 
 ## Yol Haritası
 
-**Gate 0:** PASS
+- **Gate 0:** PASS
+- **Phase 1 (1.1–1.8):** tamamlandı
+- **Gate 1:** PASS
 
 **Phase 2 (2.9C'ye kadar):**
 

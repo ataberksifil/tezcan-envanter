@@ -307,6 +307,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 2.8B technical specifications | **Disposition: `DEFER`** (2026-09-11). `DEC-021`, `DEC-OPEN-019` (`OPEN` kalır; yeni DEC yok). Bkz. §4.1. |
 | Phase 2.9C technical-field configuration | **Disposition: `SKIPPED`** (2026-09-11). Onaylı gerçek fabrika teknik alan kanıtı yok; Phase 2.8B DEFER otoritatif kalır. `DEC-OPEN-019` (`OPEN` kalır; yeni DEC yok). Bkz. §4.2. |
 | Location / ProductionLine UI | Phase 2 dışı; `DEC-004`, `DEC-HG-003` korunur |
+| Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10; inventory implementasyonu Phase 2 dışındadır |
 
 ### 4.1 Phase Gate Dispositions
@@ -327,6 +328,14 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 - **`DEC-OPEN-019`:** `OPEN` kalır; yeni DEC oluşturulmaz.
 - **Zorunlu davranış:** `TechnicalFieldDefinition` modeli, migration, technical-field configuration UI ve technical-field kodu oluşturulmaz; Motor/Kablo vb. alan tanımları uydurulmaz. Phase 2.8B §4.1 read-only `technical_specs` sınırı korunur.
 - **Sonraki adım:** Phase 2.10 Gate 2. Kanıt sonradan gelirse technical-field configuration ayrı catalog-enhancement fazı olarak yeniden değerlendirilir.
+
+#### Phase 1 — Gate 1
+
+- **Disposition:** `PASS`
+- **Recorded/backfilled on:** 2026-09-11 (orijinal audit tarihi repository'de korunmamıştır)
+- **Anlam:** Phase 1.1–1.8 foundation kabul edildi ve Phase 2'nin başlamasına izin verildi.
+- **Kanıt temeli:** Phase 1.1–1.8 tamamlandı; son Phase 1 foundation/health endpoint işi commit edildi; önceki Gate 1 audit sonucu `PASS`; ardından Phase 2 çalışmaları bu kabul edilmiş foundation üzerinden ilerledi.
+- **Not:** Bu kayıt yeni bir audit çalıştırması değildir; eksik kalan tarihsel gate disposition'ının backfill'idir.
 
 ## 5. Audit Finding Disposition
 

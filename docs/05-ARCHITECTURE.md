@@ -874,6 +874,8 @@ Task 0.9 `AGENTS.md` / repository rules içinde aşağıdaki mimari korumaları 
 
 Re-audit başarılı olmadan Phase 1 otomatik başlamaz.
 
+Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs/06-DECISION-REGISTER.md` §4.3) → Phase 2 başladı.
+
 ## 37. Dynamic Configuration Architecture
 
 Onaylı mimari ilke (`DEC-021`):
