@@ -1,28 +1,26 @@
 # Elektrik Atölyesi Envanter ve Malzeme Takip Sistemi
 
-## Project Status
+## Proje Durumu
 
-- Gate 0 architecture/design completed
-- Phase 1.1 — Repository Foundation completed
-- Phase 1.2 — Django Bootstrap completed; Django foundation exists
-- Phase 1.3 — PostgreSQL Environment completed; local PostgreSQL development environment exists
-- Phase 1.4 — App / Module Skeletons completed; architecture Django apps registered
-- Phase 1.5 — Frontend Foundation completed; shared Bootstrap/HTMX template shell exists
-- Phase 1.6 — Environment Configuration completed; logging/static/media/runtime settings established
-- Phase 1.7 — Test Foundation completed; pytest/PostgreSQL test database foundation established
-- Phase 1.8 — Health Endpoint completed; `GET /health/` verifies Django and PostgreSQL
+**Gate 0:** PASS
 
-## Product Goal
+- **Durum:** Phase 2.9B tamamlandı
+- **Phase 2.9C:** SKIPPED
+- **Sıradaki:** Phase 2.10 — Gate 2
+
+Phase 1 (1.1–1.8) tamamlandı. Phase 2 ayrıntıları için bkz. [Yol Haritası](#yol-haritası).
+
+## Ürün Hedefi
 
 Sistem bir malzemenin tanımlı depolama konumunda bulunduğunu söylüyorsa, malzeme fiziksel olarak orada bulunabilmelidir.
 
-## Scope
+## Kapsam
 
 **V1:** Elektrik Atölyesi envanter ve malzeme takibi.
 
 Mekanik Atölye veya SAP entegrasyonu V1 kapsamında değildir.
 
-## Architecture
+## Mimari
 
 - Modüler monolit
 - Python
@@ -39,28 +37,28 @@ Mekanik Atölye veya SAP entegrasyonu V1 kapsamında değildir.
 
 Tam mimari ayrıntıları için bkz. [docs/05-ARCHITECTURE.md](docs/05-ARCHITECTURE.md).
 
-## Local Database Configuration
+## Yerel Veritabanı Yapılandırması
 
-PostgreSQL is required for local development. Environment variable names and example values are documented in [`.env.example`](.env.example). The local `.env` file is not committed.
+Yerel geliştirme için PostgreSQL gereklidir. Ortam değişkeni adları ve örnek değerler [`.env.example`](.env.example) dosyasında belgelenmiştir. Yerel `.env` dosyası commit edilmez.
 
-## Environment and Runtime Configuration
+## Ortam ve Çalışma Zamanı Yapılandırması
 
-- Environment variables are supplied externally by the shell, process manager, or deployment environment.
-- [`.env.example`](.env.example) is a reference/template only; Django does not automatically load `.env` files.
-- Static source files live in app static directories such as `core/static/`.
-- `collectstatic` output destination: `var/static`
-- Runtime uploads destination: `var/media`
-- `var/` is intentionally Git-ignored generated/runtime data.
-- Application logging goes to the console.
-- Application timezone is `Europe/Istanbul` with `USE_TZ=True`.
+- Ortam değişkenleri shell, process manager veya deployment ortamı tarafından dışarıdan sağlanır.
+- [`.env.example`](.env.example) yalnızca referans/şablondur; Django `.env` dosyalarını otomatik yüklemez.
+- Statik kaynak dosyaları `core/static/` gibi app static dizinlerinde bulunur.
+- `collectstatic` çıktı hedefi: `var/static`
+- Runtime upload hedefi: `var/media`
+- `var/` kasıtlı olarak Git-ignore edilmiş üretilmiş/runtime veridir.
+- Uygulama logları konsola gider.
+- Uygulama saat dilimi `Europe/Istanbul`, `USE_TZ=True`.
 
-## Repository Governance
+## Repositori Yönetişimi
 
 Tüm katkıcılar ve AI agent'lar göreve başlamadan önce [AGENTS.md](AGENTS.md) dosyasını okumalıdır.
 
 Kararlar ve açık hard gate'ler [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) içinde izlenir.
 
-## Documentation
+## Dokümantasyon
 
 | Belge | Açıklama |
 |---|---|
@@ -72,53 +70,53 @@ Kararlar ve açık hard gate'ler [docs/06-DECISION-REGISTER.md](docs/06-DECISION
 | [docs/05-ARCHITECTURE.md](docs/05-ARCHITECTURE.md) | Üretim odaklı teknik mimari ve modül sınırları |
 | [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) | Karar durumları, hard gate'ler ve Gate 0 audit disposition'ları |
 
-## Development and Test Setup
+## Geliştirme ve Test Kurulumu
 
-Create and use a repository-local virtual environment:
+Repositori-yerel sanal ortam oluşturun ve kullanın:
 
 ```bash
 python -m venv .venv
 ```
 
-Windows activation:
+Windows etkinleştirme:
 
 ```bash
 .venv\Scripts\activate
 ```
 
-Install development/test dependencies:
+Geliştirme/test bağımlılıklarını kurun:
 
 ```bash
 python -m pip install -r requirements-dev.txt
 ```
 
-Run the test suite:
+Test suite'i çalıştırın:
 
 ```bash
 pytest
 ```
 
-Test notes:
+Test notları:
 
-- Tests use PostgreSQL only; SQLite is not supported.
-- The local test database is `test_tezcan_envanter`, separate from the development database `tezcan_envanter`.
-- The test database is pre-created and owned by the `tezcan_envanter` application role, which intentionally remains `NOCREATEDB`.
-- `pytest.ini` defaults to `--reuse-db` so pytest reuses the pre-created test database instead of attempting `CREATE DATABASE`.
-- Real `.env` files are not loaded automatically; supply PostgreSQL credentials through your shell or process environment before running tests.
-- Normal test command is `pytest`; `--reuse-db` does not automatically rebuild schema when migrations change. After migration/schema changes, `test_tezcan_envanter` may require a controlled DBA/admin refresh. Do not grant `CREATEDB` to `tezcan_envanter` as a shortcut.
+- Testler yalnız PostgreSQL kullanır; SQLite desteklenmez.
+- Yerel test veritabanı `test_tezcan_envanter`; geliştirme veritabanı `tezcan_envanter`'dan ayrıdır.
+- Test veritabanı önceden oluşturulur ve kasıtlı olarak `NOCREATEDB` kalan `tezcan_envanter` uygulama rolüne aittir.
+- `pytest.ini` varsayılan olarak `--reuse-db` kullanır; pytest `CREATE DATABASE` denemek yerine önceden oluşturulmuş test veritabanını yeniden kullanır.
+- Gerçek `.env` dosyaları otomatik yüklenmez; testlerden önce PostgreSQL kimlik bilgilerini shell veya process ortamınız üzerinden sağlayın.
+- Normal test komutu `pytest`'tir; `--reuse-db` migration değişikliklerinde şemayı otomatik yeniden oluşturmaz. Migration/şema değişikliklerinden sonra `test_tezcan_envanter` kontrollü DBA/admin yenilemesi gerektirebilir. Kısayol olarak `tezcan_envanter`'a `CREATEDB` vermeyin.
 
-## Local / Deployment Bootstrap
+## Yerel / Dağıtım Başlangıç Adımları
 
-After PostgreSQL credentials are available in the process environment:
+PostgreSQL kimlik bilgileri process ortamında hazır olduktan sonra:
 
 ```bash
 python manage.py migrate
 python manage.py setup_roles
 ```
 
-`setup_roles` bootstraps missing default roles (`TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER`) with their initial catalog permission templates. Existing roles and administrator permission changes are preserved; the command does not add, remove, or reconcile permissions on groups that already exist. It is deployment/bootstrap provisioning and does not write `AuditEvent` rows.
+`setup_roles` eksik varsayılan rolleri (`TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER`) başlangıç catalog permission şablonlarıyla bootstrap eder. Mevcut roller ve yönetici permission değişiklikleri korunur; komut zaten var olan gruplarda permission ekleme/çıkarma/reconcile yapmaz. Deployment/bootstrap provisioning'dir ve `AuditEvent` satırı yazmaz.
 
-## Development Workflow
+## Geliştirme İş Akışı
 
 - Tek seferde bir kapsamlı görev
 - İlgili otomatik testler
@@ -126,11 +124,11 @@ python manage.py setup_roles
 - Mantıksal tek Git commit
 - Sonraki roadmap görevi otomatik başlatılmaz
 
-## Current Roadmap Position
+## Yol Haritası
 
 **Gate 0:** PASS
 
-**Completed through Phase 2.9C:**
+**Phase 2 (2.9C'ye kadar):**
 
 - Phase 2.5C — Non-destructive role bootstrap hardening
 - Phase 2.6 — UnitOfMeasure UI
@@ -139,13 +137,15 @@ python manage.py setup_roles
 - Phase 2.8B — Technical-specification gate **DEFER** (`DEC-OPEN-019` OPEN)
 - Phase 2.9A — Yönetim/configuration shell
 - Phase 2.9B — Dynamic roles/permissions/user assignment
-- Phase 2.9C — Technical-field configuration **SKIPPED** (no approved real factory technical-field evidence; Phase 2.8B DEFER remains authoritative)
+- Phase 2.9C — Technical-field configuration **SKIPPED** (onaylı gerçek fabrika teknik alan kanıtı yok; Phase 2.8B DEFER otoritatif)
 
-**Current / Next:** Phase 2.10 — Gate 2
+**Sıradaki:** Phase 2.10 — Gate 2
 
-### Health check
+Inventory implementasyonu Phase 2 dışındadır; henüz başlamamıştır.
 
-`GET /health/` — no authentication required.
+### Sağlık kontrolü
 
-- `200` — Django process is alive and PostgreSQL responds
-- `503` — PostgreSQL is unavailable
+`GET /health/` — kimlik doğrulama gerekmez.
+
+- `200` — Django process çalışıyor ve PostgreSQL yanıt veriyor
+- `503` — PostgreSQL kullanılamıyor
