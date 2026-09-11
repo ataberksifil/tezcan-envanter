@@ -135,6 +135,8 @@ def test_view_material_alone_does_not_show_category_nav(app_client):
     assert user.has_perm("catalog.view_category") is False
     assert ">Kategoriler</a>" not in content
     assert 'href="/catalog/categories/"' not in content
+    assert ">Malzemeler</a>" in content
+    assert 'href="/catalog/materials/"' in content
 
 
 def test_catalog_nav_visible_with_real_catalog_view_permission(app_client):

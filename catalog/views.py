@@ -1,3 +1,6 @@
+import json
+import uuid
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import ValidationError
@@ -6,10 +9,10 @@ from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views import View
-from django.views.generic import CreateView, ListView, UpdateView
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from catalog.forms import CategoryForm, UnitOfMeasureForm
-from catalog.models import Category, UnitOfMeasure
+from catalog.models import Category, Material, UnitOfMeasure
 from catalog.services.categories import (
     create_category,
     set_category_active,
@@ -306,3 +309,117 @@ class UnitOfMeasureReactivateView(UnitOfMeasureStateView):
     target_active = True
     success_message = "Ölçü birimi aktifleştirildi."
     noop_message = "Ölçü birimi zaten aktif."
+
+
+MATERIAL_LIST_PAGE_SIZE = 50
+ALLOWED_TRACKING_FILTERS = frozenset(
+    {
+        Material.TrackingMode.QUANTITY,
+        Material.TrackingMode.SERIALIZED,
+    }
+)
+
+
+def normalize_tracking_filter(value: str | None) -> str | None:
+    if value in ALLOWED_TRACKING_FILTERS:
+        return value
+    return None
+
+
+def normalize_category_uuid_filter(value: str | None) -> uuid.UUID | None:
+    if not value or not value.strip():
+        return None
+    try:
+        return uuid.UUID(value.strip())
+    except ValueError:
+        return None
+
+
+def format_technical_spec_value(value) -> str:
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def build_technical_specs_items(specs: dict) -> list[tuple[str, str]]:
+    if not specs:
+        return []
+    return [
+        (key, format_technical_spec_value(specs[key]))
+        for key in sorted(specs.keys())
+    ]
+
+
+class MaterialListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = "catalog.view_material"
+    model = Material
+    context_object_name = "materials"
+    template_name = "catalog/material_list.html"
+    paginate_by = MATERIAL_LIST_PAGE_SIZE
+    http_method_names = ["get", "head"]
+
+    def get_queryset(self):
+        queryset = Material.objects.select_related("category", "unit").order_by(
+            "name", "material_code", "id"
+        )
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(material_code__icontains=query)
+                | Q(name__icontains=query)
+                | Q(brand__icontains=query)
+                | Q(model__icontains=query)
+            )
+
+        category_id = normalize_category_uuid_filter(self.request.GET.get("category"))
+        if category_id is not None:
+            queryset = queryset.filter(category_id=category_id)
+
+        tracking = normalize_tracking_filter(self.request.GET.get("tracking"))
+        if tracking is not None:
+            queryset = queryset.filter(tracking_mode=tracking)
+
+        status = self._status_filter()
+        if status == STATUS_ACTIVE:
+            queryset = queryset.filter(active=True)
+        elif status == STATUS_INACTIVE:
+            queryset = queryset.filter(active=False)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["q"] = self.request.GET.get("q", "").strip()
+        context["status"] = self._status_filter()
+        context["tracking"] = normalize_tracking_filter(
+            self.request.GET.get("tracking")
+        )
+        category_raw = self.request.GET.get("category", "").strip()
+        context["category"] = category_raw
+        context["category_filter"] = normalize_category_uuid_filter(category_raw)
+        context["filter_categories"] = Category.objects.order_by("name", "id")
+        return context
+
+    def _status_filter(self) -> str:
+        return normalize_category_status(self.request.GET.get("status", STATUS_ALL))
+
+
+class MaterialDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = "catalog.view_material"
+    model = Material
+    context_object_name = "material"
+    template_name = "catalog/material_detail.html"
+    http_method_names = ["get", "head"]
+
+    def get_queryset(self):
+        return Material.objects.select_related("category", "unit")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["technical_specs_items"] = build_technical_specs_items(
+            self.object.technical_specs
+        )
+        return context

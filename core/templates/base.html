@@ -40,6 +40,11 @@
                                 <a class="nav-link" href="{% url 'catalog:unit-list' %}">Ölçü Birimleri</a>
                             </li>
                         {% endif %}
+                        {% if perms.catalog.view_material %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'catalog:material-list' %}">Malzemeler</a>
+                            </li>
+                        {% endif %}
                     </ul>
                 </nav>
             {% endif %}

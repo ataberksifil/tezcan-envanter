@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}{{ material.name }} — Malzeme — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">{{ material.name }}</h1>
+    <a class="btn btn-outline-secondary" href="{% url 'catalog:material-list' %}">Listeye dön</a>
+</div>
+
+<dl class="row mb-4">
+    <dt class="col-sm-3">Malzeme kodu</dt>
+    <dd class="col-sm-9">{{ material.material_code }}</dd>
+
+    <dt class="col-sm-3">Ad</dt>
+    <dd class="col-sm-9">{{ material.name }}</dd>
+
+    <dt class="col-sm-3">Kategori</dt>
+    <dd class="col-sm-9">
+        <span title="{{ material.category.id }}">{{ material.category.name }}</span>
+        {% if not material.category.active %}
+            <span class="badge text-bg-secondary">Pasif referans</span>
+        {% endif %}
+    </dd>
+
+    <dt class="col-sm-3">Marka</dt>
+    <dd class="col-sm-9">{% if material.brand %}{{ material.brand }}{% else %}—{% endif %}</dd>
+
+    <dt class="col-sm-3">Model</dt>
+    <dd class="col-sm-9">{% if material.model %}{{ material.model }}{% else %}—{% endif %}</dd>
+
+    <dt class="col-sm-3">Takip modu</dt>
+    <dd class="col-sm-9">{{ material.get_tracking_mode_display }}</dd>
+
+    <dt class="col-sm-3">Ölçü birimi</dt>
+    <dd class="col-sm-9">
+        {% if material.unit %}
+            <span title="{{ material.unit.id }}">{{ material.unit.code }} — {{ material.unit.name }}</span>
+            {% if not material.unit.active %}
+                <span class="badge text-bg-secondary">Pasif referans</span>
+            {% endif %}
+        {% else %}
+            Tanımlı değil
+        {% endif %}
+    </dd>
+
+    <dt class="col-sm-3">Minimum stok eşiği</dt>
+    <dd class="col-sm-9">
+        {% if material.minimum_stock_value is not None %}
+            {{ material.minimum_stock_value }}
+        {% else %}
+            Tanımlı değil
+        {% endif %}
+    </dd>
+
+    <dt class="col-sm-3">Durum</dt>
+    <dd class="col-sm-9">
+        {% if material.active %}
+            <span class="badge text-bg-success">Aktif</span>
+        {% else %}
+            <span class="badge text-bg-secondary">Pasif</span>
+        {% endif %}
+    </dd>
+
+    <dt class="col-sm-3">Kimlik</dt>
+    <dd class="col-sm-9 font-monospace">{{ material.id }}</dd>
+
+    <dt class="col-sm-3">Oluşturulma</dt>
+    <dd class="col-sm-9">{{ material.created_at }}</dd>
+
+    <dt class="col-sm-3">Güncellenme</dt>
+    <dd class="col-sm-9">{{ material.updated_at }}</dd>
+</dl>
+
+<section aria-labelledby="technical-specs-heading">
+    <h2 class="h5" id="technical-specs-heading">Teknik özellikler</h2>
+    {% if technical_specs_items %}
+        <dl class="row mb-0">
+            {% for key, value in technical_specs_items %}
+                <dt class="col-sm-3">{{ key }}</dt>
+                <dd class="col-sm-9"><code>{{ value }}</code></dd>
+            {% endfor %}
+        </dl>
+    {% else %}
+        <p class="text-body-secondary mb-0">Teknik özellik tanımlanmamış</p>
+    {% endif %}
+</section>
+{% endblock %}

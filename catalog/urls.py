@@ -39,4 +39,10 @@ urlpatterns = [
         views.UnitOfMeasureReactivateView.as_view(),
         name="unit-reactivate",
     ),
+    path("materials/", views.MaterialListView.as_view(), name="material-list"),
+    path(
+        "materials/<uuid:pk>/",
+        views.MaterialDetailView.as_view(),
+        name="material-detail",
+    ),
 ]
