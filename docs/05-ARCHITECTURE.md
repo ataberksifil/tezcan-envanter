@@ -952,7 +952,7 @@ Kanonik sıra (`DEC-021`):
 | 2.9A | Yönetim/configuration shell |
 | 2.9B-0 | Access management policy decision (`DEC-022`) |
 | 2.9B | Dynamic roles/permissions/user assignment |
-| 2.9C | Technical-field configuration (**opsiyonel**; yalnız onaylı/hazır ise; aksi halde atlanır → 2.10) |
+| 2.9C | Technical-field configuration — **SKIPPED** (`DEC-OPEN-019` OPEN; Phase 2.8B DEFER otoritatif; bkz. `06` §4.2) |
 | 2.10 | Gate 2 |
 
 **Phase 2 dışı:** Location, `ProductionLine` ve inventory implementasyonu.

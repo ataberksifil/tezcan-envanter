@@ -305,7 +305,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 2.5C `setup_roles` hardening | `DEC-021`: non-destructive bootstrap; mevcut rol permission reconcile yapmaz |
 | Phase 2.6 UnitOfMeasure UI | `DEC-021` UoM policy; `DEC-OPEN-010` rounding/conversion çözülmeden precision semantics uydurulmaz |
 | Phase 2.8B technical specifications | **Disposition: `DEFER`** (2026-09-11). `DEC-021`, `DEC-OPEN-019` (`OPEN` kalır; yeni DEC yok). Bkz. §4.1. |
-| Phase 2.9C technical-field configuration | **Opsiyonel:** yalnız yeterli gerçek ürün sahibi girdisi gelirse; aksi halde atlanır ve 2.10'a geçilir. `DEC-OPEN-019` onayı/hazırlığı olmadan başlanmaz. |
+| Phase 2.9C technical-field configuration | **Disposition: `SKIPPED`** (2026-09-11). Onaylı gerçek fabrika teknik alan kanıtı yok; Phase 2.8B DEFER otoritatif kalır. `DEC-OPEN-019` (`OPEN` kalır; yeni DEC yok). Bkz. §4.2. |
 | Location / ProductionLine UI | Phase 2 dışı; `DEC-004`, `DEC-HG-003` korunur |
 | Gate 2 | Phase 2.10; inventory implementasyonu Phase 2 dışındadır |
 
@@ -317,8 +317,16 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 - **Reason:** `TechnicalFieldDefinition` semantiğini güvenle dondurmak için henüz yeterli gerçek fabrika kanıtı yok. Motor güç/rpm/voltage veya kablo kesit/çekirdek sayısı gibi mevcut örnekler yalnızca illüstratiftir; onaylı kanonik alan tanımı değildir. Şema ve validation semantiği dondurulmadan önce gerçek Excel/malzeme/form örnekleri gerekir.
 - **`DEC-OPEN-019`:** `OPEN` kalır; yeni DEC oluşturulmaz.
 - **Gate yeniden açılana kadar zorunlu davranış:** `Material.technical_specs` read-only kalır; unrestricted raw JSON editor yok; Material create/update service `technical_specs` kabul etmez; mevcut `technical_specs` değerleri Material update'lerinde korunur; Material detail güvenli generic read-only render kullanabilir; `TechnicalFieldDefinition` modeli, migration, technical-field configuration UI yok.
-- **Phase 2.9C:** Opsiyonel kalır — yeterli gerçek ürün sahibi girdisi gelirse uygulanır; aksi halde 2.9C atlanır ve Phase 2.10'a geçilir. Kanıt hâlâ yoksa technical-field configuration daha sonraki bir catalog-enhancement fazına taşınır.
+- **Phase 2.9C:** **Disposition: `SKIPPED`** (2026-09-11). Bkz. §4.2.
 - **Yeniden açma girdileri (örnekler):** mevcut Excel kolon/sheet'leri; gerçek Motor, Kablo, Electrical/Switchgear, Automation, X-Ray, ShapeMeter kayıtları; zorunlu/opsiyonel beklentiler; alan veri tipleri; controlled choice'lar; birimler; kategori kalıtım beklentileri.
+
+#### Phase 2.9C — Technical Field Configuration
+
+- **Disposition:** `SKIPPED` (2026-09-11)
+- **Reason:** Onaylı gerçek fabrika teknik alan kanıtı şu an mevcut değil. Daha önce onaylanmış Phase 2.8B DEFER gate'i otoritatif kalır.
+- **`DEC-OPEN-019`:** `OPEN` kalır; yeni DEC oluşturulmaz.
+- **Zorunlu davranış:** `TechnicalFieldDefinition` modeli, migration, technical-field configuration UI ve technical-field kodu oluşturulmaz; Motor/Kablo vb. alan tanımları uydurulmaz. Phase 2.8B §4.1 read-only `technical_specs` sınırı korunur.
+- **Sonraki adım:** Phase 2.10 Gate 2. Kanıt sonradan gelirse technical-field configuration ayrı catalog-enhancement fazı olarak yeniden değerlendirilir.
 
 ## 5. Audit Finding Disposition
 

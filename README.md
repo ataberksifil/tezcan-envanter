@@ -130,9 +130,18 @@ python manage.py setup_roles
 
 **Gate 0:** PASS
 
-**Current:** Phase 2.5C — Non-destructive role bootstrap hardening completed
+**Completed through Phase 2.9C:**
 
-**Next:** Phase 2.6 — UnitOfMeasure UI
+- Phase 2.5C — Non-destructive role bootstrap hardening
+- Phase 2.6 — UnitOfMeasure UI
+- Phase 2.7 — Material list/search/detail
+- Phase 2.8A — Material base writes
+- Phase 2.8B — Technical-specification gate **DEFER** (`DEC-OPEN-019` OPEN)
+- Phase 2.9A — Yönetim/configuration shell
+- Phase 2.9B — Dynamic roles/permissions/user assignment
+- Phase 2.9C — Technical-field configuration **SKIPPED** (no approved real factory technical-field evidence; Phase 2.8B DEFER remains authoritative)
+
+**Current / Next:** Phase 2.10 — Gate 2
 
 ### Health check
 
