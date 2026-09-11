@@ -701,7 +701,7 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 | OD-008 | Serialized varlığın zorunlu ve benzersiz iş tanımlayıcıları | `SerializedAsset` kimlik kuralları |
 | OD-014 | Ondalık hassasiyet, kısmi miktar ve birim dönüşümü | Miktar ve `UnitOfMeasure` kısıtları |
 | OD-007 | Üretim hattı ile fiili kullanım yeri modeli | `IssueContext` referansları ve tarihsel snapshot |
-| OD-026 | `ApplicationUser`–`Employee` ilişkisi ve rol atama | Kimlik kardinaliteleri |
+| OD-026 | `ApplicationUser`–`Employee` ilişkisi (`DEC-HG-004`); rol atama `DEC-022` ile kararlı | Kimlik kardinaliteleri (employee linkage açık) |
 | OD-016 | Lokasyon hiyerarşisi/kodu ve stoklu lokasyonun pasifleştirilmesi | `Location` ilişkileri ve yaşam döngüsü |
 | OD-015 | Olağan değişiklik `DEC-013` ile yasak; exceptional migration istenirse iş kararı | `Material`, ledger ve kontrollü dönüşüm |
 | OD-011, OD-012 | Sayım onayı, tolerans, baseline onayı ve otorite kesim ölçütü | `PhysicalCountSession` ve `InventoryBaseline` yaşam döngüsü |

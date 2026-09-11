@@ -80,7 +80,7 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 - **Check Constraints:** Yok.
 - **Recommended Indexes:** FK indeksleri; `user_id` unique indeksi yeterlidir.
 - **Delete Policy:** Profil, tarihsel auth referanslarını bozmadan yönetilir; kullanıcı silmek yerine auth tarafında pasifleştirme önerilir.
-- **Notes / TBD:** `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` başlangıç rol şablonlarıdır; gelecekte ek roller UI ile tanımlanabilir (`DEC-021`). Runtime authorization permission/policy tabanlı olmalıdır; hard-coded Group adı kontrolü yeterli değildir. Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration izinlerini expose eder. Rol atama akışı ve user–employee kardinalitesi TBD'dir. SSO varsayılmaz.
+- **Notes / TBD:** `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` başlangıç rol şablonlarıdır; gelecekte ek roller UI ile tanımlanabilir (`DEC-021`). Runtime authorization permission/policy tabanlı olmalıdır; hard-coded Group adı kontrolü yeterli değildir. Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration izinlerini expose eder (`DEC-022`). Rol atama/onay süreci `DEC-022` ile kararlıdır; user–employee kardinalitesi `DEC-HG-004` altında TBD'dir. SSO varsayılmaz.
 
 ## 5. Catalog Tabloları
 

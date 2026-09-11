@@ -79,6 +79,96 @@ Belge görsel mockup, ekran tasarımı, route, form veya uygulama kodu içermez.
 **TBD / Open Decisions**
 - SSO/LDAP, parola politikası, oturum süresi.
 
+## 4.1 Access Management Flows (Phase 2.9B)
+
+Onaylı politika: `DEC-022`. Bu akışlar generic IAM değildir; küçük uygulama yönetim UI'sını tanımlar.
+
+### UF-ACC-001 — Rol ve Yetki Yönetimi
+
+**Actors:** Django superuser veya `accounts.manage_access` taşıyan kullanıcı
+
+**Preconditions**
+- Actor oturum açmış olmalıdır.
+- Actor `accounts.manage_access` yetkisine sahip olmalıdır (superuser doğal olarak sahiptir).
+
+**Trigger**
+- Actor Yönetim → Roller ve Yetkiler ekranını açar.
+
+**Main Flow**
+1. Actor rol listesini görüntüler.
+2. Actor yeni custom rol oluşturabilir veya mevcut custom rolü yeniden adlandırabilir (bootstrap roller `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` yeniden adlandırılamaz).
+3. Actor rol için yalnız onaylı dokuz güvenli catalog permission'ından (`view_*`/`add_*`/`change_*` for Category, UnitOfMeasure, Material) seçim yapar.
+4. `add_*` veya `change_*` seçildiğinde karşılık gelen `view_*` sunucu tarafında zorunlu kalır.
+5. Değişiklik kaydedildiğinde service anti-escalation kurallarını uygular; başarılı mutation ile birlikte `AuditEvent` oluşur.
+
+**Validation Rules**
+- Actor, sahip olmadığı catalog permission'ını role veremez (non-superuser).
+- Actor, üye olduğu rolün adını/permission'larını değiştiremez (non-superuser).
+- Actor, `accounts.manage_access` içeren rolü değiştiremez (non-superuser).
+- `accounts.manage_access` yalnız superuser tarafından role verilebilir/alınabilir.
+- Rol hard delete expose edilmez.
+
+**Success Result**
+- Rol oluşturulur/güncellenir; permission seti allowlist içinde kalır; audit kaydı oluşur.
+
+**Failure / Alternate Flows**
+- **Anti-escalation ihlali:** İşlem reddedilir; stok/ledger etkisi yok; başarılı mutation audit'i oluşmaz.
+- **No-op:** Audit event oluşmaz.
+
+**Permissions**
+- `accounts.manage_access` zorunludur.
+
+**Inventory / Data Effect**
+- Yok.
+
+**Audit Effect**
+- Başarılı create/update/rename: `accounts.role.created` veya `accounts.role.updated`.
+- Başarılı permission değişikliği: `accounts.role.permissions_changed`.
+- Mutation ve audit aynı transaction içindedir.
+
+### UF-ACC-002 — Kullanıcı Rol Ataması
+
+**Actors:** Django superuser veya `accounts.manage_access` taşıyan kullanıcı
+
+**Preconditions**
+- Actor oturum açmış olmalıdır.
+- Actor `accounts.manage_access` yetkisine sahip olmalıdır.
+
+**Trigger**
+- Actor Yönetim → Kullanıcılar ekranını açar.
+
+**Main Flow**
+1. Actor kullanıcı listesini görüntüler.
+2. Actor hedef kullanıcının `User.groups` üyeliklerini günceller.
+3. Direct `user_permissions` read-only görüntülenir; düzenlenmez.
+4. Başarılı değişiklikte `accounts.user.roles_changed` audit event'i oluşur.
+
+**Validation Rules**
+- Actor kendi rol üyeliklerini değiştiremez (non-superuser).
+- Actor superuser, `is_staff`, direct `user_permissions` taşıyan veya effective catalog permission kümesi actor'ı aşan kullanıcıyı değiştiremez (non-superuser).
+- Actor `accounts.manage_access` içeren rolü atayamaz/kaldıramaz (non-superuser).
+- Password, `is_active`, `is_staff`, `is_superuser` ve Employee linkage bu UI'dan yönetilmez.
+- Superuser hedefinin kendisi bu UI üzerinden düzenlenmez.
+
+**Success Result**
+- Kullanıcı–rol ataması güncellenir; audit kaydı oluşur.
+
+**Failure / Alternate Flows**
+- **Anti-escalation ihlali:** İşlem reddedilir; başarılı mutation audit'i oluşmaz.
+
+**Permissions**
+- `accounts.manage_access` zorunludur.
+
+**Inventory / Data Effect**
+- Yok.
+
+**Audit Effect**
+- Başarılı rol atama değişikliği: `accounts.user.roles_changed`.
+
+**TBD / Open Decisions**
+- Kullanıcı hesabı oluşturma/parola yönetimi bu akışın dışındadır.
+- Employee–ApplicationUser ilişkisi `DEC-HG-004` altında açıktır.
+
 ## 5. Stock Viewing and Search
 
 ### UF-STK-001 — Stok Görüntüleme
@@ -1406,7 +1496,7 @@ Kanonik Phase 0 sırası: 0.1 Product Requirements → 0.2 Business Rules → 0.
 
 Re-audit başarılı olmadan Phase 1 otomatik başlamaz. Sonraki UI/permission/validation implementation aşağıdaki kullanıcı akışlarını temel almalıdır:
 
-1. **Rol matrisi:** Her ekran ve işlem için başlangıç şablon rolleri (TECHNICIAN / STOREKEEPER / ADMIN_MANAGER) ve permission tabanlı sunucu tarafı yetkiler UF belgesinden türetilmeli; hard-coded Group adı kontrolü yeterli değildir (`DEC-021`).
+1. **Rol matrisi:** Her ekran ve işlem için başlangıç şablon rolleri (TECHNICIAN / STOREKEEPER / ADMIN_MANAGER) ve permission tabanlı sunucu tarafı yetkiler UF belgesinden türetilmeli; hard-coded Group adı kontrolü yeterli değildir (`DEC-021`). Phase 2.9B erişim yönetimi UF-ACC-001/002 ve `DEC-022` ile kararlıdır.
 2. **Zorunlu form alanları:** Issue (alıcı snapshot, üretim hattı, kullanım yeri), Correction (açıklama, fotoğraf), Receipt (takip moduna göre miktar veya asset).
 3. **Ayrı UX yolları:** Quantity stok tablosu vs serialized asset listesi; karışık tek form kullanılmamalı.
 4. **Hata mesajları:** Yetersiz stok, eşzamanlı tüketim, pasif master, yetki reddi, duplicate operation için standart kullanıcı mesajları.

@@ -168,7 +168,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | AUTH-008 | CONFIRMED | Depo Görevlisi ayrıca açıkça yetkilendirilmedikçe düzeltme talebi onaylayamaz veya reddedemez. | Mevcut onay yetkisi Yönetici/Müdür rolündedir. |
 | AUTH-009 | CONFIRMED | Yönetici/Müdür uygulama içinde tam yönetim yetkisine, ana veri yönetimine ve kontrollü düzeltme yönetimine sahiptir. | Bu rol giriş, çıkış ve düzeltme kararlarını gerçekleştirebilmelidir. |
 | AUTH-010 | CONFIRMED | Yönetici/Müdür düzeltme taleplerini onaylayabilir veya reddedebilir. | Karar kullanıcı ve zamanla kaydedilmelidir. |
-| AUTH-011 | TBD DEPENDENCY | “Operasyonel depo işleri”, tam yönetim yetkisinin sınırları, rol atama/onay süreci ve kullanıcı-çalışan ilişkisi ayrıntılı olarak belirlenmemiştir. | Ayrıntılı yetki matrisi karar verilene kadar geniş yorumlanamaz. |
+| AUTH-011 | PARTIALLY CONFIRMED | Phase 2 erişim yönetimi (`DEC-022`): Django Group rol modeli; `accounts.manage_access` delegation capability; dokuz güvenli catalog permission allowlist; write/view invariant; rol lifecycle; yalnız `User.groups` yönetimi; anti-escalation kuralları; ikinci manager onayı yok; audited mutation. **Açık kalan:** “Operasyonel depo işleri” ayrıntılı izin listesi (`DEC-OPEN-005`); kullanıcı–çalışan sicil kaydı ilişkisi (`DEC-HG-004`). | Phase 2 rol/kullanıcı–rol yönetimi geniş yorumlanamaz; operasyonel depo ve Employee linkage kararları beklenir. |
 
 ## 13. Audit ve İzlenebilirlik Kuralları
 
@@ -280,7 +280,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | OD-023 | Eksik karar | Fabrikanın mutabık kalınmış yerel saat dilimi yapılandırması ve hafta başlangıcı bilinmiyor. | Türkiye yerel iş zamanı yönü korunur. |
 | OD-024 | Eksik karar | Envanter geçmişi, audit kayıtları ve fotoğrafların saklama/silme süreleri bilinmiyor. | Retention politikası varsayılmaz. |
 | OD-025 | Eksik karar | Kategoriye özgü teknik alanlar ve zorunlulukları bilinmiyor. | Gerçek örnek ve Excel analizi beklenir. |
-| OD-026 | Eksik karar | Rol atama/onay süreci ve kullanıcı ile çalışan sicil kaydı ilişkisi bilinmiyor. | Kimlik ve rol desteği zorunlu kalır. |
+| OD-026 | Kısmen kararlı | Rol atama/onay süreci Phase 2 için `DEC-022` ile kararlıdır (`accounts.manage_access`, allowlist, anti-escalation, audit). Kullanıcı ile çalışan sicil kaydı ilişkisi hâlâ bilinmiyor (`DEC-HG-004`). | Employee linkage çözülene kadar accounts/import matching bloke kalır. |
 | OD-027 | Eksik karar | Kondisyon değişikliğinin kendisinin hangi kayıtlı iş olayıyla yapılacağı bilinmiyor. | Kondisyon sessizce değiştirilemez; olay türü varsayılmaz. |
 | OD-028 | Eksik karar | Nicel stok doğruluğu hedefi ve kabul edilebilir sapma yaklaşımı bilinmiyor. | Fiziksel bulunabilirlik temel başarı yönüdür. |
 | OD-029 | Zamanlama belirsizliği | QR/barkod V1 kapsamındadır; ara sürümdeki teslim anı belirtilmemiştir. | En geç nihai V1 üretim devreye alımından önce doğrulanmalıdır. |

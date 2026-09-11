@@ -388,6 +388,21 @@ Django Auth, Groups ve Permissions kullanılır. `TECHNICIAN`, `STOREKEEPER`, `A
 
 Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration permission'larını expose eder; inventory receipt/issue/approval izinleri ilgili inventory hard gate'leri tasarlanana kadar dinamik olarak atanamaz (`DEC-021`). `setup_roles` varsayılan davranışı non-destructive'tir: eksik varsayılan rol oluşturulur ve şablon izinleri atanır; mevcut rol permission'ları korunur (`DEC-021`).
 
+Phase 2.9B erişim yönetimi politikası (`DEC-022`):
+
+- Django `Group` rol modeli olarak kalır; runtime authorization permission tabanlıdır.
+- Yönetim capability: `accounts.manage_access` (catalog permission allowlist'inin dışında, ayrı delegation capability).
+- Bootstrap otorite: Django superuser; superuser olmayan access manager `manage_access` veremez/alamaz.
+- Safe allowlist (dokuz permission): Category, UnitOfMeasure ve Material için `view_*`, `add_*`, `change_*` yalnızca; `delete_*`, inventory, audit mutation, auth model-management ve workflow permission'ları expose edilmez.
+- Write/view invariant: `add_*`/`change_*`, karşılık gelen `view_*` olmadan yapılandırılamaz; sunucu tarafı service validation otoritedir.
+- User-role boundary: yalnız `User.groups`; password, privilege flag'leri, Employee linkage ve direct `user_permissions` yönetilmez.
+- Anti-escalation: non-superuser access manager kendi üyeliklerini, `manage_access` taşıyan rol/kullanıcıları, superuser/`is_staff`/direct-permission kullanıcıları ve actor kümesini aşan hedefleri değiştiremez.
+- Onay: ikinci manager onayı yok; `accounts.manage_access` + anti-escalation + immutable `AuditEvent` (`DEC-020` inventory onayı değişmez).
+- Audit identity: Group/User için UUIDv5 (`ROLE_NAMESPACE` / `USER_NAMESPACE` + integer PK); rename identity değiştirmez.
+- Audit events: `accounts.role.created`, `accounts.role.updated`, `accounts.role.permissions_changed`, `accounts.user.roles_changed`; mutation ve audit aynı transaction.
+- Admin boundary: audited management sonrası writable `auth.Group` ve privilege `accounts.User` Admin yüzeyleri kaldırılır.
+- UI: Yönetim → Roller ve Yetkiler / Kullanıcılar; generic IAM, rol delete, direct-permission editor ve approval engine yok.
+
 Template/HTMX response içinde buton görünürlüğü kullanıcı deneyimidir; her state-changing endpoint ayrıca server-side permission kontrolü yapar. Permission check tek başına yeterli değildir: correction, count, attachment ve benzeri kayıtlarda gerekli object/state-level authorization service/view sınırında uygulanır. Bir teknisyen başka kullanıcının correction evidence'ına sırf ID bildiği için erişemez. QR taramak yetki vermez.
 
 `Employee` ve `ApplicationUser` ayrıdır. İlişki kardinalitesi ve AD/LDAP gereksinimi **TBD**'dir.
@@ -910,6 +925,18 @@ Phase 2 catalog master data için optimistic locking/`state_version` zorunlu de�
 
 Her başarılı dynamic configuration mutation: `permission → service → transaction → mutation + AuditEvent`. No-op veya başarısız/reddedilen işlem başarılı configuration mutation audit event'i üretmez. `setup_roles` deployment/bootstrap provisioning'dir ve `AuditEvent` üretmez; yönetici kaynaklı rol/izin değişiklikleri Phase 2.9B'de bu audit yolunu kullanır.
 
+### Access management (Phase 2.9B)
+
+Onaylı politika (`DEC-022`):
+
+- Rol modeli: Django `Group`; bootstrap şablonları runtime identity değildir.
+- Management permission: `accounts.manage_access` — rol yönetimi, onaylı rol permission'ları, kullanıcı–rol atamaları.
+- Safe catalog allowlist: dokuz permission (Category/UoM/Material view/add/change); `accounts.manage_access` allowlist dışındadır.
+- Rol lifecycle: hard delete yok; custom rename mümkün; bootstrap roller canonical ad ile korunur; `setup_roles` non-destructive.
+- Privilege safety: non-superuser actor için self-modification, `manage_access` escalation ve hedef kümesi aşımı engellenir.
+- Audit UUID: `uuid5(ROLE_NAMESPACE, str(group.pk))` ve `uuid5(USER_NAMESPACE, str(user.pk))`; namespace sabitleri kaynak kodda fixed.
+- UI sınırı: küçük uygulama yönetim ekranları; generic IAM değil.
+
 ## 38. Phase 2 Implementation Roadmap
 
 Kanonik sıra (`DEC-021`):
@@ -923,6 +950,7 @@ Kanonik sıra (`DEC-021`):
 | 2.8A | Material base writes |
 | 2.8B | Technical-specification gate — **DEFER** (`DEC-OPEN-019` OPEN; bkz. `06` §4.1) |
 | 2.9A | Yönetim/configuration shell |
+| 2.9B-0 | Access management policy decision (`DEC-022`) |
 | 2.9B | Dynamic roles/permissions/user assignment |
 | 2.9C | Technical-field configuration (**opsiyonel**; yalnız onaylı/hazır ise; aksi halde atlanır → 2.10) |
 | 2.10 | Gate 2 |
