@@ -257,7 +257,7 @@ def test_receipt_and_issue_transaction_types_are_allowed(kernel_objects):
 def test_unsupported_transaction_type_is_rejected_by_database(kernel_objects):
     with pytest.raises(IntegrityError):
         with transaction.atomic():
-            create_header(kernel_objects, transaction_type="TRANSFER")
+            create_header(kernel_objects, transaction_type="CONTROLLED_CORRECTION")
 
 
 def test_operation_id_is_globally_unique_across_receipt_and_issue(kernel_objects):
@@ -1145,7 +1145,11 @@ def test_managed_permission_boundary_is_twenty_two_with_return_stock():
     assert "inventory.receive_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.issue_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.return_stock" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "inventory.transfer_stock" not in SAFE_CATALOG_PERMISSION_LABELS
     assert "issue_stock" in {
+        codename for codename, _name in InventoryTransaction._meta.permissions
+    }
+    assert "transfer_stock" in {
         codename for codename, _name in InventoryTransaction._meta.permissions
     }
     assert not any(

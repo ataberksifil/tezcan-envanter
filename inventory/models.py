@@ -87,6 +87,7 @@ class InventoryTransaction(models.Model):
         RECEIPT = "RECEIPT", "Stok girişi"
         ISSUE = "ISSUE", "Stok çıkışı"
         RETURN = "RETURN", "Stok iadesi"
+        TRANSFER = "TRANSFER", "Stok transferi"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     operation_id = models.UUIDField()
@@ -109,6 +110,7 @@ class InventoryTransaction(models.Model):
             ("receive_stock", "Can receive stock"),
             ("issue_stock", "Can issue stock"),
             ("return_stock", "Can return stock"),
+            ("transfer_stock", "Can transfer stock"),
         ]
         indexes = [
             models.Index(fields=["occurred_at"], name="inventory_tx_occurred_idx"),
@@ -127,7 +129,9 @@ class InventoryTransaction(models.Model):
                 name="inventory_tx_fingerprint_hex",
             ),
             models.CheckConstraint(
-                condition=Q(transaction_type__in=["RECEIPT", "ISSUE", "RETURN"]),
+                condition=Q(
+                    transaction_type__in=["RECEIPT", "ISSUE", "RETURN", "TRANSFER"]
+                ),
                 name="inventory_tx_type_supported",
             ),
         ]

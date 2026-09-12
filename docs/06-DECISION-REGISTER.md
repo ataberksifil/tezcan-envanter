@@ -375,6 +375,26 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
 - **Consequence:** `DEC-HG-005`, yalnız bu unused linked quantity RETURN slice için kapanır. Broader RETURN senaryoları hard-gated/deferred kalır. `DEC-HG-001`, `DEC-HG-002`, `DEC-OPEN-001`, `DEC-OPEN-002`, `DEC-OPEN-004` ve `DEC-OPEN-010` status değiştirmez.
 - **Implementation status:** Phase 4.4 COMPLETE (2026-09-12). Kernel/schema/DB guards, idempotent `return_quantity` service + projection update, create/detail UI, ISSUE/history/material integration ve `inventory.return_stock` managed rollout uygulanmıştır. Managed permission count 22'dir; fresh STOREKEEPER/ADMIN_MANAGER alır, TECHNICIAN almaz. Broader RETURN kapsamı değişmemiştir.
 
+### DEC-029 — Quantity TRANSFER First-Slice Semantics and Kernel Boundary
+
+- **Status:** `DECIDED`
+- **Preflight verdict:** `PASS FOR NEXT IMPLEMENTATION`
+- **Required before:** Phase 4.5 Step 1 quantity TRANSFER kernel/schema/DB guards
+- **Resolves:** Quantity TRANSFER first slice: tek QUANTITY material, tek active `MaterialCondition`, tek source `Location`, tek target `Location`, tek quantity, tam olarak bir transaction line; `source != target`; same material/unit/condition; no condition transform
+- **Does not resolve:** serialized transfer; custody/person transfer; condition-changing transfer; multi-source/multi-target; FIFO/FEFO; `TransferContext`; ordinary TRANSFER `AuditEvent`; service/`StockBalance` mutation; TRANSFER projection arithmetic; UI; managed role rollout; `DEC-OPEN-009` broader transfer scenarios
+- **Decision:**
+  1. **Scope:** Ordinary quantity TRANSFER, bir stock-holding source'dan farklı bir stock-holding target'a, aynı material/unit/condition ile.
+  2. **Line shape:** `source_location` NOT NULL; `target_location` NOT NULL; `source != target`; `original_issue_line` NULL; material/unit/condition required; `quantity > 0`. Parent-aware shapes: RECEIPT source NULL/target NOT NULL/`original_issue_line` NULL; ISSUE source NOT NULL/target NULL/`original_issue_line` NULL; RETURN source NULL/target NOT NULL/`original_issue_line` NOT NULL; TRANSFER source NOT NULL/target NOT NULL/`original_issue_line` NULL/`source != target`.
+  3. **Cardinality:** RECEIPT mevcut davranış (en az bir satır); ISSUE, RETURN ve TRANSFER tam olarak bir satır. Mevcut deferred cardinality mechanism genişletilir.
+  4. **Isolation:** TRANSFER `IssueContext` sahibi olamaz; `original_issue_line` sahibi olamaz; RETURN lineage kullanmaz. IssueContext yalnız ISSUE içindir. RETURN lineage/cap semantics korunur.
+  5. **Tracking:** First slice yalnız QUANTITY material. Mevcut inventory-history tracking-mode guard TRANSFER history'yi de kapsar.
+  6. **Permission:** Canonical `inventory.transfer_stock`. Fresh role policy (ayrı rollout): `TECHNICIAN=no`, `STOREKEEPER=yes`, `ADMIN_MANAGER=yes`. Step 1 yalnız permission tanımı; allowlist/role templates/`setup_roles` değişmez.
+  7. **Audit:** Ordinary TRANSFER için `AuditEvent` yoktur; immutable ledger yeterlidir. `TransferContext` yoktur.
+  8. **Lock order (service, Step 2; kernel location identity locks uyumlu):** (1) operation reservation; (2) Material; (3) her iki Location, deterministic UUID/PK sıralı; (4) MaterialCondition; (5) source/target `StockBalance` kimlikleri deterministic sırada; (6) validation/re-read; (7) ledger write / balance mutation. Condition, Location'lardan önce kilitlenmez. Zıt yönlü transfer (`L1→L2` ile `L2→L1`) için source-first/target-second locking yasaktır.
+  9. **Step 1 boundary:** Transaction type `TRANSFER`, parent-aware line shape, exactly-one-line cardinality, `source != target`, permission definition, existing ledger/IssueContext/RETURN immutability. Service, projection, UI ve role rollout yoktur.
+  10. **Projection boundary:** TRANSFER projection arithmetic sonraki service fazındadır: `+ TRANSFER(target) - TRANSFER(source)`. Step 1'de `verify_quantity_projection()` değişmez.
+- **Consequence:** Quantity TRANSFER first slice kernel/schema/DB guards authorize edilmiştir. Serialized, custody, condition-change ve multi-bucket TRANSFER senaryoları açık/deferred kalır. `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005` broader RETURN ve `DEC-OPEN-009` status değiştirmez.
+
 ## 3. Açık İş Kararları
 
 Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` alanında kanonik karar kaydına bağlanır.
@@ -463,6 +483,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 4.1 Receipt UI + permission rollout | **COMPLETE** (2026-09-12). Commit `927e83b2`; full suite 823 passed; managed permission count 19. Bkz. §4.1 Phase 4.1. TRANSFER/RETURN/correction/count/baseline bu karar kapsamı dışındadır. |
 | Quantity ISSUE first slice | **COMPLETE** (2026-09-12). `DEC-027`; Phase 4.2A `bc77b50`, 4.2B `e99a6c3`, 4.2C `077e9d5`; managed permission count 21. |
 | Quantity RETURN first slice (Phase 4.4) | **COMPLETE** (2026-09-12). `DEC-028`; kernel, service/projection, UI/history integration ve `inventory.return_stock` rollout uygulanmıştır; broader RETURN deferred kalır. |
+| Quantity TRANSFER first slice / Step 1 | `DEC-029` (`PASS FOR NEXT IMPLEMENTATION`, 2026-09-12). Yalnız kernel/schema/DB guards ve permission definition; service/projection/UI/role rollout yok. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 | Gate 3 | Phase 3 + quantity-only RECEIPT (4.0A–4.1) — **Disposition: `PASS`** (2026-09-12). Bkz. §4.5. ISSUE/TRANSFER/RETURN/serialized/correction/count-baseline authorize edilmemiştir. |
@@ -653,6 +674,13 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 - **Fresh role policy:** STOREKEEPER ve ADMIN_MANAGER alır; TECHNICIAN almaz. Managed permission count 22. `setup_roles` mevcut Group'ları non-destructive korur.
 - **Audit boundary:** Successful ordinary RETURN yalnız immutable ledger'da izlenir; duplicate `AuditEvent` ve `ReturnContext` yoktur.
 - **Hard gate:** `DEC-HG-005` yalnız unused linked QUANTITY RETURN slice için kapanır; serialized, used/removed, defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları deferred kalır.
+
+#### Phase 4.5 — Quantity TRANSFER First Slice / Step 1
+
+- **Disposition:** `AUTHORIZED` (`DEC-029`, 2026-09-12)
+- **Kapsam:** TRANSFER kernel/schema/DB integrity guards ve `inventory.transfer_stock` permission definition.
+- **Kapsam dışı:** Service, `StockBalance` mutation, projection arithmetic, UI, role rollout, `TransferContext`, serialized/custody/condition-change/multi-bucket TRANSFER.
+- **Lock order:** Location kilitleri deterministic UUID/PK sırasıdır; source-first/target-second yasaktır.
 
 ## 5. Audit Finding Disposition
 

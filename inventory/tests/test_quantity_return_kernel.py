@@ -182,7 +182,7 @@ def test_return_transaction_type_and_valid_line_are_accepted(return_objects):
 def test_unsupported_transaction_type_remains_rejected(return_objects):
     with pytest.raises(IntegrityError):
         with transaction.atomic():
-            _header(return_objects, "TRANSFER")
+            _header(return_objects, "CONTROLLED_CORRECTION")
 
 
 @pytest.mark.parametrize(
