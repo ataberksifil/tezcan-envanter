@@ -3,64 +3,65 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation, localcontext
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from accounts.models import Employee
 from catalog.models import Material, MaterialCondition
 from inventory.models import (
     InventoryTransaction,
     InventoryTransactionLine,
     IssueContext,
+    ProductionLine,
     StockBalance,
+)
+from inventory.services.receipts import (
+    INACTIVE_CONDITION,
+    INACTIVE_MATERIAL,
+    OPERATION_CONFLICT,
+    OPERATION_ID_UNIQUE_CONSTRAINT,
+    TRACKING_MODE_MISMATCH,
+    UNIT_MISMATCH,
+    InventoryMutationResult,
+    _is_constraint_error,
+    _normalize_uuid,
+    _raise_validation,
+    normalize_quantity,
 )
 from locations.models import Location
 
-RECEIVE_STOCK_PERMISSION = "inventory.receive_stock"
+ISSUE_STOCK_PERMISSION = "inventory.issue_stock"
 
-INVALID_QUANTITY = "inventory.invalid_quantity"
-OPERATION_CONFLICT = "inventory.operation_conflict"
-INACTIVE_MATERIAL = "inventory.inactive_material"
-TRACKING_MODE_MISMATCH = "inventory.tracking_mode_mismatch"
-UNIT_MISMATCH = "inventory.unit_mismatch"
-INACTIVE_CONDITION = "inventory.inactive_condition"
-INVALID_DESTINATION = "inventory.invalid_destination"
-
-OPERATION_ID_UNIQUE_CONSTRAINT = "inventory_tx_operation_id_uniq"
-BALANCE_IDENTITY_UNIQUE_CONSTRAINT = "inventory_bal_identity_uniq"
-
-QUANTITY_QUANTUM = Decimal("0.001")
-MAX_QUANTITY = Decimal("999999999999999.999")
+INVALID_SOURCE = "inventory.invalid_source"
+INACTIVE_EMPLOYEE = "inventory.inactive_employee"
+INACTIVE_PRODUCTION_LINE = "inventory.inactive_production_line"
+INVALID_USAGE_LOCATION = "inventory.invalid_usage_location"
+INSUFFICIENT_STOCK = "inventory.insufficient_stock"
 
 
-@dataclass(frozen=True)
-class InventoryMutationResult:
-    transaction: InventoryTransaction
-    lines: tuple[InventoryTransactionLine, ...]
-    replayed: bool
-    issue_context: IssueContext | None = None
-
-
-def receive_quantity(
+def issue_quantity(
     *,
     actor,
     operation_id,
     material_id,
     unit_id,
     condition_id,
-    target_location_id,
+    source_location_id,
     quantity,
+    receiver_employee_id,
+    production_line_id,
+    usage_location_text,
     using: str = "default",
 ) -> InventoryMutationResult:
-    """Atomically append one quantity RECEIPT and update its projection.
+    """Atomically append one quantity ISSUE and decrement its exact bucket.
 
-    Lock order for a new operation is the operation-id uniqueness reservation,
-    then Material, Location, MaterialCondition, and StockBalance. All model row
-    locks use PostgreSQL ``SELECT ... FOR UPDATE`` through Django.
+    Authorization is deliberately checked before idempotent replay. For a new
+    operation the lock order is Material, source Location, MaterialCondition,
+    Employee, ProductionLine, and the exact existing StockBalance row.
     """
     current_actor = _authorize_actor(actor, using)
     normalized_operation_id = _normalize_uuid(
@@ -83,19 +84,33 @@ def receive_quantity(
         field="condition_id",
         code=INACTIVE_CONDITION,
     )
-    normalized_target_location_id = _normalize_uuid(
-        target_location_id,
-        field="target_location_id",
-        code=INVALID_DESTINATION,
+    normalized_source_location_id = _normalize_uuid(
+        source_location_id,
+        field="source_location_id",
+        code=INVALID_SOURCE,
+    )
+    normalized_receiver_employee_id = _normalize_uuid(
+        receiver_employee_id,
+        field="receiver_employee_id",
+        code=INACTIVE_EMPLOYEE,
+    )
+    normalized_production_line_id = _normalize_uuid(
+        production_line_id,
+        field="production_line_id",
+        code=INACTIVE_PRODUCTION_LINE,
     )
     normalized_quantity = normalize_quantity(quantity)
+    normalized_usage_location = _normalize_usage_location(usage_location_text)
     fingerprint = _request_fingerprint(
         acting_user_id=current_actor.pk,
         material_id=normalized_material_id,
         unit_id=normalized_unit_id,
         condition_id=normalized_condition_id,
-        target_location_id=normalized_target_location_id,
+        source_location_id=normalized_source_location_id,
         quantity=normalized_quantity,
+        receiver_employee_id=normalized_receiver_employee_id,
+        production_line_id=normalized_production_line_id,
+        usage_location_text=normalized_usage_location,
     )
 
     with transaction.atomic(using=using):
@@ -112,7 +127,7 @@ def receive_quantity(
                 header = InventoryTransaction.objects.using(using).create(
                     operation_id=normalized_operation_id,
                     request_fingerprint=fingerprint,
-                    transaction_type=InventoryTransaction.TransactionType.RECEIPT,
+                    transaction_type=InventoryTransaction.TransactionType.ISSUE,
                     acting_user=current_actor,
                     occurred_at=timezone.now(),
                 )
@@ -125,21 +140,32 @@ def receive_quantity(
             return _replay_or_conflict(winner, fingerprint, using)
 
         material = _locked_material(normalized_material_id, using)
-        location = _locked_location(normalized_target_location_id, using)
+        location = _locked_location(normalized_source_location_id, using)
         condition = _locked_condition(normalized_condition_id, using)
-        _validate_new_receipt_masters(
+        employee = _locked_employee(normalized_receiver_employee_id, using)
+        production_line = _locked_production_line(
+            normalized_production_line_id, using
+        )
+        _validate_new_issue_masters(
             material=material,
             requested_unit_id=normalized_unit_id,
-            condition=condition,
             location=location,
+            condition=condition,
+            employee=employee,
+            production_line=production_line,
         )
-
-        balance = _locked_or_created_balance(
+        balance = _locked_balance(
             material_id=material.pk,
             location_id=location.pk,
             condition_id=condition.pk,
             using=using,
         )
+        if normalized_quantity > balance.quantity:
+            _raise_validation(
+                INSUFFICIENT_STOCK,
+                "Seçilen malzeme, konum ve kondisyon için yeterli stok yok.",
+            )
+
         line = InventoryTransactionLine.objects.using(using).create(
             transaction=header,
             line_number=1,
@@ -147,49 +173,29 @@ def receive_quantity(
             quantity=normalized_quantity,
             unit_id=material.unit_id,
             condition=condition,
-            source_location=None,
-            target_location=location,
+            source_location=location,
+            target_location=None,
         )
-        balance.quantity = balance.quantity + normalized_quantity
+        issue_context = IssueContext.objects.using(using).create(
+            transaction=header,
+            receiver_employee=employee,
+            receiver_first_name_snapshot=employee.first_name,
+            receiver_last_name_snapshot=employee.last_name,
+            receiver_employee_number_snapshot=employee.employee_number,
+            production_line=production_line,
+            production_line_code_snapshot=production_line.code,
+            production_line_name_snapshot=production_line.name,
+            usage_location_text=normalized_usage_location,
+        )
+        balance.quantity = balance.quantity - normalized_quantity
         balance.save(using=using, update_fields=["quantity", "updated_at"])
 
         return InventoryMutationResult(
             transaction=header,
             lines=(line,),
             replayed=False,
+            issue_context=issue_context,
         )
-
-
-def normalize_quantity(value) -> Decimal:
-    if isinstance(value, bool) or isinstance(value, float):
-        _raise_validation(INVALID_QUANTITY, "Miktar tam bir ondalık değer olmalıdır.")
-    if not isinstance(value, (Decimal, int, str)):
-        _raise_validation(INVALID_QUANTITY, "Miktar tam bir ondalık değer olmalıdır.")
-    if isinstance(value, str) and not value.strip():
-        _raise_validation(INVALID_QUANTITY, "Miktar boş olamaz.")
-
-    try:
-        decimal_value = Decimal(value)
-    except (InvalidOperation, ValueError, TypeError):
-        _raise_validation(INVALID_QUANTITY, "Miktar geçerli bir ondalık değer olmalıdır.")
-
-    if not decimal_value.is_finite():
-        _raise_validation(INVALID_QUANTITY, "Miktar sonlu olmalıdır.")
-    if decimal_value <= 0:
-        _raise_validation(INVALID_QUANTITY, "Miktar sıfırdan büyük olmalıdır.")
-
-    try:
-        with localcontext() as context:
-            context.prec = max(28, len(decimal_value.as_tuple().digits) + 4)
-            quantized = decimal_value.quantize(QUANTITY_QUANTUM)
-    except InvalidOperation:
-        _raise_validation(INVALID_QUANTITY, "Miktar NUMERIC(18,3) sınırını aşamaz.")
-
-    if quantized != decimal_value:
-        _raise_validation(INVALID_QUANTITY, "Miktar en fazla üç ondalık basamak içerebilir.")
-    if quantized > MAX_QUANTITY:
-        _raise_validation(INVALID_QUANTITY, "Miktar NUMERIC(18,3) sınırını aşamaz.")
-    return quantized
 
 
 def _authorize_actor(actor, using: str):
@@ -204,17 +210,25 @@ def _authorize_actor(actor, using: str):
     except user_model.DoesNotExist as exc:
         raise PermissionDenied from exc
     if not current_actor.is_active or not current_actor.has_perm(
-        RECEIVE_STOCK_PERMISSION
+        ISSUE_STOCK_PERMISSION
     ):
         raise PermissionDenied
     return current_actor
 
 
-def _normalize_uuid(value, *, field: str, code: str) -> uuid.UUID:
-    try:
-        return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
-    except (ValueError, TypeError, AttributeError):
-        _raise_validation(code, f"{field} geçerli bir UUID olmalıdır.")
+def _normalize_usage_location(value) -> str:
+    if not isinstance(value, str):
+        _raise_validation(
+            INVALID_USAGE_LOCATION,
+            "Kullanım yeri metin olmalıdır.",
+        )
+    normalized = value.strip()
+    if not normalized:
+        _raise_validation(
+            INVALID_USAGE_LOCATION,
+            "Kullanım yeri boş olamaz.",
+        )
+    return normalized
 
 
 def _request_fingerprint(
@@ -223,17 +237,23 @@ def _request_fingerprint(
     material_id: uuid.UUID,
     unit_id: uuid.UUID,
     condition_id: uuid.UUID,
-    target_location_id: uuid.UUID,
+    source_location_id: uuid.UUID,
     quantity: Decimal,
+    receiver_employee_id: uuid.UUID,
+    production_line_id: uuid.UUID,
+    usage_location_text: str,
 ) -> str:
     payload = {
         "acting_user_id": str(acting_user_id),
         "condition_id": str(condition_id),
         "material_id": str(material_id),
+        "production_line_id": str(production_line_id),
         "quantity": format(quantity, ".3f"),
-        "target_location_id": str(target_location_id),
-        "transaction_type": InventoryTransaction.TransactionType.RECEIPT,
+        "receiver_employee_id": str(receiver_employee_id),
+        "source_location_id": str(source_location_id),
+        "transaction_type": InventoryTransaction.TransactionType.ISSUE,
         "unit_id": str(unit_id),
+        "usage_location_text": usage_location_text,
     }
     canonical_json = json.dumps(
         payload,
@@ -255,10 +275,14 @@ def _replay_or_conflict(
             "operation_id farklı bir envanter isteği için zaten kullanılmış.",
         )
     lines = tuple(transaction_record.lines.using(using).order_by("line_number", "pk"))
+    issue_context = IssueContext.objects.using(using).get(
+        transaction_id=transaction_record.pk
+    )
     return InventoryMutationResult(
         transaction=transaction_record,
         lines=lines,
         replayed=True,
+        issue_context=issue_context,
     )
 
 
@@ -273,7 +297,7 @@ def _locked_location(location_id: uuid.UUID, using: str) -> Location:
     try:
         return Location.objects.using(using).select_for_update().get(pk=location_id)
     except Location.DoesNotExist:
-        _raise_validation(INVALID_DESTINATION, "Hedef konum geçersiz.")
+        _raise_validation(INVALID_SOURCE, "Kaynak konum geçersiz.")
 
 
 def _locked_condition(condition_id: uuid.UUID, using: str) -> MaterialCondition:
@@ -287,15 +311,40 @@ def _locked_condition(condition_id: uuid.UUID, using: str) -> MaterialCondition:
         _raise_validation(INACTIVE_CONDITION, "Malzeme kondisyonu bulunamadı veya aktif değil.")
 
 
-def _validate_new_receipt_masters(
+def _locked_employee(employee_id: uuid.UUID, using: str) -> Employee:
+    try:
+        return Employee.objects.using(using).select_for_update().get(pk=employee_id)
+    except Employee.DoesNotExist:
+        _raise_validation(INACTIVE_EMPLOYEE, "Çalışan bulunamadı veya aktif değil.")
+
+
+def _locked_production_line(
+    production_line_id: uuid.UUID, using: str
+) -> ProductionLine:
+    try:
+        return (
+            ProductionLine.objects.using(using)
+            .select_for_update()
+            .get(pk=production_line_id)
+        )
+    except ProductionLine.DoesNotExist:
+        _raise_validation(
+            INACTIVE_PRODUCTION_LINE,
+            "Üretim hattı bulunamadı veya aktif değil.",
+        )
+
+
+def _validate_new_issue_masters(
     *,
     material: Material,
     requested_unit_id: uuid.UUID,
-    condition: MaterialCondition,
     location: Location,
+    condition: MaterialCondition,
+    employee: Employee,
+    production_line: ProductionLine,
 ) -> None:
     if not material.active:
-        _raise_validation(INACTIVE_MATERIAL, "Pasif malzemeye stok girişi yapılamaz.")
+        _raise_validation(INACTIVE_MATERIAL, "Pasif malzemeden stok çıkışı yapılamaz.")
     if material.tracking_mode != Material.TrackingMode.QUANTITY:
         _raise_validation(
             TRACKING_MODE_MISMATCH,
@@ -303,56 +352,41 @@ def _validate_new_receipt_masters(
         )
     if material.unit_id is None or material.unit_id != requested_unit_id:
         _raise_validation(UNIT_MISMATCH, "İstenen birim malzemenin birimiyle eşleşmiyor.")
-    if not condition.active:
-        _raise_validation(INACTIVE_CONDITION, "Pasif kondisyon kullanılamaz.")
     if not location.active or not location.can_hold_stock:
         _raise_validation(
-            INVALID_DESTINATION,
-            "Hedef konum aktif ve stok tutabilir olmalıdır.",
+            INVALID_SOURCE,
+            "Kaynak konum aktif ve stok tutabilir olmalıdır.",
+        )
+    if not condition.active:
+        _raise_validation(INACTIVE_CONDITION, "Pasif kondisyon kullanılamaz.")
+    if not employee.active:
+        _raise_validation(INACTIVE_EMPLOYEE, "Pasif çalışan alıcı seçilemez.")
+    if not production_line.active:
+        _raise_validation(
+            INACTIVE_PRODUCTION_LINE,
+            "Pasif üretim hattı seçilemez.",
         )
 
 
-def _locked_or_created_balance(
+def _locked_balance(
     *,
     material_id: uuid.UUID,
     location_id: uuid.UUID,
     condition_id: uuid.UUID,
     using: str,
 ) -> StockBalance:
-    identity = {
-        "material_id": material_id,
-        "location_id": location_id,
-        "condition_id": condition_id,
-    }
-    balance = (
-        StockBalance.objects.using(using)
-        .select_for_update()
-        .filter(**identity)
-        .first()
-    )
-    if balance is None:
-        try:
-            with transaction.atomic(using=using):
-                StockBalance.objects.using(using).create(
-                    **identity,
-                    quantity=Decimal("0.000"),
-                )
-        except IntegrityError as exc:
-            if not _is_constraint_error(exc, BALANCE_IDENTITY_UNIQUE_CONSTRAINT):
-                raise
-        balance = (
+    try:
+        return (
             StockBalance.objects.using(using)
             .select_for_update()
-            .get(**identity)
+            .get(
+                material_id=material_id,
+                location_id=location_id,
+                condition_id=condition_id,
+            )
         )
-    return balance
-
-
-def _is_constraint_error(exc: IntegrityError, constraint_name: str) -> bool:
-    cause = exc.__cause__
-    diag = getattr(cause, "diag", None) if cause is not None else None
-    return getattr(diag, "constraint_name", None) == constraint_name
-
-
-def _raise_validation(code: str, message: str):
-    raise ValidationError(message, code=code)
+    except StockBalance.DoesNotExist:
+        _raise_validation(
+            INSUFFICIENT_STOCK,
+            "Seçilen malzeme, konum ve kondisyon için yeterli stok yok.",
+        )
