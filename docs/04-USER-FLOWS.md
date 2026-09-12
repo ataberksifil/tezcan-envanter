@@ -362,7 +362,7 @@ flowchart TD
 **TBD / Open Decisions**
 - Talep formu, kanıt gereksinimleri ve workflow modeli implementasyon öncesi tanımlanır.
 - Kavramsal senaryolar (hareket türü eşlemesi yapılmaz): tamamen kullanılmamış geri getirme; kısmen kullanılmamış geri getirme; yanlış alınmış kullanılmamış iade; kullanılmış/sökülmüş malzeme; arızalı/sökülmüş malzeme; orijinal depo `ISSUE` kaydı bilinmeyen fabrika sahası malzemesi.
-- `DEC-HG-005` RETURN semantiği, uygunluk, miktar limiti, tekil kimlik, provenans ve kondisyon geçişleri açık kalır (`INT-006`).
+- `DEC-028` ordinary unused linked QUANTITY RETURN'ü kararlaştırır; technician-originated intake/approval ile serialized, used/defective, condition-changing ve unknown-provenance senaryoları `DEC-HG-005` altında açık kalır (`INT-006`).
 
 ### UF-INT-002 — Saha / Atölye Malzeme Alım Onayı
 
@@ -403,7 +403,7 @@ flowchart TD
 - Karar actor'ı, zamanı ve talep ilişkisi kaydedilir.
 
 **TBD / Open Decisions**
-- Onay sonrası envanter servis çağrısı ve hareket türü eşlemesi `DEC-HG-005` ve ilgili hard gate'ler çözülene kadar implement edilmez.
+- Onay sonrası technician-intake envanter servis çağrısı ve hareket türü eşlemesi `DEC-028` ordinary direct RETURN slice'ından ayrıdır; ayrıca kararlaştırılmadan implement edilmez.
 
 ## 7. Issue Flows
 
@@ -472,7 +472,7 @@ flowchart TD
 - Acting user, sistem zamanı, alıcı snapshot'ları ledger/context'te.
 
 **TBD / Open Decisions**
-- Quantity ISSUE first slice `DEC-027` ile authorize edilmiştir (`PASS FOR NEXT IMPLEMENTATION`); schema/service/UI henüz implement edilmemiştir. `DEC-HG-001`/`002`/`005` count/correction/RETURN scope'larını bloke eder; quantity ISSUE slice'ını bloke etmez.
+- Quantity ISSUE first slice `DEC-027` doğrultusunda Phase 4.2A–4.2C'de kernel, service, UI ve `inventory.issue_stock` managed rollout ile tamamlanmıştır.
 - ProductionLine foundation `DEC-025` ile kararlıdır; structured selectable context; exact usage place ayrı required free text (`usage_location_text`).
 - Employee foundation `DEC-024` ile kararlıdır; receiver Employee UUID + snapshot; inactive Employee yeni ISSUE'da seçilemez.
 
@@ -517,49 +517,50 @@ flowchart TD
 
 ### UF-RET-001 — İade
 
-> **HARD GATE — `DEC-HG-005`:** Bu akış iş ihtiyacını gösterir; prior ISSUE, partial quantity, returned condition authority, serialized state ve sistemde issue edilmemiş material davranışları karara bağlanmadan schema/service/UI olarak implement edilemez ve aktif menüde sunulamaz.
+> **SCOPE GATE — `DEC-028`:** Yalnız unused linked QUANTITY RETURN first slice kararlıdır. Step 1 kernel/schema/DB guards içerir; service/projection/UI/role rollout henüz bu görev kapsamında değildir. Serialized, used/defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları `DEC-HG-005` altında deferred kalır.
 
-**Actors:** Kesin rol listesi **TBD**; muhtemel: `STOREKEEPER`, `ADMIN_MANAGER`
+**Actors:** Direct quantity RETURN için `STOREKEEPER`, `ADMIN_MANAGER`; `TECHNICIAN` değil. Runtime permission `inventory.return_stock`; managed role rollout ayrı görevdir.
 
 **Preconditions**
-- İade edilebilirlik doğrulanmış olmalıdır (**TBD**).
-- Hedef lokasyon ve kondisyon belirlenebilir olmalıdır.
+- Immutable original QUANTITY ISSUE line seçilmiş olmalıdır.
+- Kullanılmadan dönen pozitif miktar, cumulative linked RETURN toplamıyla birlikte original ISSUE quantity'yi aşmamalıdır.
+- Hedef `active=True AND can_hold_stock=True` Location açıkça seçilmelidir.
 
 **Trigger**
 - Kullanıcı "İade" işlemini başlatır.
 
 **Main Flow**
-1. İade edilen malzeme veya tekil varlık tanımlanır.
-2. Miktar veya varlık seçilir.
-3. Hedef lokasyon seçilir (**TBD** kuralları).
-4. Kondisyon seçilir (**TBD** etkisi).
-5. Önceki çıkış ile ilişki kurulur (**TBD**).
+1. Original immutable QUANTITY ISSUE line seçilir.
+2. Kullanılmadan geri gelen partial veya full miktar girilir.
+3. Hedef stock-holding Location açıkça seçilir; original ISSUE source olmak zorunda değildir.
+4. Material, unit ve condition original ISSUE line'dan alınır; kullanıcı condition dönüştüremez.
+5. Cumulative linked RETURN cap doğrulanır.
 6. Özet ve onay.
-7. Hard gate çözüldükten sonra legal source/target kombinasyonuyla `RETURN` ledger kaydı oluşturulur.
-8. Projection atomik güncellenir.
+7. Sonraki service/UI fazında exactly one `RETURN` line (`source=NULL`, target required, `original_issue_line` required) ledger'a yazılır.
+8. Sonraki service fazında projection atomik güncellenir.
 
 **Validation Rules**
-- RET-001–RET-003: İade ledger üzerinden; her çıkış otomatik iade edilebilir değildir.
+- RET-001–RET-012: Yalnız `DEC-028` unused linked quantity slice; lineage/equality/cardinality/cumulative cap DB tarafından da korunur.
 
 **Success Result**
 - İade işlemi kayıtlı ve izlenebilir.
 
 **Failure / Alternate Flows**
-- İade uygun değil: Red ve açıklama.
+- Kullanılmış/tüketilmiş, broader veya provenance'sız senaryo: ordinary RETURN olarak işlenmez.
+- Cumulative linked miktar original ISSUE miktarını aşıyor: işlem reddedilir.
 - Yetki, pasif lokasyon, eksik veri.
 
 **Permissions**
-- **TBD** (RET-004).
+- `inventory.return_stock`; future fresh rollout `STOREKEEPER` ve `ADMIN_MANAGER`, `TECHNICIAN` hariç. Step 1'de rollout yapılmaz.
 
 **Inventory / Data Effect**
-- `RETURN` transaction; stok/lokasyon/kondisyon etkisi iş kararına bağlı.
+- `RETURN` transaction + exactly one linked line. Projection artışı Step 1 kapsamı dışındadır.
 
 **Audit Effect**
-- Ledger kaydı.
+- Ordinary RETURN için yalnız immutable ledger; duplicate `AuditEvent` ve `ReturnContext` yoktur.
 
 **TBD / Open Decisions**
-- `DEC-HG-005`: Prior ISSUE zorunluluğu, partial return, kondisyonu belirleyen aktör, serialized current-state ve wrong-delivery/found material davranışı.
-- İade yetkileri.
+- `DEC-HG-005`: Serialized, used/removed, defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları.
 
 ## 9. Transfer Flows
 
@@ -1391,7 +1392,7 @@ flowchart LR
 | Field Intake Approval Queue | ADMIN_MANAGER | UF-INT-002 |
 | Issue Stock | TECHNICIAN, STOREKEEPER, ADMIN_MANAGER | UF-ISS-001 |
 | Quick Issue | TECHNICIAN (öncelikli) | UF-ISS-002 |
-| Return | `DEC-HG-005` çözülene kadar kapalı | UF-RET-001 |
+| Return | `DEC-028` quantity slice; UI ve role rollout sonraki görevde | UF-RET-001 |
 | Transfer | TBD | UF-TRF-001 |
 | Transaction History | Yetkili kullanıcılar | UF-HIS-001 |
 | Transaction Detail | Yetkili kullanıcılar | UF-HIS-001, UF-COR-001 |
@@ -1446,18 +1447,18 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 |---|---|
 | `DEC-HG-001` | Count/reconciliation schema, service ve UI; stock-stability modeli seçilmeden başlayamaz. |
 | `DEC-HG-002` | Correction schema/service; bounds ve lineage kararı olmadan başlayamaz. |
-| `DEC-HG-003` | **DECIDED** (`DEC-025`). ProductionLine foundation kararlı; quantity ISSUE first slice `DEC-027` ile authorize edilmiştir; henüz implement edilmemiştir. |
-| `DEC-HG-004` | **DECIDED** (`DEC-024`). Employee foundation kararlı; Phase 3.2 implementation COMPLETE. Quantity ISSUE first slice `DEC-027` ile authorize edilmiştir; henüz implement edilmemiştir. |
-| `DEC-HG-005` | RETURN schema/service/UI ve aktif menü; beş return kararı olmadan başlayamaz. |
+| `DEC-HG-003` | **DECIDED** (`DEC-025`). ProductionLine foundation ve quantity ISSUE Phase 4.2 COMPLETE. |
+| `DEC-HG-004` | **DECIDED** (`DEC-024`). Employee foundation ve quantity ISSUE Phase 4.2 COMPLETE. |
+| `DEC-HG-005` | `DEC-028` ile yalnız unused linked QUANTITY RETURN slice için kapandı; broader RETURN schema/service/UI hard-gated kalır. |
 
 ### BLOCKS UI IMPLEMENTATION
 
 | ID | Konu | Etki |
 |---|---|---|
-| UF-O-01 | ProductionLine structured seçim + exact usage place ayrı free text (`DEC-025`, `DEC-027`); Phase 4.2C ISSUE UI bekler | Issue/Quick Issue form alanları |
-| UF-O-02 | Alıcı active Employee seçimi; snapshot zorunlu (`DEC-024`, `DEC-027`); Phase 4.2C ISSUE UI bekler | Issue form UX |
+| UF-O-01 | ProductionLine structured seçim + exact usage place ayrı free text (`DEC-025`, `DEC-027`); Phase 4.2C COMPLETE | Issue/Quick Issue form alanları |
+| UF-O-02 | Alıcı active Employee seçimi; snapshot zorunlu (`DEC-024`, `DEC-027`); Phase 4.2C COMPLETE | Issue form UX |
 | UF-O-03 | Minimum stok aggregation (global/lokasyon/kondisyon) | Low stock ekranı |
-| UF-O-04 | `DEC-HG-005` Return yetkileri ve form alanları | Return ekranı |
+| UF-O-04 | `DEC-028` quantity RETURN yetki/form contract'ı kararlı; UI/role rollout sonraki görev | Return ekranı |
 | UF-O-05 | Transfer yetkileri | Transfer menü görünürlüğü |
 | UF-O-06 | `DEC-HG-001` stability + fiziksel sayım/mutabakat rolleri | Count/Reconciliation ekranları |
 | UF-O-07 | Baseline cutover onaylayan rol | Go-live ekranı |
@@ -1470,11 +1471,11 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 | ID | Konu | Etki |
 |---|---|---|
 | UF-O-11 | Kondisyonun kullanılabilir stok ve iade uygunluğu | Stok hesabı, return validation |
-| UF-O-12 | Return–prior issue ilişkisi | Return service |
+| UF-O-12 | `DEC-028`: exactly one original ISSUE line self-FK ve cumulative cap | Return service |
 | UF-O-13 | `DEC-HG-002` Controlled correction bounds ve lineage | Approval sonrası ledger |
 | UF-O-14 | Normal change `DEC-013` ile yasak; exceptional migration policy açık | Material edit |
 | UF-O-15 | Stoklu lokasyon pasifleştirme `DEC-023` ile kararlı | Location deactivate; inventory enforcement sonraki entegrasyon |
-| UF-O-16 | Employee/user nullable one-to-one (`DEC-024`); receiver foundation kararlı; Phase 4.2C ISSUE UI bekler | Receiver lookup |
+| UF-O-16 | Employee/user nullable one-to-one (`DEC-024`); receiver foundation ve Phase 4.2C ISSUE UI COMPLETE | Receiver lookup |
 | UF-O-17 | Material/employee code uniqueness | Duplicate handling (`DEC-OPEN-021` Material remainder; Location code `DEC-023`) |
 | UF-O-18 | Decimal precision per unit | Quantity validation messages |
 | UF-O-19 | Ret gerekçesi zorunluluğu (PROPOSED) | Reject form |

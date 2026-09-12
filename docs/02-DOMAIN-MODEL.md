@@ -96,7 +96,7 @@ Bir `ISSUE` işlemi:
 - mümkün olduğunda teslim alan `Employee` kaydına referans verebilmeli;
 - her durumda teslim anındaki ad, soyad ve sicil numarasının tarihsel kopyasını korumalıdır.
 
-Bu tasarım, çalışan adı veya sicil numarası sonradan değişse dahi eski çıkışın ilk kaydedildiği kimlikle anlaşılmasını sağlar. ISSUE contract'ında receiver `Employee` UUID referansı taşır; transaction `employee_number`, `first_name`, `last_name` snapshot'larını korur (`DEC-024`, `DEC-027`). Tarihsel alıcı bilgilerinin işlem üzerinde korunması ISS-002–ISS-004 nedeniyle zorunludur. Quantity ISSUE first slice `DEC-027` ile authorize edilmiştir; henüz implement edilmemiştir.
+Bu tasarım, çalışan adı veya sicil numarası sonradan değişse dahi eski çıkışın ilk kaydedildiği kimlikle anlaşılmasını sağlar. ISSUE contract'ında receiver `Employee` UUID referansı taşır; transaction `employee_number`, `first_name`, `last_name` snapshot'larını korur (`DEC-024`, `DEC-027`). Tarihsel alıcı bilgilerinin işlem üzerinde korunması ISS-002–ISS-004 nedeniyle zorunludur. Quantity ISSUE first slice Phase 4.2A–4.2C'de tamamlanmıştır.
 
 ## 5. Malzeme Kataloğu Domaini
 
@@ -328,7 +328,7 @@ Her satırda source azalış, target artış anlamına gelir; aşağıdaki tablo
 |---|---|---|---|
 | `RECEIPT` | Yok | Zorunlu stock-holding location | Hedefte miktar veya tekil varlık mevcudiyeti oluşturur/artırır. |
 | `ISSUE` | Zorunlu stock-holding location | Yok | Kaynak miktarı azaltır veya tekil varlığı stok dışına çıkarır; zorunlu `IssueContext` taşır. |
-| `RETURN` | İş kararı bekliyor | İş kararı bekliyor | Yön alanlarının anlamı sabittir fakat legal kombinasyon, prior ISSUE, partial return ve condition kararları verilmeden implement edilemez (`DEC-HG-005`). |
+| `RETURN` | Yok | Zorunlu, açıkça seçilen stock-holding location | `DEC-028` unused linked QUANTITY slice: exactly one original ISSUE line; same material/unit/condition; partial/multiple allowed; cumulative cap original ISSUE quantity. Broader RETURN deferred'dır. |
 | `TRANSFER` | Zorunlu stock-holding location | Zorunlu, source'dan farklı stock-holding location | Tek atomik olayda source azalır, target artar. |
 | `CONTROLLED_CORRECTION` | Azalış düzeltmesinde zorunlu | Artış düzeltmesinde zorunlu | Bir line tek yönlü etki taşır; partial/cumulative ve lineage kuralları `DEC-HG-002` çözülmeden implement edilemez. |
 | `INITIAL_BALANCE` | Yok | Zorunlu stock-holding location | Yalnız reconciled baseline üzerinden açılış stoğunu bir kez oluşturur. |
@@ -350,7 +350,11 @@ Alıcı için `Employee` UUID referansı ve zorunlu kimlik snapshot'ı (`employe
 
 **Fiili kullanım yeri (exact usage place):** V1 quantity ISSUE ayrı required free-text `usage_location_text` gerektirir (`DEC-027`). `ProductionLine` structured selectable context sağlar; exact usage place ayrı kalır. `UsagePlace` modeli yoktur; Location veya ProductionLine'dan infer edilmez.
 
-Quantity ISSUE first slice `DEC-027` ile authorize edilmiştir (`PASS FOR NEXT IMPLEMENTATION`); schema/service/UI henüz implement edilmemiştir. `DEC-HG-001`/`002`/`005` count/correction/RETURN scope'larını bloke eder; quantity ISSUE slice'ını bloke etmez.
+Quantity ISSUE first slice `DEC-027` doğrultusunda Phase 4.2A–4.2C'de kernel, service, UI ve `inventory.issue_stock` managed rollout ile tamamlanmıştır.
+
+### Quantity RETURN Lineage (`DEC-028`)
+
+Unused linked QUANTITY RETURN tam olarak bir immutable original ISSUE line'a `InventoryTransactionLine.original_issue_line` self-FK'siyle bağlanır ve tam olarak bir RETURN line taşır. RETURN line source'u null, target'ı zorunludur; target original ISSUE source olmak zorunda değildir. Material, unit ve condition original ISSUE line ile aynıdır. Aynı ISSUE line'a partial ve multiple RETURN bağlanabilir; cumulative quantity original ISSUE quantity'sini aşamaz. Concurrency serialization point original ISSUE line row lock'ıdır. Ayrı `ReturnContext` yoktur; `IssueContext` yalnız ISSUE transaction'a aittir. Serialized ve broader RETURN senaryoları deferred kalır.
 
 ### Kavramsal işlem akışı
 
@@ -724,7 +728,7 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 | OD-017 | `DEC-HG-002`: düzeltme bounds, görev ayrılığı, partial/cumulative ve lineage | `CorrectionRequest` kardinalite ve durum geçişleri |
 | COR-011 / OD-017 | `DEC-HG-002`: kontrollü düzeltme mekanikleri | Workflow-owned result ilişkisi |
 | Gate0-AUD-001 | `DEC-HG-001`: count stock-stability modeli | Count scope, expected timing, reconciliation |
-| Gate0-AUD-018 | `DEC-HG-005`: RETURN semantiği | Return schema/service/UI |
+| Gate0-AUD-018 | `DEC-028`: unused linked QUANTITY RETURN kararlı; broader `DEC-HG-005` deferred | Return schema/service/UI |
 
 ### IMPORTANT BEFORE IMPLEMENTATION
 

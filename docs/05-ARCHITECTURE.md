@@ -300,7 +300,7 @@ flowchart LR
 | Receipt | Target balance; yoksa unique+conflict ile oluştur, sonra lock; serialized asset | RECEIPT ledger + target balance/asset state |
 | Issue | Source balance veya serialized asset | ISSUE ledger + IssueContext + source projection |
 | Transfer | Source ve target balance kararlı sırada veya asset | TRANSFER ledger + iki balance/asset state |
-| Return | İlgili source transaction/asset ve target balance | RETURN ledger + projection; kesin semantik TBD |
+| Return | `DEC-028` quantity slice: original ISSUE line row; service fazında target balance | Step 1 RETURN ledger guards; projection mutation sonraki service fazında |
 | Correction approval | Pending CorrectionRequest + etkilenen balance/asset | Karar + CONTROLLED_CORRECTION ledger + projection + audit |
 | Reconciliation adjustment | Count session/line + etkilenen balance/asset | Yetkili correction/adjustment ledger + projection + reconciliation state |
 | Baseline establishment | Count session, import batch, baseline guard ve scoped balance/asset | InventoryBaseline + `1..N` scoped INITIAL_BALANCE ledger + downstream links + projection + audit |
@@ -316,7 +316,7 @@ Her line için source **azalış**, target **artış** anlamına gelir. Bu anlam
 |---|---|---|---|
 | `RECEIPT` | Null | Zorunlu `active && can_hold_stock` | Implement edilebilir. |
 | `ISSUE` | Zorunlu `active && can_hold_stock` | Null | Usage context `IssueContext`tedir. |
-| `RETURN` | `DEC-HG-005` bekliyor | `DEC-HG-005` bekliyor | Legal kombinasyon ve business semantics çözülmeden implement edilemez. |
+| `RETURN` | Null | Zorunlu explicit `active && can_hold_stock` target | `DEC-028` unused linked quantity slice; original ISSUE line required, same material/unit/condition, cumulative cap. Runtime target lifecycle validation service fazındadır. |
 | `TRANSFER` | Zorunlu stock-holding | Zorunlu, source'dan farklı stock-holding | İki projection etkisi tek transaction'dır. |
 | `CONTROLLED_CORRECTION` | Azalışta zorunlu | Artışta zorunlu | Bounds/lineage `DEC-HG-002` ile hard-gated. |
 | `INITIAL_BALANCE` | Null | Zorunlu stock-holding | Yalnız baseline-owned scoped link üzerinden. |
@@ -381,12 +381,12 @@ Django Auth, Groups ve Permissions kullanılır. `TECHNICIAN`, `STOREKEEPER`, `A
 | Correction approve/reject | ADMIN_MANAGER |
 | Material/location master data | ADMIN_MANAGER; storekeeper kapsamı TBD |
 | Import | ADMIN_MANAGER |
-| Return | `DEC-HG-005` çözülmeden implement edilmez |
+| Return | `DEC-028` direct quantity slice: future STOREKEEPER, ADMIN_MANAGER; TECHNICIAN değil. Step 1 role rollout yapmaz. |
 | Transfer | TBD |
 | Count/reconciliation | TBD |
 | Reports/export | TBD |
 
-Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration permission'larını expose eder (`DEC-021`). Phase 4.1 ile yalnız `inventory.receive_stock` managed allowlist'e eklenmiştir. Quantity ISSUE first slice `DEC-027` ile `inventory.issue_stock` Phase 4.2C'de rollout edilecektir. Transfer/return/correction/count approval izinleri ilgili hard gate'ler çözülene kadar expose edilmez. `setup_roles` varsayılan davranışı non-destructive'tir: eksik varsayılan rol oluşturulur ve şablon izinleri atanır; mevcut rol permission'ları korunur (`DEC-021`).
+Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration permission'larını expose eder (`DEC-021`). Phase 4.1 ile `inventory.receive_stock`, Phase 4.2C ile `inventory.issue_stock` managed allowlist'e eklenmiştir. `DEC-028` Step 1 `inventory.return_stock` permission'ını modelde tanımlar fakat managed allowlist/role rollout yapmaz. Transfer/return/correction/count approval izinleri ilgili rollout/gate tamamlanana kadar expose edilmez. `setup_roles` varsayılan davranışı non-destructive'tir: eksik varsayılan rol oluşturulur ve şablon izinleri atanır; mevcut rol permission'ları korunur (`DEC-021`).
 
 Phase 2.9B erişim yönetimi politikası (`DEC-022`):
 
@@ -396,7 +396,7 @@ Phase 2.9B erişim yönetimi politikası (`DEC-022`):
 - Safe Phase 2 allowlist (dokuz permission): Category, UnitOfMeasure ve Material için `view_*`, `add_*`, `change_*` yalnızca; `delete_*`, audit mutation, auth model-management ve workflow permission'ları expose edilmez.
 - Phase 3 Location allowlist extension (`DEC-022` item 13, `DEC-023`): `locations.view_location`, `locations.add_location`, `locations.change_location`. `delete_location` expose edilmez.
 - Phase 3 Employee ve ProductionLine managed izinleri (`DEC-024`, `DEC-025`): `accounts.view_employee`, `accounts.add_employee`, `accounts.change_employee`; `inventory.view_productionline`, `inventory.add_productionline`, `inventory.change_productionline`.
-- Phase 4.1 quantity RECEIPT allowlist extension (`DEC-026`): yalnız `inventory.receive_stock`. Phase 4.2C quantity ISSUE extension (`DEC-027`): `inventory.issue_stock` (fresh bootstrap: TECHNICIAN, STOREKEEPER, ADMIN_MANAGER). Transfer/return/correction/count izinleri expose edilmez. Managed permission count: **19** (Phase 4.2C sonrası artacak).
+- Phase 4.1 quantity RECEIPT allowlist extension (`DEC-026`): `inventory.receive_stock`. Phase 4.2C quantity ISSUE extension (`DEC-027`): `inventory.issue_stock` (fresh bootstrap: TECHNICIAN, STOREKEEPER, ADMIN_MANAGER). Managed permission count: **21**. `DEC-028` Step 1 `inventory.return_stock` permission definition ekler fakat allowlist/role templates/`setup_roles` değişmez; transfer/return/correction/count izinleri expose edilmez.
 - `setup_roles` mevcut Group'ları reconcile etmez; fresh bootstrap'ta `STOREKEEPER` ve `ADMIN_MANAGER` `receive_stock` alır, `TECHNICIAN` almaz.
 - Write/view invariant: `add_*`/`change_*`, karşılık gelen `view_*` olmadan yapılandırılamaz; sunucu tarafı service validation otoritedir.
 - User-role boundary: yalnız `User.groups`; password, privilege flag'leri, Employee linkage ve direct `user_permissions` yönetilmez.
@@ -414,9 +414,9 @@ Template/HTMX response içinde buton görünürlüğü kullanıcı deneyimidir; 
 ### Feature hard gates
 
 - **`DEC-HG-002` Corrections:** Tek/cumulative correction, partial line semantics, original-line linkage, over-correction, later movements, correction-of-correction, requester=approver ve yetersiz current stock kararlaştırılmadan correction schema/service implementation yoktur.
-- **`DEC-HG-003` ProductionLine foundation:** **DECIDED** (`DEC-025`). `ProductionLine` dynamic master-data entity (`inventory` app); recursive hierarchy; exact usage place ayrı free text. Quantity ISSUE first slice `DEC-027` ile authorize edilmiştir; henüz implement edilmemiştir.
+- **`DEC-HG-003` ProductionLine foundation:** **DECIDED** (`DEC-025`). `ProductionLine` dynamic master-data entity (`inventory` app); recursive hierarchy; exact usage place ayrı free text. Quantity ISSUE Phase 4.2A–4.2C COMPLETE.
 - **`DEC-HG-004` Employee foundation:** **DECIDED** (`DEC-024`). `accounts.Employee` ayrı entity; sicil/User link/lifecycle kararlı. Phase 3.2 implementation COMPLETE. Retention pilot öncesi kararları açık kalır; receiver snapshot korunur.
-- **`DEC-HG-005` Return:** Prior ISSUE, partial quantity, condition authority, serialized current-state ve never-issued found/wrong-delivery semantics çözülmeden RETURN schema/service/UI ve aktif menü yoktur.
+- **`DEC-HG-005` Return:** `DEC-028` ile yalnız unused linked QUANTITY RETURN slice kararlıdır: one ISSUE line ↔ one RETURN line, partial/multiple, cumulative cap, same material/unit/condition, null source ve explicit target. Broader serialized/used/defective/condition-changing/unknown-provenance/supplier/unlinked/correction-count/technician approval senaryoları hard-gated kalır.
 
 ## 16. Web / UI Architecture
 
@@ -902,7 +902,7 @@ Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs
 
 **Phase 4.1:** Quantity RECEIPT UI + permission rollout — COMPLETE (2026-09-12).
 
-Onaylı quantity-only slice için quantity RECEIPT uçtan uca implement edilmiştir (`receive_stock` service, receipt UI, `inventory.receive_stock` managed permission rollout). Quantity ISSUE first slice `DEC-027` ile authorize edilmiştir (`PASS FOR NEXT IMPLEMENTATION`); henüz implement edilmemiştir. TRANSFER, RETURN, serialized inventory, correction ve count/baseline henüz implement edilmemiştir. **Gate 3 PASS** (2026-09-12; bkz. `06` §4.5) yalnız Phase 3 foundation ve quantity-only RECEIPT slice'ını doğrular; `DEC-027` quantity ISSUE authorization'ını kapsamaz.
+Quantity RECEIPT ve Quantity ISSUE first slice uçtan uca implement edilmiştir. Quantity RETURN first slice `DEC-028` ile authorize edilmiştir; Phase 4.4 Step 1 yalnız kernel/schema/DB guards ve permission definition'dır. RETURN service/projection/UI/role rollout ile TRANSFER, serialized inventory, correction ve count/baseline henüz implement edilmemiştir. **Gate 3 PASS** (2026-09-12; bkz. `06` §4.5) yalnız tarihsel Phase 3 + quantity RECEIPT audited scope'unu doğrular.
 
 ## 37. Dynamic Configuration Architecture
 
@@ -962,7 +962,7 @@ Onaylı politika (`DEC-022`):
 
 - Rol modeli: Django `Group`; bootstrap şablonları runtime identity değildir.
 - Management permission: `accounts.manage_access` — rol yönetimi, onaylı rol permission'ları, kullanıcı–rol atamaları.
-- Safe catalog allowlist: dokuz Phase 2 permission (Category/UoM/Material view/add/change); Phase 3 Location extension: `locations.view_location`, `locations.add_location`, `locations.change_location` (`DEC-023`); Phase 3 Employee/ProductionLine managed izinleri (`DEC-024`, `DEC-025`); Phase 4.1 quantity RECEIPT extension: yalnız `inventory.receive_stock` (`DEC-026`). Toplam managed permission count: **19**. `accounts.manage_access` allowlist dışındadır. `setup_roles` mevcut Group'ları reconcile etmez.
+- Safe catalog allowlist: dokuz Phase 2 permission (Category/UoM/Material view/add/change); Phase 3 Location extension: `locations.view_location`, `locations.add_location`, `locations.change_location` (`DEC-023`); Phase 3 Employee/ProductionLine managed izinleri (`DEC-024`, `DEC-025`); Phase 4.1 `inventory.receive_stock`; Phase 4.2C `inventory.issue_stock`. Toplam managed permission count: **21**. `inventory.return_stock` Step 1'de tanımlıdır fakat allowlist/role rollout dışındadır. `accounts.manage_access` allowlist dışındadır. `setup_roles` mevcut Group'ları reconcile etmez.
 - Rol lifecycle: hard delete yok; custom rename mümkün; bootstrap roller canonical ad ile korunur; `setup_roles` non-destructive.
 - Privilege safety: non-superuser actor için self-modification, `manage_access` escalation ve hedef kümesi aşımı engellenir.
 - Audit UUID: `uuid5(ROLE_NAMESPACE, str(group.pk))` ve `uuid5(USER_NAMESPACE, str(user.pk))`; namespace sabitleri kaynak kodda fixed.
@@ -1008,24 +1008,25 @@ Inventory Core preflight disposition kanonikleşmiştir (`DEC-026`; `PASS FOR NE
 | 4.0B | Quantity Inventory Kernel — **COMPLETE** (2026-09-12) |
 | 4.0C | First Mutation: quantity RECEIPT service — **COMPLETE** (2026-09-12; commit `4546739e`) |
 | 4.1 | Receipt UI + permission rollout — **COMPLETE** (2026-09-12; commit `927e83b2`) |
-| 4.2A | Quantity ISSUE kernel/schema extension — **AUTHORIZED** (`DEC-027`; henüz başlamamış) |
-| 4.2B | Quantity issue service — **AUTHORIZED** (`DEC-027`; henüz başlamamış) |
-| 4.2C | ISSUE UI + `inventory.issue_stock` permission rollout — **AUTHORIZED** (`DEC-027`; henüz başlamamış) |
+| 4.2A | Quantity ISSUE kernel/schema extension — **COMPLETE** (`bc77b50`) |
+| 4.2B | Quantity issue service — **COMPLETE** (`e99a6c3`) |
+| 4.2C | ISSUE UI + `inventory.issue_stock` permission rollout — **COMPLETE** (`077e9d5`) |
+| 4.4 Step 1 | Quantity RETURN decision + kernel/schema/DB guards + permission definition — **AUTHORIZED** (`DEC-028`) |
 
 **Onaylı ilk mutation:** quantity RECEIPT — uçtan uca implement edilmiştir (`DEC-026`).
 
-**Onaylı ikinci mutation:** quantity ISSUE first slice — `DEC-027` (`PASS FOR NEXT IMPLEMENTATION`); Phase 4.2A → 4.2B → 4.2C; henüz implement edilmemiştir.
+**İkinci mutation:** quantity ISSUE first slice — `DEC-027`; Phase 4.2A → 4.2B → 4.2C COMPLETE.
 
-**Henüz authorize edilmemiş:** TRANSFER, RETURN, correction, count/baseline, serialized mutation, multi-line/auto-allocation ISSUE.
+**Quantity RETURN:** `DEC-028` yalnız unused linked QUANTITY first slice'ı authorize eder. Step 1 service/projection/UI/role rollout içermez. Broader RETURN, TRANSFER, correction, count/baseline, serialized mutation ve multi-line/auto-allocation ISSUE authorize edilmemiştir.
 
 **Ledger/projection contract:** `InventoryTransaction` + `InventoryTransactionLine` immutable business ledger; `StockBalance` quantity projection. Plain successful inventory ledger mutation generic `AuditEvent` duplicate etmez.
 
 **Quantity RECEIPT implementation (Phase 4.0C–4.1):** idempotent `receive_stock` service; PostgreSQL concurrency koruması; receipt create/detail UI; `inventory.receive_stock` managed permission rollout; `operation_id` double-submit koruması.
 
-**Quantity ISSUE decision (Phase 4.2A–4.2C, `DEC-027`):** tek material/source/condition/quantity/line; explicit condition bucket; mandatory IssueContext; `inventory.issue_stock`; DB-backed IssueContext guards Phase 4.2A.
+**Quantity ISSUE implementation (Phase 4.2A–4.2C, `DEC-027`):** tek material/source/condition/quantity/line; explicit condition bucket; mandatory IssueContext; `inventory.issue_stock`; DB-backed IssueContext guards.
 
 **Son doğrulanmış test suite:** 823 passed
 
-**Managed permission count:** 19 (Phase 4.2C sonrası `inventory.issue_stock` eklenecek)
+**Managed permission count:** 21. `inventory.return_stock` tanımlıdır fakat Step 1'de managed rollout'a eklenmez.
 
 **Gate 3:** **PASS** (2026-09-12; audited HEAD `4cf895250bea37e42da4af9fac8d68c28253048e`; fresh PostgreSQL migration-from-zero; fresh-schema full suite 823 passed / 0 skipped; bkz. `06` §4.5). Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-010`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. Gate 3 yalnız RECEIPT slice'ını doğrular; `DEC-027` quantity ISSUE authorization ayrıdır.

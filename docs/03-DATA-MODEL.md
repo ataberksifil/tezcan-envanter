@@ -186,7 +186,7 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 
 ## 6A. ProductionLine Tabloları (inventory app)
 
-Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain yapısıdır (`DEC-025`). ProductionLine foundation Phase 3.3'te implement edilmiştir. Quantity ISSUE first slice `DEC-027` ile authorize edilmiştir; henüz implement edilmemiştir.
+Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain yapısıdır (`DEC-025`). ProductionLine foundation Phase 3.3'te implement edilmiştir. Quantity ISSUE first slice Phase 4.2A–4.2C'de tamamlanmıştır.
 
 ### 6A.1 `production_lines`
 
@@ -260,7 +260,7 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 - **Primary Key:** `id`
 - **Foreign Keys:** `acting_user_id → auth user`; `source_transaction_id → inventory_transactions.id`. Correction ve baseline sonuç ilişkileri downstream workflow tabloları/linkleri tarafından sahiplenilir; inventory downstream app'lere reverse FK taşımaz.
 - **Unique Constraints:** `operation_id`; opsiyonel `transaction_number`.
-- **Check Constraints:** `transaction_type IN (RECEIPT, ISSUE, RETURN, TRANSFER, CONTROLLED_CORRECTION, INITIAL_BALANCE)`; self source kendi işlemine eşit olamaz.
+- **Current Check Constraint:** `transaction_type IN (RECEIPT, ISSUE, RETURN)`. TRANSFER, CONTROLLED_CORRECTION ve INITIAL_BALANCE ilgili karar/implementation fazlarından önce current DB domain'e eklenmez.
 - **Recommended Indexes:** `occurred_at`, `transaction_type, occurred_at`, `acting_user_id, occurred_at`, `source_transaction_id`; unique `operation_id`. Fingerprint tek başına lookup anahtarı değildir.
 - **Delete Policy:** `IMMUTABLE / NO DELETE`; PostgreSQL DB-level immutability guard zorunludur.
 - **Notes / TBD:** Ledger yalnızca tamamlanmış işlemleri içerdiği için mutable `status` alanı önerilmez. Taslak/validasyon import veya istek bağlamında tutulur. Committed header/line `UPDATE` ve `DELETE`, daha sonra Django migration ile yönetilecek PostgreSQL trigger-class guard tarafından reddedilmelidir; application/admin/ORM/raw application SQL bypass edemez. Exceptional repair/migration privileged, documented ve audited'dir. `INITIAL_BALANCE`, yalnızca onaylı `InventoryBaseline` üzerinden reconciled başlangıç stoğunu ledger'a alan kontrollü olaydır; serbest doğrudan stok yazımı değildir.
@@ -281,13 +281,14 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 | `condition_id` | UUID | Hayır | FK | Hareketten ayrı kondisyon. |
 | `source_location_id` | UUID | Evet | FK | Kaynak fiziksel lokasyon. |
 | `target_location_id` | UUID | Evet | FK | Hedef fiziksel lokasyon. |
+| `original_issue_line_id` | UUID | Evet | self-FK, RESTRICT | Yalnız RETURN line için zorunlu immutable original ISSUE lineage'i (`DEC-028`). |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Immutable satır kayıt zamanı. |
 
 - **Primary Key:** `id`
-- **Foreign Keys:** Başlık, material, asset, unit, condition ve source/target location FK'leri; tamamı historical delete restricted.
+- **Foreign Keys:** Başlık, material, asset, unit, condition, source/target location ve nullable `original_issue_line_id → inventory_transaction_lines.id`; tamamı historical delete restricted.
 - **Unique Constraints:** `(transaction_id, line_number)`. Gerekirse aynı işlemde aynı serialized asset tekrarını engelleyen `(transaction_id, serialized_asset_id)` koşullu unique.
 - **Check Constraints:** Ya `(serialized_asset_id IS NULL AND quantity > 0 AND unit_id IS NOT NULL)` ya da `(serialized_asset_id IS NOT NULL AND quantity IS NULL AND unit_id IS NULL)`; ikisi birlikte olamaz. `(source_location_id IS NULL OR target_location_id IS NULL OR source_location_id <> target_location_id)`.
-- **Recommended Indexes:** `transaction_id`, `material_id`, `serialized_asset_id`, `source_location_id`, `target_location_id`, `condition_id`.
+- **Recommended Indexes:** `transaction_id`, `material_id`, `serialized_asset_id`, `source_location_id`, `target_location_id`, `condition_id`, `original_issue_line_id`.
 - **Delete Policy:** `IMMUTABLE / NO DELETE`.
 - **Notes / TBD:** Serialized satırda `quantity` **NULL** önerilir; `1` saklamak anonim quantity anlamını davet eder. Asset'ın `material_id` ile line material eşleşmesi ve tracking mode uyumu serviste zorunlu doğrulanır; catastrophic cross-table corruption için targeted PostgreSQL constraint trigger/guard gerekir. Sırf composite FK için redundant tracking-mode kolonu eklenmez; exact DB mekanizması implementation review konusudur. İşlem türüne göre source/target matrisi Bölüm 19'da sınıflandırılır.
 
@@ -339,7 +340,7 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 - **Check Constraints:** Snapshot ve iki kullanım alanı normalize edildikten sonra boş olamaz.
 - **Recommended Indexes:** `receiver_employee_id`, gerekirse `receiver_employee_number_snapshot`; transaction PK indeksi yeterlidir.
 - **Delete Policy:** İlgili transaction gibi `IMMUTABLE / NO DELETE`.
-- **Notes / TBD:** Ayrı tablo; ISSUE dışı işlemlerde gereksiz nullable kolonları önler. Servis `transaction_type = ISSUE` olmasını ve her ISSUE için context bulunmasını atomik doğrular. ProductionLine foundation `DEC-025` ile kararlıdır; Employee foundation `DEC-024` ile kararlıdır. Quantity ISSUE contract `DEC-027` ile kararlıdır; kernel/schema Phase 4.2A'da implement edilir. DB-backed completeness/immutability guard Phase 4.2A zorunludur. `usage_location_text` exact usage place olarak ayrı required free text kalır; `UsagePlace` modeli yoktur; Location veya ProductionLine'dan infer edilmez.
+- **Notes / TBD:** Ayrı tablo; ISSUE dışı işlemlerde gereksiz nullable kolonları önler. `transaction_type = ISSUE`, her ISSUE için context completeness ve persisted context immutability Phase 4.2A PostgreSQL guards ile uygulanmıştır; RETURN IssueContext sahiplenemez. ProductionLine foundation `DEC-025`, Employee foundation `DEC-024`, quantity ISSUE contract `DEC-027` ile kararlıdır. `usage_location_text` exact usage place olarak ayrı required free text kalır; `UsagePlace` modeli yoktur; Location veya ProductionLine'dan infer edilmez.
 
 ## 11. Correction Tabloları
 
@@ -709,12 +710,12 @@ Her transaction line için `source_location_id` o lokasyondaki stok/state'i **az
 |---|---|---|---|
 | `RECEIPT` | Null | Zorunlu `active && can_hold_stock` target | Service + satır null check'leri |
 | `ISSUE` | Zorunlu `active && can_hold_stock` source | Null; kullanım yeri `issue_contexts`te | Service |
-| `RETURN` | `DEC-HG-005` bekliyor | `DEC-HG-005` bekliyor | Direction sabit; legal kombinasyon karar verilene kadar implement edilemez |
+| `RETURN` | Null | Zorunlu explicit target | `DEC-028` quantity first slice; original ISSUE line FK zorunlu, same material/unit/condition, cumulative cap. Target runtime `active && can_hold_stock` validation service fazındadır. |
 | `TRANSFER` | Zorunlu stock-holding source | Zorunlu, farklı stock-holding target | Source!=target DB row check + service |
 | `CONTROLLED_CORRECTION` | Azalış line'ında zorunlu | Artış line'ında zorunlu | Bounds/lineage `DEC-HG-002`; direction semantiği sabit |
 | `INITIAL_BALANCE` | Null | Zorunlu stock-holding target | Yalnız baseline-owned scoped link ve inventory service |
 
-Return ve controlled correction semantics kesinleşmeden DB'ye yanlış zorunluluk gömülmez.
+Broader RETURN ve controlled correction semantics kesinleşmeden DB'ye ek zorunluluk gömülmez; yalnız `DEC-028` quantity first-slice guards current schema'ya aittir.
 
 ## 20. Index Strategy
 
@@ -964,11 +965,11 @@ Bu legacy tablo güncel karar statüsünün kanonik kaydı değildir. `docs/06-D
 | DM-B04 | Bozuk/çıkma kondisyon kullanılabilir ve minimum stoğa dahil mi? | `stock_balances`, reporting, service |
 | DM-B05 | Minimum stok toplam, depo, lokasyon veya kondisyon bazında mı? | Material column veya policy table |
 | DM-B06 | Ondalık hassasiyet, kısmi miktar ve unit conversion davranışı nedir? | `NUMERIC` doğrulaması, UoM |
-| DM-B07 | ProductionLine `DEC-025` ile kararlı dynamic entity; exact usage place ayrı free text; quantity ISSUE first slice `DEC-027` authorize; henüz implement edilmemiştir | `production_lines`, `issue_contexts` |
+| DM-B07 | ProductionLine `DEC-025` ile kararlı dynamic entity; exact usage place ayrı free text; quantity ISSUE first slice `DEC-027` doğrultusunda Phase 4.2A–4.2C COMPLETE | `production_lines`, `issue_contexts` |
 | DM-B08 | `ApplicationUser`–`Employee` nullable one-to-one ownership Employee (`DEC-024`); rol atama/onay `DEC-022` ile kararlı | Identity FK/unique ve permissions |
 | DM-B09 | Location type/hiyerarşi/kod ve stoklu deactivation `DEC-023` ile kararlıdır. Inventory aynı lifecycle invariant'ını otoritatif uygulamak zorundadır. | `locations` |
 | DM-B10 | Olağan değişiklik `DEC-013` ile yasak; exceptional migration istenirse ayrı iş kararı gerekir. | `materials`, ledger validation |
-| DM-B11 | Return eligibility, source/target, kondisyon ve özgün issue ilişkisi nedir? | Ledger service/FK kuralları |
+| DM-B11 | `DEC-028` unused linked QUANTITY RETURN için kararlı; broader serialized/used/defective/unknown-provenance RETURN açık kalır | Ledger service/FK kuralları |
 | DM-B12 | Transfer yetkileri ve zorunlu iş senaryoları nelerdir? | Permissions ve line validation |
 | DM-B13 | `DEC-HG-002`: Correction bounds/lineage ve aynı kişi talep/karar kuralları | `correction_requests`, downstream-owned transaction association |
 | DM-B14 | `DEC-HG-001`: Count stability; ayrıca tolerans, approver ve tamamlanma ölçütü | Count session, baseline |

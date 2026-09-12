@@ -96,7 +96,7 @@ Bu alt bölüm, satın alma/tedarikçi `RECEIPT` akışından (`RCV-001`, `RCV-0
 | INT-003 | CONFIRMED | Bekleyen talep sırasında `InventoryTransaction` / ledger etkisi, `StockBalance` artışı ve `SerializedAsset` state/lokasyon değişikliği oluşmamalıdır. | Bekleme durumu stok projection'ını değiştiremez. |
 | INT-004 | CONFIRMED | Reddedilen talep envanter etkisi oluşturmamalıdır; talep ve kanıt, ilgili workflow ileride uygulandığında tarihsel olarak izlenebilir kalmalıdır. | Red, sessiz stok düzeltmesi değildir. |
 | INT-005 | CONFIRMED | Onaylanan talebin envanter etkisi yalnızca gelecekteki otoritatif envanter servisi üzerinden atomik ve idempotent olarak gerçekleşmelidir. | `RETURN`, `RECEIPT`, `TRANSFER`, `CONTROLLED_CORRECTION` veya yeni hareket türüne önceden eşleştirme yapılmaz; `DEC-HG-005` ve ilgili hard gate'ler korunur. |
-| INT-006 | CONFIRMED | Daha önce çıkış yapılmış ve tamamen kullanılmamış malzeme, orijinal kondisyonuyla geri gelebilir; ancak uygunluk, miktar limitleri, tekil kimlik, provenans ve kondisyon geçişleri `DEC-HG-005` kapsamında açık kalır. | İş senaryosu örneğidir; RETURN semantiği hard-gated kalır. |
+| INT-006 | CONFIRMED | Daha önce quantity çıkışı yapılmış ve kullanılmamış malzeme, original ISSUE line'a bağlı olarak orijinal kondisyonuyla kısmen veya tamamen geri gelebilir (`DEC-028`). | Technician-originated intake/approval `DEC-020` altında ayrı kalır; serialized, used/defective, condition-changing ve unknown-provenance senaryoları `DEC-HG-005` altında deferred'dır. |
 
 Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullanılmamış geri getirilen malzeme; kısmen kullanılmamış geri getirilen malzeme; yanlış alınmış ve kullanılmamış iade; kullanılmış ve sonra sökülmüş malzeme; arızalı/sökülmüş malzeme; orijinal depo `ISSUE` kaydı bilinmeyen fabrika sahası malzemesi.
 
@@ -122,7 +122,15 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | RET-001 | CONFIRMED | Sistem iade işlemlerini desteklemelidir. | Yetkili bir iade, denetlenebilir iş olayı olarak kaydedilebilmelidir. |
 | RET-002 | CONFIRMED | İade işlemi stok miktarını, lokasyonu veya tekil varlığın durumunu etkiliyorsa bu etki izlenebilir olmalıdır. | İade stok bakiyesini kayıt dışı değiştiremez. |
 | RET-003 | CONFIRMED | Her çıkışı yapılmış malzemenin iade edilebilir olduğu varsayılamaz. | Uygunluğu doğrulanmamış iade otomatik kabul edilmemelidir. |
-| RET-004 | TBD DEPENDENCY | İade uygunluğu, iade yetkileri, önceki çıkışla bağlantı, hedef lokasyon ve kondisyon etkisi belirlenmemiştir. | Ayrıntılı iade kabul testleri karar sonrasına bırakılır. |
+| RET-004 | DECIDED FOR QUANTITY FIRST SLICE | Unused quantity RETURN, exactly one immutable original ISSUE line'a ve exactly one RETURN line'a bağlıdır; partial ve aynı ISSUE line'a multiple RETURN mümkündür. | `DEC-028`; broader RETURN senaryoları deferred kalır. |
+| RET-005 | CONFIRMED | Cumulative linked RETURN quantity original ISSUE line quantity'sini aşamaz. | DB guard original ISSUE line'ı concurrency serialization point olarak kilitler; raw SQL bypass limiti aşamaz. |
+| RET-006 | CONFIRMED | RETURN material, unit ve condition değerleri original ISSUE line ile aynı olmalıdır; condition transformation yoktur. | Kimlik/kondisyon eşitliği DB seviyesinde de korunur. |
+| RET-007 | CONFIRMED | Quantity RETURN line source'u null, target'ı zorunludur; target açıkça seçilir ve original ISSUE source olmak zorunda değildir. | Service fazı target için `active=True AND can_hold_stock=True` doğrular. |
+| RET-008 | CONFIRMED | Original receiver'ın bugün active olması ve RETURN actor ile aynı kişi olması gerekmez. | Historical ISSUE snapshot korunur; RETURN kabul aktörü ayrı application user'dır. |
+| RET-009 | CONFIRMED | Direct quantity RETURN yetkisi `inventory.return_stock`; fresh `STOREKEEPER` ve `ADMIN_MANAGER` için evet, `TECHNICIAN` için hayırdır. | Step 1 yalnız permission definition ekler; managed role rollout ayrı görevdir. |
+| RET-010 | CONFIRMED | Ordinary RETURN için ayrı `ReturnContext` ve duplicate `AuditEvent` yoktur. | Immutable inventory ledger authoritative izdir; `IssueContext` yalnız ISSUE'a aittir. |
+| RET-011 | CONFIRMED | Used/consumed quantity ordinary RETURN değildir. | Used/removed ve defective/condition-changing senaryoları deferred'dır. |
+| RET-012 | TBD DEPENDENCY | Serialized, used/removed, defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval RETURN senaryoları kararlı değildir. | `DEC-HG-005` broader RETURN hard gate'i korunur. |
 
 ## 10. Transfer Kuralları
 
@@ -159,7 +167,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | AUTH-001 | CONFIRMED | Envanter işlevlerine erişim kimliği doğrulanmış kullanıcı ve permission/policy tabanlı yetki üzerinden sağlanmalıdır. `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` başlangıç rol şablonlarıdır (`DEC-021`). | Yetkisiz kullanıcı korunan işlemi tamamlayamamalıdır; hard-coded Group adı kontrolü yeterli değildir. |
 | AUTH-002 | CONFIRMED | Teknisyen stok ve katalog verisini görüntüleyebilir. | Rol kabul testinde güncel stok ve katalog erişilebilir olmalıdır. |
 | AUTH-003 | CONFIRMED | Teknisyen olağan stok çıkışı yapabilir. | Çıkışın diğer zorunlu kuralları yine uygulanır. |
-| AUTH-003A | CONFIRMED | Teknisyen satın alma/tedarikçi teslimatı kabulü yapamaz (`RCV-002`). Uygun saha veya sahada kullanılan alandan atölyeye fiziksel getirilen malzeme için yalnızca alım talebi başlatabilir; otoritatif stok girişi veya envanter etkisini doğrudan kaydedemez. | `INT-001`–`INT-005` ve `DEC-020` geçerlidir; hareket türü eşlemesi `DEC-HG-005` çözülmeden yapılmaz. |
+| AUTH-003A | CONFIRMED | Teknisyen satın alma/tedarikçi teslimatı kabulü yapamaz (`RCV-002`). Uygun saha veya sahada kullanılan alandan atölyeye fiziksel getirilen malzeme için yalnızca alım talebi başlatabilir; otoritatif stok girişi veya envanter etkisini doğrudan kaydedemez. | `INT-001`–`INT-005` ve `DEC-020` geçerlidir; technician intake hareket türü `DEC-028` ordinary direct RETURN slice'ı tarafından çözülmez. |
 | AUTH-012 | CONFIRMED | Yönetici/Müdür, Teknisyen tarafından başlatılan saha/atölye malzeme alım taleplerini onaylayabilir veya reddedebilir. | Onay, otoritatif envanter etkisinin önkoşuludur; red envanter etkisi oluşturmaz (`INT-002`, `INT-004`, `DEC-020`). |
 | AUTH-004 | CONFIRMED | Teknisyen uygulanabilir durumda düzeltme talebi oluşturabilir. | Talep oluşturmak, talebi onaylama yetkisi vermez. |
 | AUTH-005 | CONFIRMED | Teknisyen envanter ana verisini serbestçe yönetemez ve düzeltme talebi onaylayamaz. | Ana veri değişikliği ve karar işlemi reddedilmelidir. |

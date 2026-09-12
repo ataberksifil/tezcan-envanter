@@ -175,6 +175,8 @@ Bilinen operasyon ve durum kavramları şunlardır:
 - **MOV-005:** İşlem zamanı sistem tarafından kaydedilmeli ve normal kullanıcılarca sessizce düzenlenememelidir.
 - **MOV-006:** Her önemli hareket işlemi yapan kullanıcıya bağlanmalıdır.
 - **MOV-007:** Transfer gerektiğinde kaynak ve hedef konum izlenebilir olmalıdır; ayrıntılı transfer kuralları **TBD**'dir.
+- **MOV-008:** `DEC-028` unused linked quantity RETURN first slice'ında iade, immutable original ISSUE line'a bağlı olmalı; partial/multiple iadelerin cumulative miktarı original ISSUE miktarını aşmamalı; material/unit/condition değişmemelidir.
+- **MOV-009:** `DEC-028` dışındaki serialized, used/removed, defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval iade senaryoları `DEC-HG-005` altında **TBD** kalır.
 
 ### Stok çıkışında zorunlu bilgiler
 
@@ -354,7 +356,7 @@ Onaylanmış V1 taahhüdü oluşturmayan gelecek değerlendirmeleri:
 | TBD-002 | Esnek nitelik ve kategori ayrıntı modeli | Sonraki veri modeli fazında tasarlanacak. |
 | TBD-003 | Tekil/seri takibin ayrıntıları | Zorunlu tanımlayıcılar, seri kuralları ve takip biçimi değişiklik koşulları belirlenecek. |
 | TBD-004 | Hareket türü ve malzeme durumu ayrımı | Bilinen kavramların işlem türü, durum veya ikisi olarak sınıflandırılması resmi iş kurallarında netleştirilecek. |
-| TBD-005 | İade, söküm, arıza ve düzeltme mekanikleri | Ters/dengeleyici hareketler ile miktar ve seri bazlı etkiler sonraki fazlarda belirlenecek. |
+| TBD-005 | İade, söküm, arıza ve düzeltme mekanikleri | `DEC-028` unused linked QUANTITY RETURN first slice'ını kararlaştırır; broader RETURN, söküm/arıza ve correction mekanikleri açık kalır (`DEC-HG-002`, `DEC-HG-005`). |
 | TBD-006 | Transfer gereksinimi | Hangi operasyonlarda transferin zorunlu olduğu ve kaynak/hedef kuralları doğrulanacak. |
 | TBD-007 | Ölçü birimleri ve kısmi miktarlar | Kablo gibi malzemeler dahil birim ve dönüşüm kuralları belirlenmedi. |
 | TBD-008 | Konum hiyerarşisi | Hiyerarşi, kod, `can_hold_stock` ve yaşam döngüsü `DEC-023` ile kararlıdır. Çoklu konum dağıtımı (`DEC-OPEN-002`) ve sayım alanı sınırları (`DEC-HG-001`) açık kalır. |

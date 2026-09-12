@@ -86,6 +86,7 @@ class InventoryTransaction(models.Model):
     class TransactionType(models.TextChoices):
         RECEIPT = "RECEIPT", "Stok girişi"
         ISSUE = "ISSUE", "Stok çıkışı"
+        RETURN = "RETURN", "Stok iadesi"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     operation_id = models.UUIDField()
@@ -107,6 +108,7 @@ class InventoryTransaction(models.Model):
         permissions = [
             ("receive_stock", "Can receive stock"),
             ("issue_stock", "Can issue stock"),
+            ("return_stock", "Can return stock"),
         ]
         indexes = [
             models.Index(fields=["occurred_at"], name="inventory_tx_occurred_idx"),
@@ -125,8 +127,8 @@ class InventoryTransaction(models.Model):
                 name="inventory_tx_fingerprint_hex",
             ),
             models.CheckConstraint(
-                condition=Q(transaction_type__in=["RECEIPT", "ISSUE"]),
-                name="inventory_tx_type_receipt_or_issue",
+                condition=Q(transaction_type__in=["RECEIPT", "ISSUE", "RETURN"]),
+                name="inventory_tx_type_supported",
             ),
         ]
 
@@ -184,6 +186,13 @@ class InventoryTransactionLine(models.Model):
         on_delete=models.RESTRICT,
         related_name="inventory_lines_as_target",
         db_index=False,
+    )
+    original_issue_line = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.RESTRICT,
+        related_name="return_lines",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
