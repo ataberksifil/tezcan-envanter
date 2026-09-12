@@ -28,6 +28,10 @@ from catalog.services.units_of_measure import (
     set_unit_of_measure_active,
     update_unit_of_measure,
 )
+from inventory.transaction_history import (
+    TRANSACTION_HISTORY_PERMISSION,
+    recent_transactions_for_material,
+)
 
 CATEGORY_LIST_PAGE_SIZE = 50
 STATUS_ALL = "all"
@@ -427,6 +431,10 @@ class MaterialDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
         context["technical_specs_items"] = build_technical_specs_items(
             self.object.technical_specs
         )
+        if self.request.user.has_perm(TRANSACTION_HISTORY_PERMISSION):
+            context["recent_inventory_transactions"] = recent_transactions_for_material(
+                self.object.pk
+            )
         return context
 
 

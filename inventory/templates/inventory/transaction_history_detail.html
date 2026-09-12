@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Envanter hareketi — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">Envanter hareketi</h1>
+    <a class="btn btn-outline-secondary" href="{% url 'inventory:transaction-history-list' %}">Listeye dön</a>
+</div>
+
+<dl class="row mb-0">
+    <dt class="col-sm-3">İşlem UUID</dt>
+    <dd class="col-sm-9 font-monospace">{{ transaction.id }}</dd>
+
+    <dt class="col-sm-3">Operasyon ID</dt>
+    <dd class="col-sm-9 font-monospace">{{ transaction.operation_id }}</dd>
+
+    <dt class="col-sm-3">İşlem türü</dt>
+    <dd class="col-sm-9">{{ transaction.get_transaction_type_display }}</dd>
+
+    <dt class="col-sm-3">Zaman</dt>
+    <dd class="col-sm-9">{{ transaction.occurred_at }}</dd>
+
+    <dt class="col-sm-3">İşlemi yapan</dt>
+    <dd class="col-sm-9">{{ transaction.acting_user.get_username }}</dd>
+
+    <dt class="col-sm-3">Satır numarası</dt>
+    <dd class="col-sm-9">{{ line.line_number }}</dd>
+
+    <dt class="col-sm-3">Malzeme kodu</dt>
+    <dd class="col-sm-9">{{ line.material.material_code }}</dd>
+
+    <dt class="col-sm-3">Malzeme adı</dt>
+    <dd class="col-sm-9">{{ line.material.name }}</dd>
+
+    <dt class="col-sm-3">Miktar</dt>
+    <dd class="col-sm-9">{{ line.quantity }}</dd>
+
+    <dt class="col-sm-3">Birim</dt>
+    <dd class="col-sm-9">{{ line.unit.code }} ({{ line.unit.name }})</dd>
+
+    <dt class="col-sm-3">Kondisyon</dt>
+    <dd class="col-sm-9">{{ line.condition.name }}</dd>
+
+    <dt class="col-sm-3">Kaynak konum</dt>
+    <dd class="col-sm-9">
+        {% if line.source_location %}
+            {{ line.source_location.code }} ({{ line.source_location.name }})
+        {% else %}
+            —
+        {% endif %}
+    </dd>
+
+    <dt class="col-sm-3">Hedef konum</dt>
+    <dd class="col-sm-9">
+        {% if line.target_location %}
+            {{ line.target_location.code }} ({{ line.target_location.name }})
+        {% else %}
+            —
+        {% endif %}
+    </dd>
+
+    {% if transaction.transaction_type == "ISSUE" and issue_context %}
+        <dt class="col-sm-3">Alıcı ad</dt>
+        <dd class="col-sm-9">{{ issue_context.receiver_first_name_snapshot }}</dd>
+
+        <dt class="col-sm-3">Alıcı soyad</dt>
+        <dd class="col-sm-9">{{ issue_context.receiver_last_name_snapshot }}</dd>
+
+        <dt class="col-sm-3">Alıcı sicil</dt>
+        <dd class="col-sm-9">{{ issue_context.receiver_employee_number_snapshot }}</dd>
+
+        <dt class="col-sm-3">Üretim hattı kodu</dt>
+        <dd class="col-sm-9">{{ issue_context.production_line_code_snapshot }}</dd>
+
+        <dt class="col-sm-3">Üretim hattı adı</dt>
+        <dd class="col-sm-9">{{ issue_context.production_line_name_snapshot }}</dd>
+
+        <dt class="col-sm-3">Kullanım yeri</dt>
+        <dd class="col-sm-9">{{ issue_context.usage_location_text }}</dd>
+    {% endif %}
+</dl>
+{% endblock %}

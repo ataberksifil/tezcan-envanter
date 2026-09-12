@@ -88,6 +88,48 @@
     <dd class="col-sm-9">{{ material.updated_at }}</dd>
 </dl>
 
+{% if recent_inventory_transactions %}
+    <section class="mb-4" aria-labelledby="recent-transactions-heading">
+        <h2 class="h5" id="recent-transactions-heading">Son envanter hareketleri</h2>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">Tarih/saat</th>
+                        <th scope="col">Tür</th>
+                        <th scope="col">Miktar</th>
+                        <th scope="col">Konum</th>
+                        <th scope="col" class="text-nowrap">Detay</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in recent_inventory_transactions %}
+                        {% with line=transaction.lines.all.0 %}
+                            <tr>
+                                <td class="text-nowrap">{{ transaction.occurred_at }}</td>
+                                <td>{{ transaction.get_transaction_type_display }}</td>
+                                <td class="text-nowrap">{{ line.quantity }} {{ line.unit.code }}</td>
+                                <td>
+                                    {% if transaction.transaction_type == "ISSUE" and line.source_location %}
+                                        {{ line.source_location.code }} ({{ line.source_location.name }})
+                                    {% elif transaction.transaction_type == "RECEIPT" and line.target_location %}
+                                        {{ line.target_location.code }} ({{ line.target_location.name }})
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'inventory:transaction-history-detail' transaction.pk %}">Detay</a>
+                                </td>
+                            </tr>
+                        {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endif %}
+
 <section aria-labelledby="technical-specs-heading">
     <h2 class="h5" id="technical-specs-heading">Teknik özellikler</h2>
     {% if technical_specs_items %}

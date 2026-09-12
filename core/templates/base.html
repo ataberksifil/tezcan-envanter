@@ -45,6 +45,11 @@
                                 <a class="nav-link" href="{% url 'inventory:issue-create' %}">Stok Çıkışı</a>
                             </li>
                         {% endif %}
+                        {% if perms.inventory.view_inventorytransaction %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'inventory:transaction-history-list' %}">Envanter hareketleri</a>
+                            </li>
+                        {% endif %}
                         {% show_management_nav user as management_nav_visible %}
                         {% if management_nav_visible %}
                             <li class="nav-item">

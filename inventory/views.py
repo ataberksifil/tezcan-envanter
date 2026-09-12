@@ -16,6 +16,14 @@ from inventory.forms import (
     attach_receipt_validation_error,
 )
 from inventory.models import InventoryTransaction, ProductionLine
+from inventory.transaction_history import (
+    TRANSACTION_HISTORY_PAGE_SIZE,
+    TRANSACTION_HISTORY_PERMISSION,
+    build_transaction_history_queryset,
+    filter_form_context,
+    filter_params_from_request,
+    normalize_transaction_type_filter,
+)
 from inventory.services.issues import issue_quantity
 from inventory.services.production_lines import (
     create_production_line,
@@ -352,6 +360,75 @@ class IssueDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
             raise Http404("Issue not found")
         context["line"] = lines[0]
         context["issue_context"] = self.object.issue_context
+        return context
+
+
+class TransactionHistoryListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = TRANSACTION_HISTORY_PERMISSION
+    model = InventoryTransaction
+    context_object_name = "transactions"
+    template_name = "inventory/transaction_history_list.html"
+    paginate_by = TRANSACTION_HISTORY_PAGE_SIZE
+    http_method_names = ["get", "head"]
+
+    def get_queryset(self):
+        return build_transaction_history_queryset(self.request)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        params = filter_params_from_request(self.request)
+        context.update(params)
+        context["transaction_type"] = normalize_transaction_type_filter(
+            params["transaction_type"]
+        )
+        context["transaction_type_raw"] = self.request.GET.get("transaction_type", "").strip()
+        context["material"] = (
+            str(params["material_id"]) if params["material_id"] is not None else ""
+        )
+        context["condition"] = (
+            str(params["condition_id"]) if params["condition_id"] is not None else ""
+        )
+        context["location"] = (
+            str(params["location_id"]) if params["location_id"] is not None else ""
+        )
+        context["actor"] = (
+            str(params["actor_id"]) if params["actor_id"] is not None else ""
+        )
+        context["date_from"] = self.request.GET.get("date_from", "").strip()
+        context["date_to"] = self.request.GET.get("date_to", "").strip()
+        context.update(filter_form_context())
+        return context
+
+
+class TransactionHistoryDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = TRANSACTION_HISTORY_PERMISSION
+    model = InventoryTransaction
+    context_object_name = "transaction"
+    template_name = "inventory/transaction_history_detail.html"
+    http_method_names = ["get", "head"]
+
+    def get_queryset(self):
+        from inventory.transaction_history import LINE_PREFETCH
+
+        return (
+            InventoryTransaction.objects.filter(
+                transaction_type__in=(
+                    InventoryTransaction.TransactionType.RECEIPT,
+                    InventoryTransaction.TransactionType.ISSUE,
+                )
+            )
+            .select_related("acting_user", "issue_context")
+            .prefetch_related(LINE_PREFETCH)
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        lines = list(self.object.lines.all())
+        if len(lines) != 1:
+            raise Http404("Transaction not found")
+        context["line"] = lines[0]
+        if self.object.transaction_type == InventoryTransaction.TransactionType.ISSUE:
+            context["issue_context"] = self.object.issue_context
         return context
 
 

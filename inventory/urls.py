@@ -55,4 +55,14 @@ urlpatterns = [
         views.IssueDetailView.as_view(),
         name="issue-detail",
     ),
+    path(
+        "inventory/transactions/",
+        views.TransactionHistoryListView.as_view(),
+        name="transaction-history-list",
+    ),
+    path(
+        "inventory/transactions/<uuid:pk>/",
+        views.TransactionHistoryDetailView.as_view(),
+        name="transaction-history-detail",
+    ),
 ]
