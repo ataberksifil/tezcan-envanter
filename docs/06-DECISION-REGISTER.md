@@ -295,6 +295,35 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   10. **Phase 3 roadmap:** ProductionLine foundation implementation Phase 3.3'te COMPLETE (2026-09-12).
 - **Consequence:** `DEC-HG-003` ProductionLine foundation kısmı kapanır. ISSUE data/UI hâlâ inventory hard gate'leri (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005` vb.) ve implementasyon görevleri bekler.
 
+### DEC-026 — Inventory Core / First Quantity Inventory Mutation Sequencing and Preflight Disposition
+
+- **Status:** `DECIDED`
+- **Required before:** Phase 4.0C quantity RECEIPT service implementation
+- **Resolves:** Inventory Core / first inventory mutation architecture preflight disposition; quantity-only first mutation slice sequencing
+- **Does not resolve:** `DEC-HG-001` (count/baseline); `DEC-HG-002` (correction); `DEC-HG-005` (RETURN); `DEC-OPEN-004` (SerializedAsset); `DEC-OPEN-010` (UoM decimal-place enforcement); ISSUE; TRANSFER; RETURN; correction; count/baseline; serialized mutations
+- **Preflight verdict:** `PASS FOR NEXT IMPLEMENTATION`
+- **Decision:**
+  1. **First real inventory mutation:** quantity **RECEIPT** only.
+  2. **Required implementation sequence:**
+     - Phase 4.0A — MaterialCondition foundation
+     - Phase 4.0B — Quantity Inventory Kernel
+     - Phase 4.0C — quantity RECEIPT service
+     - Phase 4.1 — Receipt UI + permission rollout
+  3. **Quantity-only first slice:** serialized asset mutations, ISSUE, TRANSFER, RETURN, correction ve count/baseline bu karar kapsamı dışındadır.
+  4. **Ledger:** `InventoryTransaction` + `InventoryTransactionLine` immutable business ledger'dır (`DEC-005`).
+  5. **Projection:** `StockBalance` quantity projection'dır; yalnız inventory service tarafından ledger ile aynı transaction içinde güncellenir.
+  6. **Audit boundary:** plain successful inventory ledger mutation'ları generic `AuditEvent` olarak duplicate edilmez.
+  7. **Idempotency:** `operation_id` + server-generated `request_fingerprint` mekanizması (`DEC-009`).
+  8. **Concurrency:** PostgreSQL `READ COMMITTED` + explicit locking/revalidation modeli (`DEC-007`, `DEC-008`).
+  9. **SerializedAsset:** `DEC-OPEN-004` çözülene kadar ertelenir.
+  10. **UoM decimal precision:** `DEC-OPEN-010` altında ertelenir.
+  11. **Not authorized by this decision:** ISSUE; TRANSFER; RETURN (`DEC-HG-005` blocked); correction (`DEC-HG-002` blocked); count/baseline (`DEC-HG-001` blocked).
+- **Implementation status (2026-09-12):**
+  - Phase 4.0A MaterialCondition foundation — **COMPLETE** (commit `05bee71ace10c799aab6b70f314f50e3df369b64`)
+  - Phase 4.0B Quantity Inventory Kernel — **COMPLETE** (commit `4cf52669f81da11e8ac95006eaf0754b6a7e0bf3`; latest verified full suite: 746 passed)
+  - Phase 4.0C quantity RECEIPT service — **NOT STARTED**
+- **Consequence:** Preflight disposition kanonikleşmiştir. Phase 4.0C quantity RECEIPT service implementasyonu başlayabilir. Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) ve açık kararlar (`DEC-OPEN-004`, `DEC-OPEN-010`) status değiştirmeden korunur. Bu karar Gate 3 PASS anlamına gelmez.
+
 ## 3. Açık İş Kararları
 
 Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` alanında kanonik karar kaydına bağlanır.
@@ -376,7 +405,10 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 3.2-0 Employee + ProductionLine decision pack | **COMPLETE** (2026-09-11). `DEC-024`, `DEC-025`. Bkz. §4.1 Phase 3.2-0. |
 | Phase 3.2 Employee foundation implementation | **COMPLETE** (2026-09-12). `DEC-024`; sicil, User link, lifecycle, izin ve audit politikası kararlıdır. Bkz. §4.1 Phase 3.2. |
 | Phase 3.3 ProductionLine foundation implementation | **COMPLETE** (2026-09-12). `DEC-025`; şekil, hiyerarşi, code/name, lifecycle ve permission politikası kararlıdır. Bkz. §4.1 Phase 3.3. |
-| Inventory Core / first inventory mutation preflight | Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) korunur; inventory mutation başlamamıştır. Gate 3 bağımsız audit çalıştırılmamıştır. |
+| Inventory Core / first inventory mutation preflight | **COMPLETE** (2026-09-12). `DEC-026`; preflight verdict `PASS FOR NEXT IMPLEMENTATION`. Quantity-only slice: 4.0A → 4.0B → 4.0C → 4.1. Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) korunur. Gate 3 bağımsız audit çalıştırılmamıştır. |
+| Phase 4.0A MaterialCondition foundation | **COMPLETE** (2026-09-12). Commit `05bee71a`. Bkz. §4.1 Phase 4.0A. |
+| Phase 4.0B Quantity Inventory Kernel | **COMPLETE** (2026-09-12). Commit `4cf52669`; full suite 746 passed. Bkz. §4.1 Phase 4.0B. |
+| Phase 4.0C quantity RECEIPT service | **NOT STARTED**. `DEC-026` preflight PASS; sıradaki implementasyon görevi. ISSUE/TRANSFER/RETURN/correction/count/baseline bu karar kapsamı dışındadır. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 
@@ -467,8 +499,50 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
   - ISSUE data/UI inventory hard gate'lerini bekler
   - Inventory mutation başlamamıştır
 - **Kanıt özeti:** commit `418d49e4bb0300b4b6f5b4071304e3a857b55ba9`; full suite 655 passed (son doğrulanmış)
-- **Sıradaki:** Inventory Core / first inventory mutation architecture preflight; implementation kapsamı kanonik preflight disposition bekler
+- **Sıradaki (tarihsel):** Inventory Core / first inventory mutation architecture preflight (**COMPLETE**, `DEC-026`, 2026-09-12)
 - **Not:** Phase 3.3 implementation review/audit PASS, proje Gate PASS anlamına gelmez. Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur.
+
+#### Inventory Core / First Inventory Mutation Preflight
+
+- **Disposition:** `PASS FOR NEXT IMPLEMENTATION` (2026-09-12)
+- **Anlam:**
+  - Inventory Core / first quantity inventory mutation preflight disposition kanonikleşmiştir (`DEC-026`)
+  - Onaylı ilk gerçek inventory mutation: quantity **RECEIPT**
+  - Onaylı implementasyon sırası: Phase 4.0A → 4.0B → 4.0C → 4.1
+  - Quantity-only first slice; ISSUE, TRANSFER, RETURN, correction, count/baseline ve serialized mutation bu karar kapsamı dışındadır
+  - Plain successful inventory ledger mutation generic `AuditEvent` duplicate etmez
+  - Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) ve açık kararlar (`DEC-OPEN-004`, `DEC-OPEN-010`) korunur
+- **Not:** Preflight PASS, Gate 3 PASS anlamına gelmez. Gate 3 bağımsız audit çalıştırılmamıştır.
+
+#### Phase 4.0A — MaterialCondition Foundation
+
+- **Disposition:** `COMPLETE` (2026-09-12)
+- **Anlam:**
+  - `MaterialCondition` foundation implement edildi
+  - Quantity inventory kernel ve RECEIPT service için gerekli condition referans altyapısı hazır
+- **Kanıt özeti:** commit `05bee71ace10c799aab6b70f314f50e3df369b64`
+- **Sıradaki (tarihsel):** Phase 4.0B — Quantity Inventory Kernel (**COMPLETE**)
+
+#### Phase 4.0B — Quantity Inventory Kernel
+
+- **Disposition:** `COMPLETE` (2026-09-12)
+- **Anlam:**
+  - Quantity inventory kernel (`InventoryTransaction`, `InventoryTransactionLine`, `StockBalance`, idempotency, locking contract) implement edildi
+  - Ledger immutability guard, projection update contract ve concurrency/idempotency altyapısı hazır
+  - Henüz gerçek inventory mutation service (RECEIPT) implement edilmemiştir
+- **Kanıt özeti:** commit `4cf52669f81da11e8ac95006eaf0754b6a7e0bf3`; full suite 746 passed (son doğrulanmış)
+- **Sıradaki:** Phase 4.0C — First Mutation: quantity RECEIPT service (**NOT STARTED**)
+- **Not:** Phase 4.0B implementation completion, Gate 3 PASS anlamına gelmez.
+
+#### Phase 4.0C — First Mutation: Quantity RECEIPT Service
+
+- **Disposition:** `NOT STARTED`
+- **Anlam:**
+  - `DEC-026` preflight PASS ile quantity RECEIPT service implementasyonu sıradaki görevdir
+  - Yalnız quantity RECEIPT; ISSUE, TRANSFER, RETURN, correction, count/baseline ve serialized mutation kapsam dışı
+- **Preflight:** `DEC-026` (`PASS FOR NEXT IMPLEMENTATION`)
+- **Açık kalan hard gate'ler:** `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`
+- **Açık kalan ilgili kararlar:** `DEC-OPEN-004`, `DEC-OPEN-010`
 
 ## 5. Audit Finding Disposition
 

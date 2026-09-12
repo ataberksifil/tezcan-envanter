@@ -889,7 +889,15 @@ Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs
 
 **Phase 3.3:** ProductionLine foundation implementation — COMPLETE (2026-09-12).
 
-**Sıradaki:** Inventory Core / first inventory mutation architecture preflight; implementation kapsamı kanonik preflight disposition bekler. Inventory mutation başlamamıştır. Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur.
+**Inventory Core preflight:** PASS FOR NEXT IMPLEMENTATION (`DEC-026`, 2026-09-12). Onaylı ilk mutation: quantity **RECEIPT**. Plain successful inventory ledger mutation generic `AuditEvent` duplicate etmez.
+
+**Phase 4.0A:** MaterialCondition foundation — COMPLETE (2026-09-12).
+
+**Phase 4.0B:** Quantity Inventory Kernel — COMPLETE (2026-09-12).
+
+**Phase 4.0C:** First Mutation — quantity RECEIPT service — NOT STARTED.
+
+**Sıradaki:** Phase 4.0C — quantity RECEIPT service. Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur.
 
 ## 37. Dynamic Configuration Architecture
 
@@ -985,8 +993,23 @@ Kanonik sıra (`DEC-021`):
 | 3.2 | Employee foundation implementation — **COMPLETE** (2026-09-12) |
 | 3.3 | ProductionLine foundation implementation — **COMPLETE** (2026-09-12) |
 
-**Son doğrulanmış test suite:** 655 passed
+## 40. Phase 4 Implementation Roadmap
 
-**Sıradaki:** Inventory Core / first inventory mutation architecture preflight; implementation kapsamı kanonik preflight disposition bekler.
+Inventory Core preflight disposition kanonikleşmiştir (`DEC-026`; `PASS FOR NEXT IMPLEMENTATION`).
 
-Inventory mutation implementasyonu henüz başlamamıştır. Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur.
+| Görev | Kapsam |
+|---|---|
+| 4.0A | MaterialCondition foundation — **COMPLETE** (2026-09-12) |
+| 4.0B | Quantity Inventory Kernel — **COMPLETE** (2026-09-12) |
+| 4.0C | First Mutation: quantity RECEIPT service — **NOT STARTED** |
+| 4.1 | Receipt UI + permission rollout — bekler (4.0C sonrası) |
+
+**Onaylı ilk mutation:** quantity RECEIPT only. ISSUE, TRANSFER, RETURN, correction, count/baseline ve serialized mutation bu preflight kapsamı dışındadır.
+
+**Ledger/projection contract:** `InventoryTransaction` + `InventoryTransactionLine` immutable business ledger; `StockBalance` quantity projection. Plain successful receipt ledger generic `AuditEvent` duplicate etmez.
+
+**Son doğrulanmış test suite:** 746 passed
+
+**Sıradaki:** Phase 4.0C — quantity RECEIPT service
+
+Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-010`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur.

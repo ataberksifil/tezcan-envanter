@@ -14,9 +14,13 @@
 - **Phase 3.2-0:** Employee + ProductionLine decision pack COMPLETE (`DEC-024`, `DEC-025`)
 - **Phase 3.2:** Employee foundation implementation COMPLETE
 - **Phase 3.3:** ProductionLine foundation implementation COMPLETE
-- **Inventory mutation:** NOT STARTED
+- **Inventory Core preflight:** PASS FOR NEXT IMPLEMENTATION (`DEC-026`)
+- **Phase 4.0A:** MaterialCondition foundation COMPLETE (2026-09-12; commit `05bee71a`)
+- **Phase 4.0B:** Quantity Inventory Kernel COMPLETE (2026-09-12; commit `4cf52669`)
+- **Phase 4.0C:** First Mutation — quantity RECEIPT service — NOT STARTED
+- **Son doğrulanmış test suite:** 746 passed
 - **Gate 3:** NOT RUN — PASS kaydı yok
-- **Sıradaki:** Inventory Core / first inventory mutation architecture preflight; implementation kapsamı kanonik preflight disposition bekler
+- **Sıradaki:** Phase 4.0C — quantity RECEIPT service
 
 Phase 2 ayrıntıları için bkz. [Yol Haritası](#yol-haritası).
 
@@ -162,11 +166,19 @@ python manage.py setup_roles
 
 **Phase 3.3:** ProductionLine foundation implementation — COMPLETE (2026-09-12; commit `418d49e4`)
 
-**Son doğrulanmış test suite:** 655 passed
+**Inventory Core preflight:** PASS FOR NEXT IMPLEMENTATION (`DEC-026`, 2026-09-12)
 
-**Sıradaki:** Inventory Core / first inventory mutation architecture preflight; implementation kapsamı kanonik preflight disposition bekler.
+**Phase 4.0A:** MaterialCondition foundation — COMPLETE (2026-09-12; commit `05bee71a`)
 
-Inventory mutation implementasyonu henüz başlamamıştır. **Gate 3** bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
+**Phase 4.0B:** Quantity Inventory Kernel — COMPLETE (2026-09-12; commit `4cf52669`)
+
+**Phase 4.0C:** First Mutation — quantity RECEIPT service — NOT STARTED
+
+**Son doğrulanmış test suite:** 746 passed
+
+**Sıradaki:** Phase 4.0C — quantity RECEIPT service
+
+Inventory Core preflight disposition kanonikleşmiştir. Quantity inventory kernel implement edilmiştir; ilk gerçek mutation (quantity RECEIPT) henüz başlamamıştır. **Gate 3** bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
 
 ### Sağlık kontrolü
 
