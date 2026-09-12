@@ -31,6 +31,7 @@ PERMISSION_CHOICES = (
     ("inventory.receive_stock", "Stok girişi yapabilir"),
     ("inventory.issue_stock", "Stok çıkışı yapabilir"),
     ("inventory.return_stock", "Stok iadesi yapabilir"),
+    ("inventory.transfer_stock", "Stok transferi yapabilir"),
     ("inventory.view_inventorytransaction", "Envanter hareketlerini görüntüleyebilir"),
 )
 assert tuple(value for value, _label in PERMISSION_CHOICES) == SAFE_CATALOG_PERMISSION_LABELS

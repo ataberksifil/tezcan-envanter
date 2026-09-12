@@ -41,6 +41,7 @@ _VIEW_ADD_CHANGE_PRODUCTIONLINE = frozenset(
 _RECEIVE_STOCK = frozenset({"receive_stock"})
 _ISSUE_STOCK = frozenset({"issue_stock"})
 _RETURN_STOCK = frozenset({"return_stock"})
+_TRANSFER_STOCK = frozenset({"transfer_stock"})
 _VIEW_INVENTORY_TRANSACTION = frozenset({"view_inventorytransaction"})
 
 DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
@@ -55,6 +56,7 @@ DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
     | _RECEIVE_STOCK
     | _ISSUE_STOCK
     | _RETURN_STOCK
+    | _TRANSFER_STOCK
     | _VIEW_INVENTORY_TRANSACTION,
     ADMIN_MANAGER: _VIEW_ADD_CHANGE_CATALOG
     | frozenset({"view_location", "add_location", "change_location"})
@@ -63,6 +65,7 @@ DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
     | _RECEIVE_STOCK
     | _ISSUE_STOCK
     | _RETURN_STOCK
+    | _TRANSFER_STOCK
     | _VIEW_INVENTORY_TRANSACTION,
 }
 
@@ -93,6 +96,7 @@ SAFE_CATALOG_PERMISSION_LABELS: tuple[str, ...] = (
     "inventory.receive_stock",
     "inventory.issue_stock",
     "inventory.return_stock",
+    "inventory.transfer_stock",
     "inventory.view_inventorytransaction",
 )
 SAFE_CATALOG_PERMISSION_SET: frozenset[str] = frozenset(

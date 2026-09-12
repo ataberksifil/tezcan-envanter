@@ -13,9 +13,11 @@ from inventory.forms import (
     QuantityIssueForm,
     QuantityReceiptForm,
     QuantityReturnForm,
+    QuantityTransferForm,
     attach_issue_validation_error,
     attach_receipt_validation_error,
     attach_return_validation_error,
+    attach_transfer_validation_error,
 )
 from inventory.models import InventoryTransaction, InventoryTransactionLine, ProductionLine
 from inventory.transaction_history import (
@@ -34,6 +36,7 @@ from inventory.services.production_lines import (
 )
 from inventory.services.receipts import receive_quantity
 from inventory.services.returns import return_quantity
+from inventory.services.transfers import transfer_quantity
 
 PRODUCTION_LINE_LIST_PAGE_SIZE = 50
 STATUS_ALL = "all"
@@ -528,6 +531,7 @@ class TransactionHistoryDetailView(LoginRequiredMixin, PermissionRequiredMixin, 
                     InventoryTransaction.TransactionType.RECEIPT,
                     InventoryTransaction.TransactionType.ISSUE,
                     InventoryTransaction.TransactionType.RETURN,
+                    InventoryTransaction.TransactionType.TRANSFER,
                 )
             )
             .select_related("acting_user", "issue_context")
@@ -544,6 +548,85 @@ class TransactionHistoryDetailView(LoginRequiredMixin, PermissionRequiredMixin, 
             context["issue_context"] = self.object.issue_context
         elif self.object.transaction_type == InventoryTransaction.TransactionType.RETURN:
             context["original_issue_line"] = lines[0].original_issue_line
+        return context
+
+
+class TransferCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "inventory.transfer_stock"
+    template_name = "inventory/transfer_form.html"
+
+    def _render(self, request, form):
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": form,
+                "form_title": "Stok transferi",
+                "submit_label": "Kaydet",
+            },
+        )
+
+    def get(self, request):
+        return self._render(request, QuantityTransferForm())
+
+    def post(self, request):
+        form = QuantityTransferForm(request.POST)
+        if not form.is_valid():
+            return self._render(request, form)
+
+        material = form.cleaned_data["material"]
+        unit = form.cleaned_data.get("unit") or material.unit
+        try:
+            result = transfer_quantity(
+                actor=request.user,
+                operation_id=form.cleaned_data["operation_id"],
+                material_id=material.pk,
+                unit_id=unit.pk,
+                condition_id=form.cleaned_data["condition"].pk,
+                source_location_id=form.cleaned_data["source_location"].pk,
+                target_location_id=form.cleaned_data["target_location"].pk,
+                quantity=form.cleaned_data["quantity"],
+            )
+        except PermissionDenied:
+            raise
+        except ValidationError as exc:
+            attach_transfer_validation_error(form, exc)
+            return self._render(request, form)
+
+        if result.replayed:
+            messages.info(request, "Bu stok transferi daha önce kaydedilmişti.")
+        else:
+            messages.success(request, "Stok transferi kaydedildi.")
+        return redirect("inventory:transfer-detail", pk=result.transaction.pk)
+
+
+class TransferDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = "inventory.transfer_stock"
+    model = InventoryTransaction
+    context_object_name = "transfer"
+    template_name = "inventory/transfer_detail.html"
+    http_method_names = ["get", "head"]
+
+    def get_queryset(self):
+        return (
+            InventoryTransaction.objects.filter(
+                transaction_type=InventoryTransaction.TransactionType.TRANSFER,
+            )
+            .select_related("acting_user")
+            .prefetch_related(
+                "lines__material__unit",
+                "lines__condition",
+                "lines__source_location",
+                "lines__target_location",
+            )
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        lines = list(self.object.lines.all())
+        if len(lines) != 1:
+            raise Http404("Transfer not found")
+        context["line"] = lines[0]
         return context
 
 

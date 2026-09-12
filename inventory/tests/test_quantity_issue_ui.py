@@ -274,8 +274,8 @@ def test_explicit_issue_stock_permission_grants_access(app_client):
     assert "Stok çıkışı" in response.content.decode()
 
 
-def test_managed_permission_count_is_twenty_two():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 22
+def test_managed_permission_count_is_twenty_three():
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 23
     assert "inventory.issue_stock" in SAFE_CATALOG_PERMISSION_LABELS
 
 

@@ -21,6 +21,7 @@ ALLOWED_TRANSACTION_TYPE_FILTERS = frozenset(
         InventoryTransaction.TransactionType.RECEIPT,
         InventoryTransaction.TransactionType.ISSUE,
         InventoryTransaction.TransactionType.RETURN,
+        InventoryTransaction.TransactionType.TRANSFER,
     }
 )
 
@@ -121,6 +122,14 @@ def apply_transaction_history_filters(
                 transaction_type=InventoryTransaction.TransactionType.RETURN,
                 lines__target_location_id=location_id,
             )
+            | Q(
+                transaction_type=InventoryTransaction.TransactionType.TRANSFER,
+                lines__source_location_id=location_id,
+            )
+            | Q(
+                transaction_type=InventoryTransaction.TransactionType.TRANSFER,
+                lines__target_location_id=location_id,
+            )
         ).distinct()
 
     if actor_id is not None:
@@ -193,5 +202,6 @@ def filter_form_context() -> dict:
             (InventoryTransaction.TransactionType.RECEIPT, "Stok girişi"),
             (InventoryTransaction.TransactionType.ISSUE, "Stok çıkışı"),
             (InventoryTransaction.TransactionType.RETURN, "Stok iadesi"),
+            (InventoryTransaction.TransactionType.TRANSFER, "Stok transferi"),
         ],
     }

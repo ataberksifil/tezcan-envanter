@@ -566,4 +566,4 @@ def test_projection_formula_is_cross_location_and_verifier_is_read_only(
 @pytest.mark.django_db
 def test_return_permission_is_added_to_managed_role_rollout():
     assert RETURN_STOCK_PERMISSION in SAFE_CATALOG_PERMISSION_LABELS
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 22
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 23

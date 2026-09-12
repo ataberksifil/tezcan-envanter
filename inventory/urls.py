@@ -66,6 +66,16 @@ urlpatterns = [
         name="return-detail",
     ),
     path(
+        "inventory/transfers/new/",
+        views.TransferCreateView.as_view(),
+        name="transfer-create",
+    ),
+    path(
+        "inventory/transfers/<uuid:pk>/",
+        views.TransferDetailView.as_view(),
+        name="transfer-detail",
+    ),
+    path(
         "inventory/transactions/",
         views.TransactionHistoryListView.as_view(),
         name="transaction-history-list",

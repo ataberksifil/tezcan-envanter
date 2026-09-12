@@ -184,8 +184,8 @@ def test_safe_permissions_and_manage_access_superuser_round_trip_are_audited():
     assert MANAGE_ACCESS_PERMISSION not in canonical_role_snapshot(role)["permissions"]
 
 
-def test_managed_permission_set_is_exactly_twenty_two():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 22
+def test_managed_permission_set_is_exactly_twenty_three():
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 23
     assert "accounts.view_employee" in SAFE_CATALOG_PERMISSION_LABELS
     assert "accounts.add_employee" in SAFE_CATALOG_PERMISSION_LABELS
     assert "accounts.change_employee" in SAFE_CATALOG_PERMISSION_LABELS
@@ -197,6 +197,7 @@ def test_managed_permission_set_is_exactly_twenty_two():
     assert "inventory.receive_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.issue_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.return_stock" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "inventory.transfer_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.view_inventorytransaction" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.add_inventorytransaction" not in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.change_inventorytransaction" not in SAFE_CATALOG_PERMISSION_LABELS

@@ -10,8 +10,13 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from accounts.models import Employee
-from catalog.models import Material, MaterialCondition
-from inventory.models import InventoryTransaction, InventoryTransactionLine, ProductionLine
+from catalog.models import Material, MaterialCondition, UnitOfMeasure
+from inventory.models import (
+    InventoryTransaction,
+    InventoryTransactionLine,
+    ProductionLine,
+    StockBalance,
+)
 from locations.models import Location
 
 
@@ -409,6 +414,162 @@ def attach_receipt_validation_error(form: QuantityReceiptForm, exc: ValidationEr
             if field is not None and field in form.fields:
                 form.add_error(field, error)
             else:
+                form.add_error(None, error)
+        return
+
+    if hasattr(exc, "error_dict"):
+        for field, errors in exc.error_dict.items():
+            target = None if field == "__all__" else field
+            for error in errors:
+                if target is not None and target in form.fields:
+                    form.add_error(target, error)
+                else:
+                    form.add_error(None, error)
+
+
+class QuantityTransferForm(forms.Form):
+    operation_id = forms.UUIDField(widget=forms.HiddenInput())
+    material = ServiceValidatedModelChoiceField(
+        label="Malzeme",
+        queryset=Material.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    unit = ServiceValidatedModelChoiceField(
+        label="Birim",
+        queryset=UnitOfMeasure.objects.none(),
+        required=False,
+        widget=forms.HiddenInput(),
+    )
+    condition = ServiceValidatedModelChoiceField(
+        label="Kondisyon",
+        queryset=MaterialCondition.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    source_location = ServiceValidatedModelChoiceField(
+        label="Kaynak konum",
+        queryset=Location.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    target_location = ServiceValidatedModelChoiceField(
+        label="Hedef konum",
+        queryset=Location.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    quantity = forms.DecimalField(
+        label="Miktar",
+        max_digits=18,
+        decimal_places=3,
+        min_value=Decimal("0.001"),
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.001"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.fields["operation_id"].initial = uuid.uuid4()
+
+        transfer_materials = (
+            Material.objects.filter(
+                active=True,
+                tracking_mode=Material.TrackingMode.QUANTITY,
+                unit__isnull=False,
+            )
+            .select_related("unit")
+            .order_by("material_code", "name", "id")
+        )
+        self.fields["material"].queryset = transfer_materials
+        self.fields["material"].label_from_instance = material_choice_label
+
+        self.fields["unit"].queryset = UnitOfMeasure.objects.order_by("code", "id")
+
+        transfer_conditions = MaterialCondition.objects.filter(active=True).order_by(
+            "sort_order", "name", "id"
+        )
+        self.fields["condition"].queryset = transfer_conditions
+        self.fields["condition"].label_from_instance = condition_choice_label
+
+        stock_locations = Location.objects.filter(
+            active=True,
+            can_hold_stock=True,
+        ).order_by("code", "name", "id")
+        self.fields["source_location"].queryset = stock_locations
+        self.fields["source_location"].label_from_instance = stock_location_choice_label
+
+        target_locations = stock_locations
+        selected_source_id = self.data.get("source_location") if self.is_bound else None
+        if selected_source_id:
+            target_locations = stock_locations.exclude(pk=selected_source_id)
+        self.fields["target_location"].queryset = target_locations
+        self.fields["target_location"].label_from_instance = stock_location_choice_label
+
+        selected_material = self._posted_instance(Material, "material")
+        selected_condition = self._posted_instance(MaterialCondition, "condition")
+        selected_source = self._posted_instance(Location, "source_location")
+        if selected_material is not None and selected_material.unit_id is not None:
+            if not self.data.get("unit"):
+                self.fields["unit"].initial = selected_material.unit_id
+        if (
+            selected_material is not None
+            and selected_condition is not None
+            and selected_source is not None
+        ):
+            balance = StockBalance.objects.filter(
+                material=selected_material,
+                location=selected_source,
+                condition=selected_condition,
+            ).first()
+            if balance is not None:
+                self.fields["quantity"].help_text = (
+                    f"Kaynak stok (bilgi amaçlı): {balance.quantity}"
+                )
+
+    def _posted_instance(self, model, field_name):
+        if not self.is_bound:
+            return None
+        value = self.data.get(field_name)
+        if not value:
+            return None
+        try:
+            return model._default_manager.get(pk=value)
+        except (ValueError, TypeError, model.DoesNotExist):
+            return None
+
+    def clean(self):
+        cleaned = super().clean()
+        material = cleaned.get("material")
+        unit = cleaned.get("unit")
+        if material is not None and unit is None and material.unit_id is not None:
+            cleaned["unit"] = material.unit
+        return cleaned
+
+
+TRANSFER_ERROR_FIELD_MAP = {
+    "inventory.invalid_quantity": ("quantity",),
+    "inventory.inactive_material": ("material",),
+    "inventory.tracking_mode_mismatch": ("material",),
+    "inventory.unit_mismatch": ("material", "unit"),
+    "inventory.inactive_condition": ("condition",),
+    "inventory.invalid_source": ("source_location",),
+    "inventory.invalid_destination": ("target_location",),
+    "inventory.insufficient_stock": ("quantity", "source_location"),
+    "inventory.same_source_destination": ("source_location", "target_location"),
+    "inventory.invalid_operation_id": ("operation_id",),
+}
+
+
+def attach_transfer_validation_error(
+    form: QuantityTransferForm, exc: ValidationError
+) -> None:
+    if hasattr(exc, "error_list"):
+        for error in exc.error_list:
+            code = getattr(error, "code", None)
+            fields = TRANSFER_ERROR_FIELD_MAP.get(code, ())
+            attached = False
+            for field in fields:
+                if field in form.fields:
+                    form.add_error(field, error.message if attached else error)
+                    attached = True
+            if not attached:
                 form.add_error(None, error)
         return
 

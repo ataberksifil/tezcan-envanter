@@ -24,9 +24,9 @@
 - **Phase 4.3:** Inventory Transaction History — COMPLETE (2026-09-12; commit `cec8284`)
 - **Phase 4.4:** Quantity unused linked RETURN — COMPLETE (2026-09-12; commits `e96ec2d`, `3e68f02`, `a98cf87`)
 - **Quantity RETURN first slice:** uçtan uca implement edilmiştir (kernel, service, UI, `inventory.return_stock` permission rollout)
-- **Phase 4.5:** Quantity TRANSFER — IN PROGRESS
-- **Son doğrulanmış test suite:** 1072 passed
-- **Managed permission count:** 22
+- **Phase 4.5:** Quantity TRANSFER — COMPLETE
+- **Son doğrulanmış test suite:** 1169 passed
+- **Managed permission count:** 23
 - **Gate 3:** PASS (2026-09-12)
 
 Phase 2 ayrıntıları için bkz. [Yol Haritası](#yol-haritası).
@@ -201,13 +201,17 @@ Fresh-role policy (`inventory.return_stock`): TECHNICIAN no; STOREKEEPER yes; AD
 
 Broader RETURN senaryoları deferred: serialized, used/removed goods, defective/condition-changing, unknown provenance, supplier rejection, technician-originated approval, correction/count interactions.
 
-**Phase 4.5:** Quantity TRANSFER — IN PROGRESS
+**Phase 4.5:** Quantity TRANSFER — COMPLETE
 
-**Son doğrulanmış test suite:** 1072 passed
+Fresh-role policy (`inventory.transfer_stock`): TECHNICIAN no; STOREKEEPER yes; ADMIN_MANAGER yes.
 
-**Managed permission count:** 22
+Broader TRANSFER senaryoları deferred: serialized, condition-changing, multi-source/multi-target, FIFO/FEFO, technician custody, person-to-person handover, production usage, correction/count, QR/offline.
 
-**Gate 3:** PASS (2026-09-12; audited HEAD `4cf89525`; bkz. [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) §4.5). Tarihsel kapsam: Phase 3 (Location, Employee, ProductionLine) ve quantity-only RECEIPT slice (4.0A–4.1). Phase 4.2 ISSUE, Phase 4.3 history ve Phase 4.4 RETURN first slice sonradan implement edilmiştir; Gate 3 bunları audit etmemiştir. TRANSFER, serialized inventory, correction ve count/baseline henüz implement edilmemiştir. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
+**Son doğrulanmış test suite:** 1169 passed
+
+**Managed permission count:** 23
+
+**Gate 3:** PASS (2026-09-12; audited HEAD `4cf89525`; bkz. [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) §4.5). Tarihsel kapsam: Phase 3 (Location, Employee, ProductionLine) ve quantity-only RECEIPT slice (4.0A–4.1). Phase 4.2 ISSUE, Phase 4.3 history, Phase 4.4 RETURN first slice ve Phase 4.5 quantity TRANSFER first slice sonradan implement edilmiştir; Gate 3 bunları audit etmemiştir. Serialized inventory, correction ve count/baseline henüz implement edilmemiştir. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
 
 ### Sağlık kontrolü
 

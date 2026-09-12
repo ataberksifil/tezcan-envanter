@@ -217,6 +217,7 @@ def test_existing_storekeeper_customized_catalog_permissions_are_preserved(
         "receive_stock",
         "issue_stock",
         "return_stock",
+        "transfer_stock",
         "view_inventorytransaction",
     }
 
@@ -443,6 +444,13 @@ def test_fresh_return_stock_role_policy():
     assert "return_stock" in _template_codenames_for_group(ADMIN_MANAGER)
 
 
+def test_fresh_transfer_stock_role_policy():
+    _run_setup_roles()
+    assert "transfer_stock" not in _template_codenames_for_group(TECHNICIAN)
+    assert "transfer_stock" in _template_codenames_for_group(STOREKEEPER)
+    assert "transfer_stock" in _template_codenames_for_group(ADMIN_MANAGER)
+
+
 @pytest.mark.parametrize("role_name", (STOREKEEPER, ADMIN_MANAGER))
 def test_existing_role_does_not_regain_return_stock_on_rerun(
     catalog_permissions, role_name
@@ -456,6 +464,21 @@ def test_existing_role_does_not_regain_return_stock_on_rerun(
 
     assert _permission_pks_for_group(role_name) == before
     assert "return_stock" not in _template_codenames_for_group(role_name)
+
+
+@pytest.mark.parametrize("role_name", (STOREKEEPER, ADMIN_MANAGER))
+def test_existing_role_does_not_regain_transfer_stock_on_rerun(
+    catalog_permissions, role_name
+):
+    _run_setup_roles()
+    role = Group.objects.get(name=role_name)
+    role.permissions.remove(catalog_permissions["transfer_stock"])
+    before = _permission_pks_for_group(role_name)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(role_name) == before
+    assert "transfer_stock" not in _template_codenames_for_group(role_name)
 
 
 def test_new_technician_storekeeper_and_admin_manager_templates_receive_view_inventorytransaction():
