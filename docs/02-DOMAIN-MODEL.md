@@ -96,7 +96,7 @@ Bir `ISSUE` işlemi:
 - mümkün olduğunda teslim alan `Employee` kaydına referans verebilmeli;
 - her durumda teslim anındaki ad, soyad ve sicil numarasının tarihsel kopyasını korumalıdır.
 
-Bu tasarım, çalışan adı veya sicil numarası sonradan değişse dahi eski çıkışın ilk kaydedildiği kimlikle anlaşılmasını sağlar. Gelecek ISSUE contract'ında receiver `Employee` UUID referansı taşır; transaction `employee_number`, `first_name`, `last_name` snapshot'larını korur (`DEC-024`). Tarihsel alıcı bilgilerinin işlem üzerinde korunması ISS-002–ISS-004 nedeniyle zorunludur. ISSUE henüz implement edilmemiştir.
+Bu tasarım, çalışan adı veya sicil numarası sonradan değişse dahi eski çıkışın ilk kaydedildiği kimlikle anlaşılmasını sağlar. ISSUE contract'ında receiver `Employee` UUID referansı taşır; transaction `employee_number`, `first_name`, `last_name` snapshot'larını korur (`DEC-024`, `DEC-027`). Tarihsel alıcı bilgilerinin işlem üzerinde korunması ISS-002–ISS-004 nedeniyle zorunludur. Quantity ISSUE first slice `DEC-027` ile authorize edilmiştir; henüz implement edilmemiştir.
 
 ## 5. Malzeme Kataloğu Domaini
 
@@ -346,11 +346,11 @@ Her `ISSUE` işlemi aşağıdaki tarihsel iş bağlamını korur:
 
 Alıcı için `Employee` UUID referansı ve zorunlu kimlik snapshot'ı (`employee_number`, `first_name`, `last_name`) taşınır (`DEC-024`). Üretim hattı ve fiili kullanım yeri iki ayrı zorunlu iş bilgisidir; depo `Location` hiyerarşisine zorla bağlanmaz.
 
-**ProductionLine (`DEC-025`):** Üretim hattı, `inventory` app sahipliği altında dinamik master-data entity'dir. UUID kalıcı kimlik; `code` (globally unique, case-sensitive, editable) ve `name` (non-unique, editable); nullable recursive `parent`; arbitrary depth hierarchy; self-parent ve cycle yasak; Location hiyerarşisinden bağımsız. Active/inactive lifecycle; inactive yeni ISSUE seçiminde kullanılamaz. Gelecek ISSUE, seçilen `ProductionLine` UUID'sini ve `code`/`name` snapshot'larını taşır. Tahmin edilmiş fabrika hatları seed edilmez. ProductionLine foundation Phase 3.3'te implement edilmiştir; ISSUE henüz implement edilmemiştir.
+**ProductionLine (`DEC-025`):** Üretim hattı, `inventory` app sahipliği altında dinamik master-data entity'dir. UUID kalıcı kimlik; `code` (globally unique, case-sensitive, editable) ve `name` (non-unique, editable); nullable recursive `parent`; arbitrary depth hierarchy; self-parent ve cycle yasak; Location hiyerarşisinden bağımsız. Active/inactive lifecycle; inactive yeni ISSUE seçiminde kullanılamaz. ISSUE, seçilen `ProductionLine` UUID'sini ve `code`/`name` snapshot'larını taşır (`DEC-027`). Herhangi bir active node seçilebilir; leaf-only semantics yoktur. Tahmin edilmiş fabrika hatları seed edilmez. ProductionLine foundation Phase 3.3'te implement edilmiştir.
 
-**Fiili kullanım yeri (exact usage place):** V1 future ISSUE ayrı required free-text değer gerektirir. `ProductionLine` structured selectable context sağlar; exact usage place ayrı kalır. `UsagePlace` modeli yoktur; Location veya ProductionLine'dan infer edilmez.
+**Fiili kullanım yeri (exact usage place):** V1 quantity ISSUE ayrı required free-text `usage_location_text` gerektirir (`DEC-027`). `ProductionLine` structured selectable context sağlar; exact usage place ayrı kalır. `UsagePlace` modeli yoktur; Location veya ProductionLine'dan infer edilmez.
 
-ISSUE data/UI implementation inventory hard gate'leri (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005` vb.) çözülene kadar başlamaz.
+Quantity ISSUE first slice `DEC-027` ile authorize edilmiştir (`PASS FOR NEXT IMPLEMENTATION`); schema/service/UI henüz implement edilmemiştir. `DEC-HG-001`/`002`/`005` count/correction/RETURN scope'larını bloke eder; quantity ISSUE slice'ını bloke etmez.
 
 ### Kavramsal işlem akışı
 

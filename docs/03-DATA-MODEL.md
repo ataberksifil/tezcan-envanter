@@ -186,7 +186,7 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 
 ## 6A. ProductionLine Tabloları (inventory app)
 
-Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain yapısıdır (`DEC-025`). ProductionLine foundation Phase 3.3'te implement edilmiştir; ISSUE henüz implement edilmemiştir.
+Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain yapısıdır (`DEC-025`). ProductionLine foundation Phase 3.3'te implement edilmiştir. Quantity ISSUE first slice `DEC-027` ile authorize edilmiştir; henüz implement edilmemiştir.
 
 ### 6A.1 `production_lines`
 
@@ -339,7 +339,7 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 - **Check Constraints:** Snapshot ve iki kullanım alanı normalize edildikten sonra boş olamaz.
 - **Recommended Indexes:** `receiver_employee_id`, gerekirse `receiver_employee_number_snapshot`; transaction PK indeksi yeterlidir.
 - **Delete Policy:** İlgili transaction gibi `IMMUTABLE / NO DELETE`.
-- **Notes / TBD:** Ayrı tablo; ISSUE dışı işlemlerde gereksiz nullable kolonları önler. Servis `transaction_type = ISSUE` olmasını ve her ISSUE için context bulunmasını atomik doğrular. ProductionLine foundation `DEC-025` ile kararlıdır; Employee foundation `DEC-024` ile kararlıdır. ISSUE data/UI inventory hard gate'leri çözülene kadar implement edilmez. `usage_location_text` exact usage place olarak ayrı required free text kalır; `UsagePlace` modeli yoktur; Location veya ProductionLine'dan infer edilmez.
+- **Notes / TBD:** Ayrı tablo; ISSUE dışı işlemlerde gereksiz nullable kolonları önler. Servis `transaction_type = ISSUE` olmasını ve her ISSUE için context bulunmasını atomik doğrular. ProductionLine foundation `DEC-025` ile kararlıdır; Employee foundation `DEC-024` ile kararlıdır. Quantity ISSUE contract `DEC-027` ile kararlıdır; kernel/schema Phase 4.2A'da implement edilir. DB-backed completeness/immutability guard Phase 4.2A zorunludur. `usage_location_text` exact usage place olarak ayrı required free text kalır; `UsagePlace` modeli yoktur; Location veya ProductionLine'dan infer edilmez.
 
 ## 11. Correction Tabloları
 
@@ -964,7 +964,7 @@ Bu legacy tablo güncel karar statüsünün kanonik kaydı değildir. `docs/06-D
 | DM-B04 | Bozuk/çıkma kondisyon kullanılabilir ve minimum stoğa dahil mi? | `stock_balances`, reporting, service |
 | DM-B05 | Minimum stok toplam, depo, lokasyon veya kondisyon bazında mı? | Material column veya policy table |
 | DM-B06 | Ondalık hassasiyet, kısmi miktar ve unit conversion davranışı nedir? | `NUMERIC` doğrulaması, UoM |
-| DM-B07 | ProductionLine `DEC-025` ile kararlı dynamic entity; exact usage place ayrı free text; ISSUE henüz implement edilmez | `production_lines`, `issue_contexts` |
+| DM-B07 | ProductionLine `DEC-025` ile kararlı dynamic entity; exact usage place ayrı free text; quantity ISSUE first slice `DEC-027` authorize; henüz implement edilmemiştir | `production_lines`, `issue_contexts` |
 | DM-B08 | `ApplicationUser`–`Employee` nullable one-to-one ownership Employee (`DEC-024`); rol atama/onay `DEC-022` ile kararlı | Identity FK/unique ve permissions |
 | DM-B09 | Location type/hiyerarşi/kod ve stoklu deactivation `DEC-023` ile kararlıdır. Inventory aynı lifecycle invariant'ını otoritatif uygulamak zorundadır. | `locations` |
 | DM-B10 | Olağan değişiklik `DEC-013` ile yasak; exceptional migration istenirse ayrı iş kararı gerekir. | `materials`, ledger validation |

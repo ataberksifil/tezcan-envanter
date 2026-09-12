@@ -293,7 +293,7 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   8. **Permissions (planlanan):** `inventory.view_productionline`, `inventory.add_productionline`, `inventory.change_productionline`. `delete` expose edilmez. Write requires view. Yönetim shell üzerinden dinamik yönetim. Bu docs görevinde permission kodu değiştirilmez.
   9. **Seed:** Tahmin edilmiş fabrika hatları seed edilmez.
   10. **Phase 3 roadmap:** ProductionLine foundation implementation Phase 3.3'te COMPLETE (2026-09-12).
-- **Consequence:** `DEC-HG-003` ProductionLine foundation kısmı kapanır. ISSUE data/UI hâlâ inventory hard gate'leri (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005` vb.) ve implementasyon görevleri bekler.
+- **Consequence:** `DEC-HG-003` ProductionLine foundation kısmı kapanır. Quantity ISSUE contract semantics `DEC-027` ile kararlıdır; schema/service/UI henüz implement edilmemiştir.
 
 ### DEC-026 — Inventory Core / First Quantity Inventory Mutation Sequencing and Preflight Disposition
 
@@ -323,7 +323,35 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   - Phase 4.0B Quantity Inventory Kernel — **COMPLETE** (commit `4cf52669f81da11e8ac95006eaf0754b6a7e0bf3`)
   - Phase 4.0C quantity RECEIPT service — **COMPLETE** (commit `4546739e1a46db5e176b43d460b2e2b42644e998`)
   - Phase 4.1 Receipt UI + permission rollout — **COMPLETE** (commit `927e83b2364f93afec47dc22cf22be2f60e51d5a`; latest verified full suite: 823 passed; managed permission count: 19)
-- **Consequence:** Preflight disposition kanonikleşmiştir. Onaylı quantity-only slice (`4.0A` → `4.0B` → `4.0C` → `4.1`) tamamlanmıştır; quantity RECEIPT kernel, idempotent service, UI ve `inventory.receive_stock` permission rollout mevcuttur. Plain successful receipt ledger-only kalır; generic `AuditEvent` duplicate edilmez. ISSUE, TRANSFER, RETURN, correction, count/baseline ve serialized mutation bu karar kapsamı dışındadır. Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) ve açık kararlar (`DEC-OPEN-004`, `DEC-OPEN-010`) status değiştirmeden korunur. Bu karar Gate 3 PASS anlamına gelmez.
+- **Consequence:** Preflight disposition kanonikleşmiştir. Onaylı quantity-only slice (`4.0A` → `4.0B` → `4.0C` → `4.1`) tamamlanmıştır; quantity RECEIPT kernel, idempotent service, UI ve `inventory.receive_stock` permission rollout mevcuttur. Plain successful receipt ledger-only kalır; generic `AuditEvent` duplicate edilmez. ISSUE, TRANSFER, RETURN, correction, count/baseline ve serialized mutation bu karar kapsamı dışındadır. Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) ve açık kararlar (`DEC-OPEN-004`, `DEC-OPEN-010`) status değiştirmeden korunur. Bu karar Gate 3 PASS anlamına gelmez. Quantity ISSUE first slice `DEC-027` ile ayrıca authorize edilmiştir.
+
+### DEC-027 — Quantity ISSUE First-Slice Semantics and Sequencing
+
+- **Status:** `DECIDED`
+- **Preflight verdict:** `PASS FOR NEXT IMPLEMENTATION`
+- **Required before:** Phase 4.2A quantity ISSUE kernel/schema extension implementation
+- **Resolves:** Quantity ISSUE first-slice semantics, cardinality, condition policy, IssueContext contract, idempotency fingerprint, permission policy, audit boundary, DB integrity requirement and Phase 4.2A–4.2C sequencing
+- **Does not resolve:** `DEC-HG-001` (count/baseline); `DEC-HG-002` (correction); `DEC-HG-005` (RETURN); `DEC-OPEN-004` (SerializedAsset); `DEC-OPEN-010` (UoM decimal-place enforcement); `DEC-OPEN-001` (condition availability effect); `DEC-OPEN-002` (multi-bucket/multi-location allocation); TRANSFER; RETURN; serialized inventory; correction; count/baseline; multi-line ISSUE; auto allocation/FIFO/FEFO
+- **Decision:**
+  1. **Second real inventory mutation:** quantity **ISSUE** only. Bu karar yalnız quantity ISSUE'yu authorize eder.
+  2. **First ISSUE slice cardinality:** tek material, tek `source_location`, tek condition, tek quantity, tam olarak bir transaction line. Multi-line ISSUE yoktur. Lokasyon, condition veya balance'lar arasında otomatik allocation yoktur. FIFO / FEFO / auto-pick yoktur.
+  3. **Condition policy:** Kullanıcı açıkça bir active `MaterialCondition` seçer. Herhangi bir active condition seçilebilir; `NEW_GOOD` gibi kodlar hard-code edilmez. ISSUE yalnız seçilen `(material, source_location, condition)` `StockBalance`'ından düşer. ISSUE condition dönüştürmez. `InventoryTransactionLine.condition`, kaynak bucket condition'ına eşittir. Condition'lar arası "available stock" aggregation tanıtılmaz. `DEC-OPEN-001` gelecek availability/eligibility policy için açık kalır.
+  4. **ISSUE line shape:** `source_location` zorunlu; `target_location` null; `quantity > 0`; unit `Material.unit` ile eşleşmeli; `material.tracking_mode = QUANTITY`; condition açıkça seçilen active condition. Usage destination inventory target `Location` değildir; usage context `IssueContext`'tedir.
+  5. **IssueContext (mandatory 1:1):** Her committed ISSUE için zorunlu. Receiver: `Employee` FK + `first_name`/`last_name`/`employee_number` snapshot. Production line: `ProductionLine` FK + `code`/`name` snapshot. Usage: zorunlu `usage_location_text` (trim leading/trailing whitespace; internal text/case korunur). Yeni ISSUE için receiver active `Employee`, `ProductionLine` active olmalıdır. Herhangi bir active ProductionLine node seçilebilir; leaf-only semantics yoktur. `UsagePlace` modeli yoktur. Snapshot'lar master edit sonrası değişmez; replay orijinal immutable historical data döner ve current mutable master state'i revalidate etmez.
+  6. **Actor / receiver:** Actor = authenticated `User`; receiver = `Employee`. Receiver linked `User` gerektirmez. Actor, karşılık gelen `Employee` varsa kendine issue edebilir. Technician actor ve receiver olabilir; actor == receiver yasağı tanıtılmaz.
+  7. **Concurrency / negative stock:** Negatif stok kesinlikle yasaktır. Yeni ISSUE: master lock/revalidate; exact `StockBalance` identity lock; missing balance => insufficient stock; locked quantity < requested => insufficient stock; ISSUE için missing `StockBalance` oluşturulmaz; decrement yalnız locked re-read sonrası; sıfır resulting balance korunur; ledger + IssueContext + balance decrement atomiktir. Concurrent last-stock ISSUE serialize edilir.
+  8. **Idempotency:** `operation_id` + server-generated `request_fingerprint` (`DEC-009`). ISSUE fingerprint semantic identity: `transaction_type = ISSUE`, `acting_user_id`, `material_id`, `unit_id`, `condition_id`, `source_location_id`, quantity (3 decimal canonicalized), `receiver_employee_id`, `production_line_id`, canonical trimmed `usage_location_text`. Hariç: `operation_id`, `occurred_at`, master-derived snapshot strings, display labels. Aynı operation + aynı fingerprint => replay. Aynı operation + farklı fingerprint => conflict.
+  9. **Permission / roles:** Managed permission: `inventory.issue_stock`. Runtime authorization yalnız Django permission; Group adı veya `is_staff` ile authorize edilmez. Fresh bootstrap şablonları: `TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER` + `issue_stock`. Mevcut Group'lar non-destructive kalır; otomatik reconcile yoktur. ISSUE UI için active ProductionLine seçimleri `inventory.issue_stock` ile yeterlidir; ISSUE dropdown için `view_productionline` TECHNICIAN/STOREKEEPER'a verilmez.
+  10. **Audit boundary:** Başarılı ordinary ISSUE = `InventoryTransaction` + `InventoryTransactionLine` + `IssueContext`. Generic `AuditEvent`'e duplicate edilmez. Master-data/access mutation'ları mevcut `AuditEvent` davranışını korur.
+  11. **Database integrity requirement:** IssueContext completeness/immutability yalnız application validation'a güvenemez. Phase 4.2A kernel implementation: her committed ISSUE tam bir IssueContext'e sahip olmalı; non-ISSUE transaction IssueContext sahiplenemez; persisted IssueContext UPDATE/DELETE edilemez; raw SQL bypass edilemez. Exact trigger/constraint implementation Phase 4.2A'ya aittir.
+  12. **Implementation sequence (birleştirilmez):**
+     - Phase 4.2A — ISSUE kernel/schema extension (transaction type ISSUE, type-specific line shape, nullable `target_location`, IssueContext, DB guards/immutability/completeness)
+     - Phase 4.2B — quantity issue service (idempotency, locks, negative-stock prevention, projection-aware ISSUE, concurrency tests)
+     - Phase 4.2C — ISSUE UI + `inventory.issue_stock` permission rollout
+  13. **Preserved decisions:** `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005` = `DEFERRED_WITH_HARD_GATE`; `DEC-OPEN-001`, `DEC-OPEN-002`, `DEC-OPEN-004`, `DEC-OPEN-010` = `OPEN`. `DEC-HG-001`/`002`/`005` kendi count/correction/RETURN scope'larını bloke eder; onaylı quantity ISSUE slice'ını bloke etmez.
+  14. **Not authorized:** TRANSFER; RETURN; serialized inventory; correction; count/baseline; multi-line ISSUE; auto allocation.
+- **Implementation status:** Henüz başlamamıştır. ISSUE implement edilmiş sayılmaz.
+- **Consequence:** Quantity ISSUE first slice semantics kanonikleşmiştir. Employee/ProductionLine foundation (`DEC-024`, `DEC-025`) hazırdır. Onaylı sıradaki inventory mutation implementasyonu Phase 4.2A–4.2C'dir. Gate 3 PASS bu kararı authorize etmez; bu karar Gate 3'ü genişletmez.
 
 ## 3. Açık İş Kararları
 
@@ -333,7 +361,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 |---|---|---|---|---|---|---|
 | `DEC-HG-001` | Physical count stock-stability strategy | `DEFERRED_WITH_HARD_GATE` | OD-011, OD-012, DM-B14, UF-O-06, Gate0-AUD-001 | Herhangi bir count/reconciliation schema/service/UI implementasyonu | İş sahibi + operasyon + mimari review | Scoped freeze, as-of snapshot/replay veya kanıtlanmış revalidation/reconfirmation seçeneklerinden biri seçilmeli. Explicit scope, expected timing, idempotent reconciliation, double-apply guard ve serialized discrepancy çözümü zorunlu. |
 | `DEC-HG-002` | Correction bounds ve lineage | `DEFERRED_WITH_HARD_GATE` | OD-017, COR-011, DM-B13, UF-O-13, Gate0-AUD-006 | Correction schema/service implementation | İş sahibi + inventory architect | Tek/cumulative approval, partial correction, original-line link, over-correction, later movement, correction-of-correction, requester=approver ve yetersiz current stock cevaplanmalı. |
-| `DEC-HG-003` | Production line veri modeli | `DECIDED` | OD-007, DM-B07, UF-O-01, Gate0-AUD-010 | ProductionLine foundation implementation (Phase 3.3 COMPLETE) | — | `DEC-025` ile kapatıldı. `ProductionLine` dynamic master-data entity; recursive hierarchy; code/name lifecycle; exact usage place ayrı free text. Foundation Phase 3.3 COMPLETE; ISSUE henüz implement edilmez. |
+| `DEC-HG-003` | Production line veri modeli | `DECIDED` | OD-007, DM-B07, UF-O-01, Gate0-AUD-010 | ProductionLine foundation implementation (Phase 3.3 COMPLETE) | — | `DEC-025` ile kapatıldı. `ProductionLine` dynamic master-data entity; recursive hierarchy; code/name lifecycle; exact usage place ayrı free text. Foundation Phase 3.3 COMPLETE. Quantity ISSUE first slice `DEC-027` ile authorize edilmiştir; henüz implement edilmemiştir. |
 | `DEC-HG-004` | Employee identity linkage ve number reuse | `DECIDED` | OD-026 (employee linkage), DM-B01, DM-B08, UF-O-02, UF-O-16, UF-O-17, Gate0-AUD-017 | Employee foundation implementation (Phase 3.2 COMPLETE) | — | `DEC-024` ile kapatıldı (foundation). `accounts.Employee` ayrı entity; sicil string/global unique/editable; nullable one-to-one User link SET_NULL; lifecycle active/inactive. Foundation Phase 3.2 COMPLETE. Retention pilot öncesi kararları (`DEC-OPEN-013`, `DEC-OPEN-018`) açık kalır. Receiver snapshot korunur. |
 | `DEC-HG-005` | RETURN semantics | `DEFERRED_WITH_HARD_GATE` | OD-004, RET-004, DM-B11, UF-O-04, UF-O-12, Gate0-AUD-018 | Return schema/service/UI | İş sahibi | Prior ISSUE zorunluluğu, partial quantity, condition actor, serialized state ve sistemde issue edilmemiş found/wrong-delivery davranışı cevaplanmalı. RETURN aktif UI'da yer alamaz. |
 | `DEC-OPEN-001` | Condition'ın available/minimum stock etkisi | `OPEN` | OD-001, OD-002, OD-003, OD-027, DM-B04, UF-O-11 | Issue availability, return, low-stock report | İş sahibi | Condition ile movement type ayrımı değişmez. |
@@ -384,7 +412,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Employee foundation implementation (Phase 3.2) | **COMPLETE** (2026-09-12). `DEC-024`; Employee şekli, sicil, User link, lifecycle, permission ve audit politikası kararlıdır. |
 | ProductionLine foundation implementation (Phase 3.3) | **COMPLETE** (2026-09-12). `DEC-025`; şekil, hiyerarşi, code/name, lifecycle ve permission politikası kararlıdır. |
 | Catalog/import identity matching | `DEC-OPEN-004`, `DEC-OPEN-021` (Material code; Location code `DEC-023`; Employee number `DEC-024` ile kararlı); history sonrası tracking mode için `DEC-013` zaten kararlı |
-| Issue data/UI | `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005` ve inventory implementasyonu; `DEC-HG-003`/`DEC-HG-004` foundation kararlı (`DEC-024`, `DEC-025`); receiver snapshots değişmez |
+| Quantity ISSUE first slice (Phase 4.2A–4.2C) | `DEC-027` (`PASS FOR NEXT IMPLEMENTATION`); `DEC-HG-003`/`DEC-HG-004` foundation kararlı (`DEC-024`, `DEC-025`); receiver/ProductionLine snapshots değişmez. `DEC-HG-001`/`002`/`005` count/correction/RETURN scope'larını bloke eder; quantity ISSUE slice'ını bloke etmez. |
 | Technician field intake request/approval workflow | `DEC-020` kararlıdır; talep/onay schema/service/UI implementasyonu ayrı görevdir; hareket türü eşlemesi `DEC-HG-005` çözülmeden yapılmaz |
 | Return | `DEC-HG-005`; cevaplanmadan schema/service/UI ve aktif menü yok |
 | Corrections | `DEC-HG-002`; ayrıca `DEC-OPEN-006` yalnız PROPOSED kalır |
@@ -410,7 +438,8 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 4.0A MaterialCondition foundation | **COMPLETE** (2026-09-12). Commit `05bee71a`. Bkz. §4.1 Phase 4.0A. |
 | Phase 4.0B Quantity Inventory Kernel | **COMPLETE** (2026-09-12). Commit `4cf52669`; full suite 746 passed. Bkz. §4.1 Phase 4.0B. |
 | Phase 4.0C quantity RECEIPT service | **COMPLETE** (2026-09-12). Commit `4546739e`. Bkz. §4.1 Phase 4.0C. |
-| Phase 4.1 Receipt UI + permission rollout | **COMPLETE** (2026-09-12). Commit `927e83b2`; full suite 823 passed; managed permission count 19. Bkz. §4.1 Phase 4.1. ISSUE/TRANSFER/RETURN/correction/count/baseline bu karar kapsamı dışındadır. |
+| Phase 4.1 Receipt UI + permission rollout | **COMPLETE** (2026-09-12). Commit `927e83b2`; full suite 823 passed; managed permission count 19. Bkz. §4.1 Phase 4.1. TRANSFER/RETURN/correction/count/baseline bu karar kapsamı dışındadır. |
+| Quantity ISSUE first slice decision | `DEC-027` (`PASS FOR NEXT IMPLEMENTATION`, 2026-09-12). Phase 4.2A → 4.2B → 4.2C. Henüz implement edilmemiştir. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 | Gate 3 | Phase 3 + quantity-only RECEIPT (4.0A–4.1) — **Disposition: `PASS`** (2026-09-12). Bkz. §4.5. ISSUE/TRANSFER/RETURN/serialized/correction/count-baseline authorize edilmemiştir. |
@@ -514,8 +543,8 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 - **Anlam:**
   - `ProductionLine` foundation `DEC-025` şeklinde implement edildi
   - Yönetim shell CRUD, service-layer mutation, audit ve permission kontrolleri uygulandı
-  - ISSUE data/UI inventory hard gate'lerini bekler
-  - Inventory mutation başlamamıştır
+  - Quantity ISSUE first slice `DEC-027` ile authorize edilmiştir; henüz implement edilmemiştir
+  - Inventory mutation (RECEIPT) Phase 4.0C–4.1'de başlamıştır
 - **Kanıt özeti:** commit `418d49e4bb0300b4b6f5b4071304e3a857b55ba9`; full suite 655 passed (son doğrulanmış)
 - **Sıradaki (tarihsel):** Inventory Core / first inventory mutation architecture preflight (**COMPLETE**, `DEC-026`, 2026-09-12)
 - **Not:** Phase 3.3 implementation review/audit PASS, o an proje Gate PASS anlamına gelmezdi; sonraki bağımsız Gate 3 audit §4.5'te `PASS` olarak kaydedilmiştir.
@@ -579,6 +608,19 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 - **Açık kalan hard gate'ler:** `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`
 - **Açık kalan ilgili kararlar:** `DEC-OPEN-004`, `DEC-OPEN-010`
 - **Not:** Phase 4.1 implementation completion, Gate 3 PASS anlamına gelmez.
+
+#### Quantity ISSUE First Slice — Decision Pack
+
+- **Disposition:** `PASS FOR NEXT IMPLEMENTATION` (2026-09-12)
+- **Anlam:**
+  - Quantity ISSUE first-slice semantics kanonikleşmiştir (`DEC-027`)
+  - Onaylı ikinci gerçek inventory mutation: quantity **ISSUE**
+  - Onaylı implementasyon sırası: Phase 4.2A → 4.2B → 4.2C (birleştirilmez)
+  - Employee/ProductionLine foundation (`DEC-024`, `DEC-025`) hazırdır
+  - `DEC-HG-001`/`002`/`005` count/correction/RETURN scope'larını bloke eder; quantity ISSUE slice'ını bloke etmez
+  - TRANSFER, RETURN, serialized inventory, correction, count/baseline ve multi-line/auto-allocation ISSUE authorize edilmemiştir
+- **Implementation status:** Henüz başlamamıştır
+- **Not:** Bu disposition Gate 3 PASS anlamına gelmez ve Gate 3 kapsamını genişletmez.
 
 ## 5. Audit Finding Disposition
 

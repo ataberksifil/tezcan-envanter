@@ -182,7 +182,9 @@ python manage.py setup_roles
 
 **Managed permission count:** 19
 
-**Gate 3:** PASS (2026-09-12; audited HEAD `4cf89525`; bkz. [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) §4.5). Kapsam: Phase 3 (Location, Employee, ProductionLine) ve quantity-only RECEIPT slice (4.0A–4.1). ISSUE, TRANSFER, RETURN, serialized inventory, correction ve count/baseline henüz implement edilmemiştir ve Gate 3 PASS tarafından authorize edilmemiştir. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
+**Quantity ISSUE first slice:** `DEC-027` — PASS FOR NEXT IMPLEMENTATION (2026-09-12). Phase 4.2A → 4.2B → 4.2C. Henüz implement edilmemiştir.
+
+**Gate 3:** PASS (2026-09-12; audited HEAD `4cf89525`; bkz. [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) §4.5). Kapsam: Phase 3 (Location, Employee, ProductionLine) ve quantity-only RECEIPT slice (4.0A–4.1). Gate 3, `DEC-027` quantity ISSUE authorization'ını kapsamaz. TRANSFER, RETURN, serialized inventory, correction ve count/baseline henüz implement edilmemiştir. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
 
 ### Sağlık kontrolü
 
