@@ -62,6 +62,19 @@
                     </div>
                 </div>
             {% endif %}
+            {% if show_employee_management %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="h5 card-title">Çalışanlar</h2>
+                            <p class="card-text text-body-secondary">
+                                Çalışan sicil kayıtlarını oluşturun ve düzenleyin.
+                            </p>
+                            <a class="stretched-link" href="{% url 'accounts:employee-list' %}">Çalışanlara git</a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
             {% if show_access_management %}
                 <div class="col-md-6 col-lg-4">
                     <div class="card h-100 shadow-sm">

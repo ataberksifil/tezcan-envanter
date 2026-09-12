@@ -184,8 +184,12 @@ def test_safe_permissions_and_manage_access_superuser_round_trip_are_audited():
     assert MANAGE_ACCESS_PERMISSION not in canonical_role_snapshot(role)["permissions"]
 
 
-def test_managed_permission_set_is_exactly_twelve():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 12
+def test_managed_permission_set_is_exactly_fifteen():
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 15
+    assert "accounts.view_employee" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "accounts.add_employee" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "accounts.change_employee" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "accounts.delete_employee" not in SAFE_CATALOG_PERMISSION_LABELS
 
 
 @pytest.mark.parametrize(
@@ -193,13 +197,14 @@ def test_managed_permission_set_is_exactly_twelve():
     [
         "catalog.delete_material",
         "locations.delete_location",
+        "accounts.delete_employee",
         "auth.change_group",
         "audit.view_auditevent",
         "inventory.view_stockbalance",
         "accounts.manage_access",
     ],
 )
-def test_service_rejects_every_permission_outside_safe_twelve(forged):
+def test_service_rejects_every_permission_outside_safe_fifteen(forged):
     actor = make_superuser()
     role = Group.objects.create(name="Safe")
     with pytest.raises(ValidationError):
@@ -221,6 +226,8 @@ def test_service_rejects_every_permission_outside_safe_twelve(forged):
         "catalog.change_material",
         "locations.add_location",
         "locations.change_location",
+        "accounts.add_employee",
+        "accounts.change_employee",
     ],
 )
 def test_write_permission_without_view_is_rejected(write_label):
@@ -342,6 +349,44 @@ def test_location_permissions_round_trip_with_view_dependency():
     set_role_permissions(actor=actor, role_id=role.pk, catalog_permissions=labels)
     event = AuditEvent.objects.get()
     assert event.after_data["permissions"] == sorted(labels)
+
+
+def test_employee_permissions_round_trip_with_view_dependency():
+    actor = make_superuser()
+    role = Group.objects.create(name="Employee enabled")
+    labels = [
+        "accounts.view_employee",
+        "accounts.add_employee",
+        "accounts.change_employee",
+    ]
+    set_role_permissions(actor=actor, role_id=role.pk, catalog_permissions=labels)
+    event = AuditEvent.objects.get()
+    assert event.after_data["permissions"] == sorted(labels)
+
+
+def test_manager_capability_ceiling_applies_to_employee_permissions():
+    actor, _ = make_manager(
+        safe_permissions=("accounts.view_employee", "accounts.add_employee")
+    )
+    role = Group.objects.create(name="Employee lower")
+    set_role_permissions(
+        actor=actor,
+        role_id=role.pk,
+        catalog_permissions=[
+            "accounts.view_employee",
+            "accounts.add_employee",
+        ],
+    )
+    with pytest.raises(PermissionDenied):
+        set_role_permissions(
+            actor=actor,
+            role_id=role.pk,
+            catalog_permissions=[
+                "accounts.view_employee",
+                "accounts.add_employee",
+                "accounts.change_employee",
+            ],
+        )
 
 
 def test_manager_cannot_edit_role_that_already_exceeds_capability():

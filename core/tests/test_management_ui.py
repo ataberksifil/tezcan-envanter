@@ -55,6 +55,8 @@ def _catalog_permission(codename):
         )
     elif codename.endswith("location"):
         content_type = ContentType.objects.get(app_label="locations", model="location")
+    elif codename.endswith("employee"):
+        content_type = ContentType.objects.get(app_label="accounts", model="employee")
     return Permission.objects.get(content_type=content_type, codename=codename)
 
 
@@ -359,6 +361,55 @@ def test_add_location_without_view_does_not_grant_management(app_client):
     user = _grant_permissions(
         _create_ordinary_user("mgmt-loc-add-only"),
         "add_location",
+    )
+    _login(app_client, user)
+    assert ">Yönetim</a>" not in app_client.get("/").content.decode()
+    assert app_client.get(_management_url()).status_code == 403
+
+
+def test_view_employee_only_user_has_no_management_hub_or_card(app_client):
+    user = _grant_permissions(
+        _create_ordinary_user("mgmt-emp-view-only"),
+        "view_employee",
+    )
+    _login(app_client, user)
+    home = app_client.get("/").content.decode()
+    assert ">Yönetim</a>" not in home
+    assert app_client.get(_management_url()).status_code == 403
+    assert app_client.get("/management/employees/").status_code == 200
+
+
+def test_employee_writer_sees_management_and_employee_card(app_client):
+    user = _grant_permissions(
+        _create_ordinary_user("mgmt-emp-writer"),
+        "view_employee",
+        "add_employee",
+    )
+    _login(app_client, user)
+    home = app_client.get("/").content.decode()
+    assert ">Yönetim</a>" in home
+    page = app_client.get(_management_url())
+    assert page.status_code == 200
+    content = page.content.decode()
+    assert reverse("accounts:employee-list") in content
+    assert reverse("catalog:category-list") not in content
+
+
+def test_employee_change_without_add_shows_management_card(app_client):
+    user = _grant_permissions(
+        _create_ordinary_user("mgmt-emp-change"),
+        "view_employee",
+        "change_employee",
+    )
+    _login(app_client, user)
+    content = app_client.get(_management_url()).content.decode()
+    assert reverse("accounts:employee-list") in content
+
+
+def test_add_employee_without_view_does_not_grant_management(app_client):
+    user = _grant_permissions(
+        _create_ordinary_user("mgmt-emp-add-only"),
+        "add_employee",
     )
     _login(app_client, user)
     assert ">Yönetim</a>" not in app_client.get("/").content.decode()

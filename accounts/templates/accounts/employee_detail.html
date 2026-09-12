@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}{{ employee.last_name }}, {{ employee.first_name }} — Çalışan — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">{{ employee.last_name }}, {{ employee.first_name }}</h1>
+    <div class="d-flex flex-wrap gap-2">
+        {% if perms.accounts.change_employee %}
+            <a class="btn btn-outline-primary" href="{% url 'accounts:employee-update' employee.pk %}">Düzenle</a>
+            {% if employee.active %}
+                <form method="post" action="{% url 'accounts:employee-deactivate' employee.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-warning">Pasifleştir</button>
+                </form>
+            {% else %}
+                <form method="post" action="{% url 'accounts:employee-reactivate' employee.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-success">Aktifleştir</button>
+                </form>
+            {% endif %}
+        {% endif %}
+        <a class="btn btn-outline-secondary" href="{% url 'accounts:employee-list' %}">Listeye dön</a>
+    </div>
+</div>
+
+<dl class="row mb-0">
+    <dt class="col-sm-3">UUID</dt>
+    <dd class="col-sm-9 font-monospace">{{ employee.id }}</dd>
+
+    <dt class="col-sm-3">Sicil numarası</dt>
+    <dd class="col-sm-9">{{ employee.employee_number }}</dd>
+
+    <dt class="col-sm-3">Ad</dt>
+    <dd class="col-sm-9">{{ employee.first_name }}</dd>
+
+    <dt class="col-sm-3">Soyad</dt>
+    <dd class="col-sm-9">{{ employee.last_name }}</dd>
+
+    <dt class="col-sm-3">Durum</dt>
+    <dd class="col-sm-9">
+        {% if employee.active %}
+            <span class="badge text-bg-success">Aktif</span>
+        {% else %}
+            <span class="badge text-bg-secondary">Pasif</span>
+        {% endif %}
+    </dd>
+
+    {% if perms.accounts.change_employee %}
+        <dt class="col-sm-3">Bağlı kullanıcı</dt>
+        <dd class="col-sm-9">
+            {% if employee.user %}
+                {{ employee.user.get_username }}
+                {% if not employee.user.is_active %}
+                    <span class="badge text-bg-secondary">Pasif kullanıcı</span>
+                {% endif %}
+            {% else %}
+                —
+            {% endif %}
+        </dd>
+    {% endif %}
+
+    <dt class="col-sm-3">Oluşturulma</dt>
+    <dd class="col-sm-9">{{ employee.created_at }}</dd>
+
+    <dt class="col-sm-3">Güncellenme</dt>
+    <dd class="col-sm-9">{{ employee.updated_at }}</dd>
+</dl>
+{% endblock %}

@@ -27,11 +27,17 @@ _VIEW_ADD_CHANGE_CATALOG = frozenset(
     for action in ("view", "add", "change")
 )
 
+_VIEW_ONLY_EMPLOYEE = frozenset({"view_employee"})
+_VIEW_ADD_CHANGE_EMPLOYEE = frozenset(
+    {"view_employee", "add_employee", "change_employee"}
+)
+
 DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
-    TECHNICIAN: _VIEW_ONLY_CATALOG | frozenset({"view_location"}),
-    STOREKEEPER: _VIEW_ONLY_CATALOG | frozenset({"view_location"}),
+    TECHNICIAN: _VIEW_ONLY_CATALOG | frozenset({"view_location"}) | _VIEW_ONLY_EMPLOYEE,
+    STOREKEEPER: _VIEW_ONLY_CATALOG | frozenset({"view_location"}) | _VIEW_ONLY_EMPLOYEE,
     ADMIN_MANAGER: _VIEW_ADD_CHANGE_CATALOG
-    | frozenset({"view_location", "add_location", "change_location"}),
+    | frozenset({"view_location", "add_location", "change_location"})
+    | _VIEW_ADD_CHANGE_EMPLOYEE,
 }
 
 DEFAULT_ROLE_NAMES: tuple[str, ...] = (TECHNICIAN, STOREKEEPER, ADMIN_MANAGER)
@@ -52,6 +58,9 @@ SAFE_CATALOG_PERMISSION_LABELS: tuple[str, ...] = (
     "locations.view_location",
     "locations.add_location",
     "locations.change_location",
+    "accounts.view_employee",
+    "accounts.add_employee",
+    "accounts.change_employee",
 )
 SAFE_CATALOG_PERMISSION_SET: frozenset[str] = frozenset(
     SAFE_CATALOG_PERMISSION_LABELS

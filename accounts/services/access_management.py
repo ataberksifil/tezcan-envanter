@@ -41,6 +41,8 @@ WRITE_VIEW_DEPENDENCIES: tuple[tuple[str, str], ...] = (
     ),
     ("locations.add_location", "locations.view_location"),
     ("locations.change_location", "locations.view_location"),
+    ("accounts.add_employee", "accounts.view_employee"),
+    ("accounts.change_employee", "accounts.view_employee"),
 )
 
 
