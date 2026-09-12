@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Q
+from django.db.models import Prefetch, Q, Sum
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
@@ -12,10 +12,12 @@ from inventory.forms import (
     ProductionLineForm,
     QuantityIssueForm,
     QuantityReceiptForm,
+    QuantityReturnForm,
     attach_issue_validation_error,
     attach_receipt_validation_error,
+    attach_return_validation_error,
 )
-from inventory.models import InventoryTransaction, ProductionLine
+from inventory.models import InventoryTransaction, InventoryTransactionLine, ProductionLine
 from inventory.transaction_history import (
     TRANSACTION_HISTORY_PAGE_SIZE,
     TRANSACTION_HISTORY_PERMISSION,
@@ -31,6 +33,7 @@ from inventory.services.production_lines import (
     update_production_line,
 )
 from inventory.services.receipts import receive_quantity
+from inventory.services.returns import return_quantity
 
 PRODUCTION_LINE_LIST_PAGE_SIZE = 50
 STATUS_ALL = "all"
@@ -360,6 +363,115 @@ class IssueDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
             raise Http404("Issue not found")
         context["line"] = lines[0]
         context["issue_context"] = self.object.issue_context
+        returned_quantity = (
+            lines[0]
+            .return_lines.filter(
+                transaction__transaction_type=InventoryTransaction.TransactionType.RETURN
+            )
+            .aggregate(total=Sum("quantity"))["total"]
+            or 0
+        )
+        context["return_remaining_quantity"] = lines[0].quantity - returned_quantity
+        return context
+
+
+class ReturnCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "inventory.return_stock"
+    template_name = "inventory/return_form.html"
+
+    def _render(self, request, form):
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": form,
+                "form_title": "Stok iadesi",
+                "submit_label": "İadeyi kaydet",
+            },
+        )
+
+    def get(self, request):
+        initial = {}
+        if request.GET.get("issue_line"):
+            initial["original_issue_line"] = request.GET["issue_line"]
+        return self._render(request, QuantityReturnForm(initial=initial))
+
+    def post(self, request):
+        form = QuantityReturnForm(request.POST)
+        if not form.is_valid():
+            return self._render(request, form)
+
+        try:
+            result = return_quantity(
+                actor=request.user,
+                operation_id=form.cleaned_data["operation_id"],
+                original_issue_line_id=form.cleaned_data["original_issue_line"].pk,
+                target_location_id=form.cleaned_data["target_location"].pk,
+                quantity=form.cleaned_data["quantity"],
+            )
+        except PermissionDenied:
+            raise
+        except ValidationError as exc:
+            attach_return_validation_error(form, exc)
+            return self._render(request, form)
+
+        if result.replayed:
+            messages.info(request, "Bu stok iadesi daha önce kaydedilmişti.")
+        else:
+            messages.success(request, "Stok iadesi kaydedildi.")
+        return redirect("inventory:return-detail", pk=result.transaction.pk)
+
+
+class ReturnDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = "inventory.return_stock"
+    model = InventoryTransaction
+    context_object_name = "return_transaction"
+    template_name = "inventory/return_detail.html"
+    http_method_names = ["get", "head"]
+
+    def get_queryset(self):
+        return_line_queryset = InventoryTransactionLine.objects.select_related(
+            "material",
+            "unit",
+            "condition",
+            "target_location",
+            "original_issue_line__transaction__issue_context",
+            "original_issue_line__source_location",
+            "original_issue_line__unit",
+        ).order_by("line_number")
+        return (
+            InventoryTransaction.objects.filter(
+                transaction_type=InventoryTransaction.TransactionType.RETURN,
+            )
+            .select_related("acting_user")
+            .prefetch_related(Prefetch("lines", queryset=return_line_queryset))
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        lines = list(self.object.lines.all())
+        if len(lines) != 1 or lines[0].original_issue_line_id is None:
+            raise Http404("Return not found")
+        line = lines[0]
+        original_issue_line = line.original_issue_line
+        cumulative_returned = (
+            original_issue_line.return_lines.filter(
+                transaction__transaction_type=InventoryTransaction.TransactionType.RETURN
+            )
+            .aggregate(total=Sum("quantity"))["total"]
+            or 0
+        )
+        context.update(
+            {
+                "line": line,
+                "original_issue_line": original_issue_line,
+                "original_issue": original_issue_line.transaction,
+                "issue_context": original_issue_line.transaction.issue_context,
+                "cumulative_returned": cumulative_returned,
+                "remaining_returnable": original_issue_line.quantity
+                - cumulative_returned,
+            }
+        )
         return context
 
 
@@ -415,6 +527,7 @@ class TransactionHistoryDetailView(LoginRequiredMixin, PermissionRequiredMixin, 
                 transaction_type__in=(
                     InventoryTransaction.TransactionType.RECEIPT,
                     InventoryTransaction.TransactionType.ISSUE,
+                    InventoryTransaction.TransactionType.RETURN,
                 )
             )
             .select_related("acting_user", "issue_context")
@@ -429,6 +542,8 @@ class TransactionHistoryDetailView(LoginRequiredMixin, PermissionRequiredMixin, 
         context["line"] = lines[0]
         if self.object.transaction_type == InventoryTransaction.TransactionType.ISSUE:
             context["issue_context"] = self.object.issue_context
+        elif self.object.transaction_type == InventoryTransaction.TransactionType.RETURN:
+            context["original_issue_line"] = lines[0].original_issue_line
         return context
 
 

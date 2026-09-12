@@ -429,8 +429,8 @@ def test_return_cannot_own_issue_context_and_issue_behavior_is_unchanged(return_
             _context(return_objects, return_header)
 
 
-def test_return_permission_is_defined_without_managed_role_rollout():
+def test_return_permission_definition_is_in_managed_rollout():
     permissions = dict(InventoryTransaction._meta.permissions)
     assert "return_stock" in permissions
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 21
-    assert "inventory.return_stock" not in SAFE_CATALOG_PERMISSION_LABELS
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 22
+    assert "inventory.return_stock" in SAFE_CATALOG_PERMISSION_LABELS

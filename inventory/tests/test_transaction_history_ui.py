@@ -645,7 +645,6 @@ def test_no_edit_delete_controls(app_client, sample_transactions):
         assert "Düzenle" not in content
         assert "Sil" not in content
         assert 'method="post"' not in content.lower()
-        assert "RETURN" not in content
         assert "TRANSFER" not in content
 
 
@@ -707,8 +706,8 @@ def test_material_detail_hides_history_without_permission(app_client, history_ma
     assert "recent_inventory_transactions" not in response.context
 
 
-def test_managed_permission_count_is_twenty_one():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 21
+def test_managed_permission_count_is_twenty_two():
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 22
     assert "inventory.view_inventorytransaction" in SAFE_CATALOG_PERMISSION_LABELS
 
 

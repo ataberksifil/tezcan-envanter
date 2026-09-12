@@ -56,6 +56,16 @@ urlpatterns = [
         name="issue-detail",
     ),
     path(
+        "inventory/returns/new/",
+        views.ReturnCreateView.as_view(),
+        name="return-create",
+    ),
+    path(
+        "inventory/returns/<uuid:pk>/",
+        views.ReturnDetailView.as_view(),
+        name="return-detail",
+    ),
+    path(
         "inventory/transactions/",
         views.TransactionHistoryListView.as_view(),
         name="transaction-history-list",

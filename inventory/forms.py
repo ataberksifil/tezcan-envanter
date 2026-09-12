@@ -5,10 +5,13 @@ from decimal import Decimal
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db.models import DecimalField, F, Q, Sum, Value
+from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 from accounts.models import Employee
 from catalog.models import Material, MaterialCondition
-from inventory.models import ProductionLine
+from inventory.models import InventoryTransaction, InventoryTransactionLine, ProductionLine
 from locations.models import Location
 
 
@@ -54,6 +57,28 @@ def stock_location_choice_label(location: Location) -> str:
         parts.append("[Pasif]")
     parts.append(f"— {location.pk}")
     return " ".join(parts)
+
+
+class ServiceValidatedModelChoiceField(forms.ModelChoiceField):
+    """Show the usability queryset while letting the service judge stale/forged rows."""
+
+    def to_python(self, value):
+        if value in self.empty_values:
+            return None
+        self.validate_no_null_characters(value)
+        try:
+            key = self.to_field_name or "pk"
+            if isinstance(value, self.queryset.model):
+                value = getattr(value, key)
+            return self.queryset.model._default_manager.using(self.queryset.db).get(
+                **{key: value}
+            )
+        except (ValueError, TypeError, self.queryset.model.DoesNotExist):
+            raise ValidationError(
+                self.error_messages["invalid_choice"],
+                code="invalid_choice",
+                params={"value": value},
+            )
 
 
 class QuantityReceiptForm(forms.Form):
@@ -241,6 +266,120 @@ ISSUE_ERROR_FIELD_MAP = {
 }
 
 
+def return_issue_line_choice_label(line: InventoryTransactionLine) -> str:
+    occurred_at = timezone.localtime(line.transaction.occurred_at).strftime(
+        "%d.%m.%Y %H:%M"
+    )
+    returned_quantity = getattr(line, "returned_quantity", Decimal("0.000"))
+    remaining_quantity = line.quantity - returned_quantity
+    parts = [
+        f"{occurred_at} · {line.transaction_id}",
+        f"{line.material.material_code} ({line.material.name})",
+        (
+            f"Çıkış: {line.quantity} {line.unit.code} · "
+            f"İade: {returned_quantity} · Kalan: {remaining_quantity}"
+        ),
+        f"Kaynak: {line.source_location.code} ({line.source_location.name})",
+    ]
+    issue_context = line.transaction.issue_context
+    parts.append(
+        "Alıcı: "
+        f"{issue_context.receiver_first_name_snapshot} "
+        f"{issue_context.receiver_last_name_snapshot} "
+        f"({issue_context.receiver_employee_number_snapshot})"
+    )
+    return " — ".join(parts)
+
+
+def eligible_return_issue_lines():
+    quantity_field = DecimalField(max_digits=18, decimal_places=3)
+    return (
+        InventoryTransactionLine.objects.filter(
+            transaction__transaction_type=InventoryTransaction.TransactionType.ISSUE,
+            source_location__isnull=False,
+            target_location__isnull=True,
+            original_issue_line__isnull=True,
+            material__active=True,
+            material__tracking_mode=Material.TrackingMode.QUANTITY,
+            material__unit__isnull=False,
+            condition__active=True,
+        )
+        .annotate(
+            returned_quantity=Coalesce(
+                Sum(
+                    "return_lines__quantity",
+                    filter=Q(
+                        return_lines__transaction__transaction_type=(
+                            InventoryTransaction.TransactionType.RETURN
+                        )
+                    ),
+                ),
+                Value(Decimal("0.000")),
+                output_field=quantity_field,
+            )
+        )
+        .filter(returned_quantity__lt=F("quantity"))
+        .select_related(
+            "transaction",
+            "transaction__issue_context",
+            "material",
+            "unit",
+            "condition",
+            "source_location",
+        )
+        .order_by("-transaction__occurred_at", "material__material_code", "id")
+    )
+
+
+class QuantityReturnForm(forms.Form):
+    operation_id = forms.UUIDField(widget=forms.HiddenInput())
+    original_issue_line = ServiceValidatedModelChoiceField(
+        label="Orijinal stok çıkışı",
+        queryset=InventoryTransactionLine.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    target_location = ServiceValidatedModelChoiceField(
+        label="Hedef konum",
+        queryset=Location.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    quantity = forms.DecimalField(
+        label="İade miktarı",
+        max_digits=18,
+        decimal_places=3,
+        min_value=Decimal("0.001"),
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.001"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.fields["operation_id"].initial = uuid.uuid4()
+
+        self.fields["original_issue_line"].queryset = eligible_return_issue_lines()
+        self.fields["original_issue_line"].label_from_instance = (
+            return_issue_line_choice_label
+        )
+
+        return_locations = Location.objects.filter(
+            active=True,
+            can_hold_stock=True,
+        ).order_by("code", "name", "id")
+        self.fields["target_location"].queryset = return_locations
+        self.fields["target_location"].label_from_instance = stock_location_choice_label
+
+
+RETURN_ERROR_FIELD_MAP = {
+    "inventory.invalid_original_issue": "original_issue_line",
+    "inventory.return_exceeds_issue_quantity": "quantity",
+    "inventory.inactive_material": "original_issue_line",
+    "inventory.tracking_mode_mismatch": "original_issue_line",
+    "inventory.inactive_condition": "original_issue_line",
+    "inventory.invalid_destination": "target_location",
+    "inventory.invalid_quantity": "quantity",
+}
+
+
 def attach_issue_validation_error(form: QuantityIssueForm, exc: ValidationError) -> None:
     if hasattr(exc, "error_list"):
         for error in exc.error_list:
@@ -267,6 +406,27 @@ def attach_receipt_validation_error(form: QuantityReceiptForm, exc: ValidationEr
         for error in exc.error_list:
             code = getattr(error, "code", None)
             field = RECEIPT_ERROR_FIELD_MAP.get(code)
+            if field is not None and field in form.fields:
+                form.add_error(field, error)
+            else:
+                form.add_error(None, error)
+        return
+
+    if hasattr(exc, "error_dict"):
+        for field, errors in exc.error_dict.items():
+            target = None if field == "__all__" else field
+            for error in errors:
+                if target is not None and target in form.fields:
+                    form.add_error(target, error)
+                else:
+                    form.add_error(None, error)
+
+
+def attach_return_validation_error(form: QuantityReturnForm, exc: ValidationError) -> None:
+    if hasattr(exc, "error_list"):
+        for error in exc.error_list:
+            code = getattr(error, "code", None)
+            field = RETURN_ERROR_FIELD_MAP.get(code)
             if field is not None and field in form.fields:
                 form.add_error(field, error)
             else:

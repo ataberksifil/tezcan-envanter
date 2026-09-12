@@ -1140,10 +1140,11 @@ def test_receipt_and_issue_routes_are_operational_not_management_and_admin_stays
     assert StockBalance not in admin.site._registry
 
 
-def test_managed_permission_boundary_is_twenty_one_with_issue_stock():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 21
+def test_managed_permission_boundary_is_twenty_two_with_return_stock():
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 22
     assert "inventory.receive_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.issue_stock" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "inventory.return_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "issue_stock" in {
         codename for codename, _name in InventoryTransaction._meta.permissions
     }

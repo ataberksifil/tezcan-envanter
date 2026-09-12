@@ -108,6 +108,8 @@
                                     {{ line.source_location.code }} ({{ line.source_location.name }})
                                 {% elif transaction.transaction_type == "RECEIPT" and line.target_location %}
                                     {{ line.target_location.code }} ({{ line.target_location.name }})
+                                {% elif transaction.transaction_type == "RETURN" and line.target_location %}
+                                    {{ line.target_location.code }} ({{ line.target_location.name }})
                                 {% else %}
                                     —
                                 {% endif %}

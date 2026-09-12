@@ -517,9 +517,9 @@ flowchart TD
 
 ### UF-RET-001 — İade
 
-> **SCOPE GATE — `DEC-028`:** Yalnız unused linked QUANTITY RETURN first slice kararlıdır. Step 1 kernel/schema/DB guards içerir; service/projection/UI/role rollout henüz bu görev kapsamında değildir. Serialized, used/defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları `DEC-HG-005` altında deferred kalır.
+> **SCOPE GATE — `DEC-028`:** Yalnız unused linked QUANTITY RETURN first slice kararlıdır ve Phase 4.4'te kernel, service, UI ve permission rollout ile uygulanmıştır. Serialized, used/defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları `DEC-HG-005` altında deferred kalır.
 
-**Actors:** Direct quantity RETURN için `STOREKEEPER`, `ADMIN_MANAGER`; `TECHNICIAN` değil. Runtime permission `inventory.return_stock`; managed role rollout ayrı görevdir.
+**Actors:** Direct quantity RETURN için `STOREKEEPER`, `ADMIN_MANAGER`; `TECHNICIAN` değil. Runtime authorization `inventory.return_stock` permission'ına dayanır.
 
 **Preconditions**
 - Immutable original QUANTITY ISSUE line seçilmiş olmalıdır.
@@ -536,8 +536,8 @@ flowchart TD
 4. Material, unit ve condition original ISSUE line'dan alınır; kullanıcı condition dönüştüremez.
 5. Cumulative linked RETURN cap doğrulanır.
 6. Özet ve onay.
-7. Sonraki service/UI fazında exactly one `RETURN` line (`source=NULL`, target required, `original_issue_line` required) ledger'a yazılır.
-8. Sonraki service fazında projection atomik güncellenir.
+7. Exactly one `RETURN` line (`source=NULL`, target required, `original_issue_line` required) ledger'a yazılır.
+8. Target `StockBalance` projection'ı aynı DB transaction içinde atomik artırılır.
 
 **Validation Rules**
 - RET-001–RET-012: Yalnız `DEC-028` unused linked quantity slice; lineage/equality/cardinality/cumulative cap DB tarafından da korunur.
@@ -551,10 +551,10 @@ flowchart TD
 - Yetki, pasif lokasyon, eksik veri.
 
 **Permissions**
-- `inventory.return_stock`; future fresh rollout `STOREKEEPER` ve `ADMIN_MANAGER`, `TECHNICIAN` hariç. Step 1'de rollout yapılmaz.
+- `inventory.return_stock`; fresh `STOREKEEPER` ve `ADMIN_MANAGER` alır, `TECHNICIAN` almaz. Mevcut Group'lar bootstrap tekrarında değiştirilmez.
 
 **Inventory / Data Effect**
-- `RETURN` transaction + exactly one linked line. Projection artışı Step 1 kapsamı dışındadır.
+- `RETURN` transaction + exactly one linked line + aynı transaction içinde target quantity projection artışı.
 
 **Audit Effect**
 - Ordinary RETURN için yalnız immutable ledger; duplicate `AuditEvent` ve `ReturnContext` yoktur.
@@ -1392,7 +1392,7 @@ flowchart LR
 | Field Intake Approval Queue | ADMIN_MANAGER | UF-INT-002 |
 | Issue Stock | TECHNICIAN, STOREKEEPER, ADMIN_MANAGER | UF-ISS-001 |
 | Quick Issue | TECHNICIAN (öncelikli) | UF-ISS-002 |
-| Return | `DEC-028` quantity slice; UI ve role rollout sonraki görevde | UF-RET-001 |
+| Return | `DEC-028` quantity slice; UI ve role rollout Phase 4.4'te tamamlandı | UF-RET-001 |
 | Transfer | TBD | UF-TRF-001 |
 | Transaction History | Yetkili kullanıcılar | UF-HIS-001 |
 | Transaction Detail | Yetkili kullanıcılar | UF-HIS-001, UF-COR-001 |
@@ -1458,7 +1458,7 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 | UF-O-01 | ProductionLine structured seçim + exact usage place ayrı free text (`DEC-025`, `DEC-027`); Phase 4.2C COMPLETE | Issue/Quick Issue form alanları |
 | UF-O-02 | Alıcı active Employee seçimi; snapshot zorunlu (`DEC-024`, `DEC-027`); Phase 4.2C COMPLETE | Issue form UX |
 | UF-O-03 | Minimum stok aggregation (global/lokasyon/kondisyon) | Low stock ekranı |
-| UF-O-04 | `DEC-028` quantity RETURN yetki/form contract'ı kararlı; UI/role rollout sonraki görev | Return ekranı |
+| UF-O-04 | `DEC-028` quantity RETURN first-slice yetki/form contract'ı ve UI/role rollout Phase 4.4'te tamamlandı; broader RETURN deferred | Return ekranı |
 | UF-O-05 | Transfer yetkileri | Transfer menü görünürlüğü |
 | UF-O-06 | `DEC-HG-001` stability + fiziksel sayım/mutabakat rolleri | Count/Reconciliation ekranları |
 | UF-O-07 | Baseline cutover onaylayan rol | Go-live ekranı |

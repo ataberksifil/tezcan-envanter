@@ -366,13 +366,14 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   3. **Cumulative cap:** Aynı original ISSUE line'a bağlı committed RETURN quantity toplamı original ISSUE line quantity'sini aşamaz. Bu yalnız service validation değildir. PostgreSQL guard, RETURN insert sırasında original ISSUE line satırını `SELECT ... FOR UPDATE` ile serialization point olarak kilitler; kilit sonrası committed aggregate'i tekrar okuyup yeni miktarla birlikte limiti doğrular.
   4. **Identity equality:** RETURN material, unit ve condition değerleri original ISSUE line'dan gelir ve DB seviyesinde eşit olmak zorundadır. Condition transformation yoktur.
   5. **Direction / target:** RETURN line `source_location = NULL`, `target_location` required. Target açıkça seçilir ve original ISSUE source olmak zorunda değildir. Yeni işlem service'i target için `active=True AND can_hold_stock=True` runtime doğrulamasını yapmak zorundadır.
-  6. **Actor / receiver:** RETURN actor original receiver olmak zorunda değildir; original receiver'ın bugün active olması gerekmez. Ordinary direct RETURN future permission'ı `inventory.return_stock`tır.
-  7. **Fresh role policy:** Gelecekteki managed rollout'ta `STOREKEEPER=yes`, `ADMIN_MANAGER=yes`, `TECHNICIAN=no`. Step 1 yalnız permission tanımını ekler; allowlist, role templates ve `setup_roles` grant'leri değişmez. Technician-originated intake/approval `DEC-020` altında ayrı kalır.
+  6. **Actor / receiver:** RETURN actor original receiver olmak zorunda değildir; original receiver'ın bugün active olması gerekmez. Ordinary direct RETURN permission'ı `inventory.return_stock`tır.
+  7. **Fresh role policy:** Managed rollout'ta `STOREKEEPER=yes`, `ADMIN_MANAGER=yes`, `TECHNICIAN=no`. Phase 4.4 rollout bu politikayla tamamlanmıştır; mevcut Group'lar `setup_roles` tekrarında değiştirilmez. Technician-originated intake/approval `DEC-020` altında ayrı kalır.
   8. **Audit / context:** Ordinary RETURN için `AuditEvent` duplicate edilmez; immutable inventory ledger yeterlidir. `IssueContext` yalnız ISSUE'a aittir ve RETURN tarafından sahiplenilemez. `ReturnContext` oluşturulmaz.
   9. **Step 1 boundary:** Transaction type, lineage FK/index, parent-aware shapes, lineage/equality/cardinality/cumulative-cap DB guards, existing ledger/IssueContext immutability ve permission definition. Service, `StockBalance` mutation, projection arithmetic, UI ve role rollout yoktur.
   10. **Projection boundary:** RETURN projection arithmetic sonraki service fazındadır: `RECEIPT(target) + RETURN(target) - ISSUE(source)`. Step 1'de `verify_quantity_projection()` değişmez.
   11. **Deferred broader RETURN:** Serialized, used/removed, defective/condition-changing, unknown-provenance, supplier rejection, unlinked, correction/count ve technician approval senaryoları ayrıca kararlaştırılmadan schema/service/UI ile genişletilemez.
 - **Consequence:** `DEC-HG-005`, yalnız bu unused linked quantity RETURN slice için kapanır. Broader RETURN senaryoları hard-gated/deferred kalır. `DEC-HG-001`, `DEC-HG-002`, `DEC-OPEN-001`, `DEC-OPEN-002`, `DEC-OPEN-004` ve `DEC-OPEN-010` status değiştirmez.
+- **Implementation status:** Phase 4.4 COMPLETE (2026-09-12). Kernel/schema/DB guards, idempotent `return_quantity` service + projection update, create/detail UI, ISSUE/history/material integration ve `inventory.return_stock` managed rollout uygulanmıştır. Managed permission count 22'dir; fresh STOREKEEPER/ADMIN_MANAGER alır, TECHNICIAN almaz. Broader RETURN kapsamı değişmemiştir.
 
 ## 3. Açık İş Kararları
 
@@ -435,7 +436,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Catalog/import identity matching | `DEC-OPEN-004`, `DEC-OPEN-021` (Material code; Location code `DEC-023`; Employee number `DEC-024` ile kararlı); history sonrası tracking mode için `DEC-013` zaten kararlı |
 | Quantity ISSUE first slice (Phase 4.2A–4.2C) | **COMPLETE** (2026-09-12). `DEC-027`; receiver/ProductionLine snapshots, kernel/service/UI ve `inventory.issue_stock` rollout uygulanmıştır. |
 | Technician field intake request/approval workflow | `DEC-020` kararlıdır; talep/onay schema/service/UI ve hareket türü eşlemesi `DEC-028` ordinary direct RETURN slice'ından ayrıdır ve ayrıca kararlaştırılmalıdır. |
-| Quantity unused linked RETURN | `DEC-028`; Step 1 kernel/schema/DB guards authorize. Service/projection/UI/role rollout ayrı sonraki görevlerdir. Broader RETURN `DEC-HG-005` altında deferred kalır. |
+| Quantity unused linked RETURN | **COMPLETE** (Phase 4.4, 2026-09-12). `DEC-028`; kernel/schema/DB guards, service/projection, UI ve permission rollout uygulanmıştır. Broader RETURN `DEC-HG-005` altında deferred kalır. |
 | Corrections | `DEC-HG-002`; ayrıca `DEC-OPEN-006` yalnız PROPOSED kalır |
 | Counting/reconciliation | `DEC-HG-001` ve `DEC-OPEN-007`; stability modeli olmadan Phase 11/count implementation başlayamaz |
 | Baseline schema/cutover | `DEC-OPEN-008` approval + count-session cardinality; `DEC-002` ve `DEC-015` teknik contract'ları sabittir |
@@ -461,7 +462,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 4.0C quantity RECEIPT service | **COMPLETE** (2026-09-12). Commit `4546739e`. Bkz. §4.1 Phase 4.0C. |
 | Phase 4.1 Receipt UI + permission rollout | **COMPLETE** (2026-09-12). Commit `927e83b2`; full suite 823 passed; managed permission count 19. Bkz. §4.1 Phase 4.1. TRANSFER/RETURN/correction/count/baseline bu karar kapsamı dışındadır. |
 | Quantity ISSUE first slice | **COMPLETE** (2026-09-12). `DEC-027`; Phase 4.2A `bc77b50`, 4.2B `e99a6c3`, 4.2C `077e9d5`; managed permission count 21. |
-| Quantity RETURN first slice decision / Step 1 | `DEC-028` (`PASS FOR STEP 1 IMPLEMENTATION`, 2026-09-12). Yalnız kernel/schema/DB guards ve permission definition; service/projection/UI/role rollout yok. |
+| Quantity RETURN first slice (Phase 4.4) | **COMPLETE** (2026-09-12). `DEC-028`; kernel, service/projection, UI/history integration ve `inventory.return_stock` rollout uygulanmıştır; broader RETURN deferred kalır. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 | Gate 3 | Phase 3 + quantity-only RECEIPT (4.0A–4.1) — **Disposition: `PASS`** (2026-09-12). Bkz. §4.5. ISSUE/TRANSFER/RETURN/serialized/correction/count-baseline authorize edilmemiştir. |
@@ -645,12 +646,13 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 - **Implementation status:** Phase 4.2A `bc77b50`, Phase 4.2B `e99a6c3`, Phase 4.2C `077e9d5`
 - **Not:** Bu disposition Gate 3 PASS anlamına gelmez ve Gate 3 kapsamını genişletmez.
 
-#### Phase 4.4 — Quantity RETURN First Slice / Step 1
+#### Phase 4.4 — Quantity RETURN First Slice
 
-- **Disposition:** `AUTHORIZED` (`DEC-028`, 2026-09-12)
-- **Kapsam:** RETURN kernel/schema/DB integrity guards ve `inventory.return_stock` permission definition.
-- **Kapsam dışı:** Service, `StockBalance` mutation, projection arithmetic, UI, role rollout ve broader RETURN senaryoları.
-- **Hard gate:** `DEC-HG-005` yalnız unused linked QUANTITY RETURN slice için kapanır; broader RETURN deferred kalır.
+- **Disposition:** `COMPLETE` (`DEC-028`, 2026-09-12)
+- **Kapsam:** RETURN kernel/schema/DB integrity guards; idempotent service ve atomik target projection; create/detail UI; ISSUE/history/material integration; `inventory.return_stock` managed rollout.
+- **Fresh role policy:** STOREKEEPER ve ADMIN_MANAGER alır; TECHNICIAN almaz. Managed permission count 22. `setup_roles` mevcut Group'ları non-destructive korur.
+- **Audit boundary:** Successful ordinary RETURN yalnız immutable ledger'da izlenir; duplicate `AuditEvent` ve `ReturnContext` yoktur.
+- **Hard gate:** `DEC-HG-005` yalnız unused linked QUANTITY RETURN slice için kapanır; serialized, used/removed, defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları deferred kalır.
 
 ## 5. Audit Finding Disposition
 
