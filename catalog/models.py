@@ -76,6 +76,39 @@ class Category(models.Model):
                 ancestor = ancestor.parent
 
 
+class MaterialCondition(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(max_length=64)
+    name = models.CharField(max_length=255)
+    sort_order = models.IntegerField(default=0)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["code"],
+                name="catalog_condition_code_uniq",
+            ),
+            models.CheckConstraint(
+                condition=~Q(code__regex=r"^\s*$"),
+                name="catalog_condition_code_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=~Q(name__regex=r"^\s*$"),
+                name="catalog_condition_name_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=Q(sort_order__gte=0),
+                name="catalog_condition_sort_nonnegative",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.code
+
+
 class UnitOfMeasure(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     code = models.CharField(max_length=64)
