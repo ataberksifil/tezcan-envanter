@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}{{ production_line.name }} — Üretim Hattı — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">{{ production_line.name }}</h1>
+    <div class="d-flex flex-wrap gap-2">
+        {% if perms.inventory.change_productionline %}
+            <a class="btn btn-outline-primary" href="{% url 'inventory:production-line-update' production_line.pk %}">Düzenle</a>
+            {% if production_line.active %}
+                <form method="post" action="{% url 'inventory:production-line-deactivate' production_line.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-warning">Pasifleştir</button>
+                </form>
+            {% else %}
+                <form method="post" action="{% url 'inventory:production-line-reactivate' production_line.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-success">Aktifleştir</button>
+                </form>
+            {% endif %}
+        {% endif %}
+        <a class="btn btn-outline-secondary" href="{% url 'inventory:production-line-list' %}">Listeye dön</a>
+    </div>
+</div>
+
+<dl class="row mb-4">
+    <dt class="col-sm-3">UUID</dt>
+    <dd class="col-sm-9 font-monospace">{{ production_line.id }}</dd>
+
+    <dt class="col-sm-3">Kod</dt>
+    <dd class="col-sm-9">{{ production_line.code }}</dd>
+
+    <dt class="col-sm-3">Ad</dt>
+    <dd class="col-sm-9">{{ production_line.name }}</dd>
+
+    <dt class="col-sm-3">Üst hat</dt>
+    <dd class="col-sm-9">
+        {% if production_line.parent %}
+            <a href="{% url 'inventory:production-line-detail' production_line.parent.pk %}">
+                {{ production_line.parent.code }} ({{ production_line.parent.name }})
+            </a>
+            {% if not production_line.parent.active %}
+                <span class="badge text-bg-secondary">Pasif</span>
+            {% endif %}
+        {% else %}
+            —
+        {% endif %}
+    </dd>
+
+    <dt class="col-sm-3">Durum</dt>
+    <dd class="col-sm-9">
+        {% if production_line.active %}
+            <span class="badge text-bg-success">Aktif</span>
+        {% else %}
+            <span class="badge text-bg-secondary">Pasif</span>
+        {% endif %}
+    </dd>
+
+    <dt class="col-sm-3">Oluşturulma</dt>
+    <dd class="col-sm-9">{{ production_line.created_at }}</dd>
+
+    <dt class="col-sm-3">Güncellenme</dt>
+    <dd class="col-sm-9">{{ production_line.updated_at }}</dd>
+</dl>
+
+<h2 class="h5 mb-3">Doğrudan alt hatlar</h2>
+{% if children %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th scope="col">Kod</th>
+                    <th scope="col">Ad</th>
+                    <th scope="col">Durum</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for child in children %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'inventory:production-line-detail' child.pk %}">{{ child.code }}</a>
+                        </td>
+                        <td>{{ child.name }}</td>
+                        <td>
+                            {% if child.active %}
+                                <span class="badge text-bg-success">Aktif</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary">Pasif</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <p class="text-body-secondary mb-0">Alt hat yok.</p>
+{% endif %}
+{% endblock %}

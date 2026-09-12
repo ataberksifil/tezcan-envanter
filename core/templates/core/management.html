@@ -75,6 +75,19 @@
                     </div>
                 </div>
             {% endif %}
+            {% if show_production_line_management %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="h5 card-title">Üretim Hatları</h2>
+                            <p class="card-text text-body-secondary">
+                                Üretim hattı hiyerarşisini oluşturun ve düzenleyin.
+                            </p>
+                            <a class="stretched-link" href="{% url 'inventory:production-line-list' %}">Üretim hatlarına git</a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
             {% if show_access_management %}
                 <div class="col-md-6 col-lg-4">
                     <div class="card h-100 shadow-sm">

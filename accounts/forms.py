@@ -25,6 +25,9 @@ PERMISSION_CHOICES = (
     ("accounts.view_employee", "Çalışan — görüntüleme"),
     ("accounts.add_employee", "Çalışan — oluşturma"),
     ("accounts.change_employee", "Çalışan — değiştirme"),
+    ("inventory.view_productionline", "Üretim hattı — görüntüleme"),
+    ("inventory.add_productionline", "Üretim hattı — oluşturma"),
+    ("inventory.change_productionline", "Üretim hattı — değiştirme"),
 )
 assert tuple(value for value, _label in PERMISSION_CHOICES) == SAFE_CATALOG_PERMISSION_LABELS
 

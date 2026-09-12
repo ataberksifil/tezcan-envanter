@@ -27,8 +27,15 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture
 def catalog_permissions():
     content_types = ContentType.objects.filter(
-        app_label__in=("catalog", "locations", "accounts"),
-        model__in=("category", "unitofmeasure", "material", "location", "employee"),
+        app_label__in=("catalog", "locations", "accounts", "inventory"),
+        model__in=(
+            "category",
+            "unitofmeasure",
+            "material",
+            "location",
+            "employee",
+            "productionline",
+        ),
     )
     permissions = Permission.objects.filter(
         content_type__in=content_types,
@@ -43,7 +50,12 @@ def _template_codenames_for_group(group_name: str) -> set[str]:
     return {
         permission.codename
         for permission in group.permissions.filter(
-            content_type__app_label__in=("catalog", "locations", "accounts")
+            content_type__app_label__in=(
+                "catalog",
+                "locations",
+                "accounts",
+                "inventory",
+            )
         )
         if permission.codename in allowed
     }
@@ -122,6 +134,12 @@ def test_new_admin_manager_receives_catalog_view_add_change_not_delete():
         "change_employee",
     } <= codenames
     assert "delete_employee" not in codenames
+    assert {
+        "view_productionline",
+        "add_productionline",
+        "change_productionline",
+    } <= codenames
+    assert "delete_productionline" not in codenames
 
 
 def test_running_twice_creates_no_duplicate_groups_and_no_permission_changes():
@@ -277,6 +295,22 @@ def test_missing_expected_permission_raises_before_any_partial_group_creation(
     assert not Group.objects.filter(name=STOREKEEPER).exists()
     assert not Group.objects.filter(name=ADMIN_MANAGER).exists()
     assert set(Group.objects.values_list("name", flat=True)) == {TECHNICIAN}
+
+
+def test_existing_admin_manager_without_production_line_permissions_is_not_reconciled(
+    catalog_permissions,
+):
+    _run_setup_roles()
+    admin_manager = Group.objects.get(name=ADMIN_MANAGER)
+    admin_manager.permissions.remove(catalog_permissions["view_productionline"])
+    admin_manager.permissions.remove(catalog_permissions["add_productionline"])
+    admin_manager.permissions.remove(catalog_permissions["change_productionline"])
+    before = _permission_pks_for_group(ADMIN_MANAGER)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(ADMIN_MANAGER) == before
+    assert "view_productionline" not in _template_codenames_for_group(ADMIN_MANAGER)
 
 
 def test_existing_admin_manager_without_location_permissions_is_not_reconciled(

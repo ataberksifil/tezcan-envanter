@@ -17,10 +17,7 @@ from catalog.models import Category, Material, UnitOfMeasure
 pytestmark = pytest.mark.django_db
 
 PASSWORD = "synthetic-test-password-only"
-FUTURE_CARD_LABELS = (
-    "Teknik Alan Tanımları",
-    "Üretim Hatları",
-)
+FUTURE_CARD_LABELS = ("Teknik Alan Tanımları",)
 
 
 @pytest.fixture
@@ -57,6 +54,10 @@ def _catalog_permission(codename):
         content_type = ContentType.objects.get(app_label="locations", model="location")
     elif codename.endswith("employee"):
         content_type = ContentType.objects.get(app_label="accounts", model="employee")
+    elif codename.endswith("productionline"):
+        content_type = ContentType.objects.get(
+            app_label="inventory", model="productionline"
+        )
     return Permission.objects.get(content_type=content_type, codename=codename)
 
 
@@ -246,6 +247,7 @@ def test_admin_manager_after_setup_roles_has_full_management_hub(app_client):
     assert reverse("catalog:category-list") in content
     assert reverse("catalog:unit-list") in content
     assert reverse("catalog:material-list") in content
+    assert reverse("inventory:production-line-list") in content
 
 
 def test_admin_manager_group_name_without_permissions_grants_nothing(app_client):
@@ -410,6 +412,55 @@ def test_add_employee_without_view_does_not_grant_management(app_client):
     user = _grant_permissions(
         _create_ordinary_user("mgmt-emp-add-only"),
         "add_employee",
+    )
+    _login(app_client, user)
+    assert ">Yönetim</a>" not in app_client.get("/").content.decode()
+    assert app_client.get(_management_url()).status_code == 403
+
+
+def test_view_productionline_only_user_has_no_management_hub_or_card(app_client):
+    user = _grant_permissions(
+        _create_ordinary_user("mgmt-pl-view-only"),
+        "view_productionline",
+    )
+    _login(app_client, user)
+    home = app_client.get("/").content.decode()
+    assert ">Yönetim</a>" not in home
+    assert app_client.get(_management_url()).status_code == 403
+    assert app_client.get("/management/production-lines/").status_code == 200
+
+
+def test_production_line_writer_sees_management_and_card(app_client):
+    user = _grant_permissions(
+        _create_ordinary_user("mgmt-pl-writer"),
+        "view_productionline",
+        "add_productionline",
+    )
+    _login(app_client, user)
+    home = app_client.get("/").content.decode()
+    assert ">Yönetim</a>" in home
+    page = app_client.get(_management_url())
+    assert page.status_code == 200
+    content = page.content.decode()
+    assert reverse("inventory:production-line-list") in content
+    assert reverse("catalog:category-list") not in content
+
+
+def test_production_line_change_without_add_shows_management_card(app_client):
+    user = _grant_permissions(
+        _create_ordinary_user("mgmt-pl-change"),
+        "view_productionline",
+        "change_productionline",
+    )
+    _login(app_client, user)
+    content = app_client.get(_management_url()).content.decode()
+    assert reverse("inventory:production-line-list") in content
+
+
+def test_add_productionline_without_view_does_not_grant_management(app_client):
+    user = _grant_permissions(
+        _create_ordinary_user("mgmt-pl-add-only"),
+        "add_productionline",
     )
     _login(app_client, user)
     assert ">Yönetim</a>" not in app_client.get("/").content.decode()

@@ -62,6 +62,15 @@ def user_can_manage_employees(user) -> bool:
     )
 
 
+def user_can_manage_production_lines(user) -> bool:
+    return _has_actionable_surface(
+        user,
+        view_permission="inventory.view_productionline",
+        add_permission="inventory.add_productionline",
+        change_permission="inventory.change_productionline",
+    )
+
+
 def user_has_management_access(user) -> bool:
     return bool(
         getattr(user, "is_authenticated", False)
@@ -72,4 +81,5 @@ def user_has_management_access(user) -> bool:
         or user_can_manage_materials(user)
         or user_can_manage_locations(user)
         or user_can_manage_employees(user)
+        or user_can_manage_production_lines(user)
     )

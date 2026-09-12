@@ -12,6 +12,7 @@ from core.management_access import (
     user_can_manage_employees,
     user_can_manage_locations,
     user_can_manage_materials,
+    user_can_manage_production_lines,
     user_can_manage_units,
     user_has_management_access,
 )
@@ -40,6 +41,9 @@ class ManagementView(LoginRequiredMixin, TemplateView):
         context['show_material_management'] = user_can_manage_materials(user)
         context['show_location_management'] = user_can_manage_locations(user)
         context['show_employee_management'] = user_can_manage_employees(user)
+        context['show_production_line_management'] = user_can_manage_production_lines(
+            user
+        )
         context['show_access_management'] = user.has_perm('accounts.manage_access')
         return context
 

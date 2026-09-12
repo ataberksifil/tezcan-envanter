@@ -50,8 +50,15 @@ class Command(BaseCommand):
     def _load_required_template_permissions(self, database: str) -> dict[str, Permission]:
         required_codenames = required_template_catalog_codenames()
         content_types = ContentType.objects.using(database).filter(
-            app_label__in=("catalog", "locations", "accounts"),
-            model__in=("category", "unitofmeasure", "material", "location", "employee"),
+            app_label__in=("catalog", "locations", "accounts", "inventory"),
+            model__in=(
+                "category",
+                "unitofmeasure",
+                "material",
+                "location",
+                "employee",
+                "productionline",
+            ),
         )
         permissions = Permission.objects.using(database).filter(
             content_type__in=content_types,

@@ -184,12 +184,16 @@ def test_safe_permissions_and_manage_access_superuser_round_trip_are_audited():
     assert MANAGE_ACCESS_PERMISSION not in canonical_role_snapshot(role)["permissions"]
 
 
-def test_managed_permission_set_is_exactly_fifteen():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 15
+def test_managed_permission_set_is_exactly_eighteen():
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 18
     assert "accounts.view_employee" in SAFE_CATALOG_PERMISSION_LABELS
     assert "accounts.add_employee" in SAFE_CATALOG_PERMISSION_LABELS
     assert "accounts.change_employee" in SAFE_CATALOG_PERMISSION_LABELS
     assert "accounts.delete_employee" not in SAFE_CATALOG_PERMISSION_LABELS
+    assert "inventory.view_productionline" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "inventory.add_productionline" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "inventory.change_productionline" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "inventory.delete_productionline" not in SAFE_CATALOG_PERMISSION_LABELS
 
 
 @pytest.mark.parametrize(
@@ -201,10 +205,11 @@ def test_managed_permission_set_is_exactly_fifteen():
         "auth.change_group",
         "audit.view_auditevent",
         "inventory.view_stockbalance",
+        "inventory.delete_productionline",
         "accounts.manage_access",
     ],
 )
-def test_service_rejects_every_permission_outside_safe_fifteen(forged):
+def test_service_rejects_every_permission_outside_safe_eighteen(forged):
     actor = make_superuser()
     role = Group.objects.create(name="Safe")
     with pytest.raises(ValidationError):
@@ -228,6 +233,8 @@ def test_service_rejects_every_permission_outside_safe_fifteen(forged):
         "locations.change_location",
         "accounts.add_employee",
         "accounts.change_employee",
+        "inventory.add_productionline",
+        "inventory.change_productionline",
     ],
 )
 def test_write_permission_without_view_is_rejected(write_label):
@@ -385,6 +392,47 @@ def test_manager_capability_ceiling_applies_to_employee_permissions():
                 "accounts.view_employee",
                 "accounts.add_employee",
                 "accounts.change_employee",
+            ],
+        )
+
+
+def test_production_line_permissions_round_trip_with_view_dependency():
+    actor = make_superuser()
+    role = Group.objects.create(name="Production line enabled")
+    labels = [
+        "inventory.view_productionline",
+        "inventory.add_productionline",
+        "inventory.change_productionline",
+    ]
+    set_role_permissions(actor=actor, role_id=role.pk, catalog_permissions=labels)
+    event = AuditEvent.objects.get()
+    assert event.after_data["permissions"] == sorted(labels)
+
+
+def test_manager_capability_ceiling_applies_to_production_line_permissions():
+    actor, _ = make_manager(
+        safe_permissions=(
+            "inventory.view_productionline",
+            "inventory.add_productionline",
+        )
+    )
+    role = Group.objects.create(name="Production line lower")
+    set_role_permissions(
+        actor=actor,
+        role_id=role.pk,
+        catalog_permissions=[
+            "inventory.view_productionline",
+            "inventory.add_productionline",
+        ],
+    )
+    with pytest.raises(PermissionDenied):
+        set_role_permissions(
+            actor=actor,
+            role_id=role.pk,
+            catalog_permissions=[
+                "inventory.view_productionline",
+                "inventory.add_productionline",
+                "inventory.change_productionline",
             ],
         )
 
