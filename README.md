@@ -20,8 +20,13 @@
 - **Phase 4.0C:** First Mutation — quantity RECEIPT service — COMPLETE (2026-09-12; commit `4546739e`)
 - **Phase 4.1:** Quantity RECEIPT UI + permission rollout — COMPLETE (2026-09-12; commit `927e83b2`)
 - **Quantity RECEIPT:** onaylı quantity-only slice uçtan uca implement edilmiştir (kernel, service, UI, `inventory.receive_stock` permission rollout)
-- **Son doğrulanmış test suite:** 823 passed
-- **Managed permission count:** 19
+- **Phase 4.2:** Quantity ISSUE — COMPLETE (2026-09-12; commits `bc77b50`, `e99a6c3`, `077e9d5`)
+- **Phase 4.3:** Inventory Transaction History — COMPLETE (2026-09-12; commit `cec8284`)
+- **Phase 4.4:** Quantity unused linked RETURN — COMPLETE (2026-09-12; commits `e96ec2d`, `3e68f02`, `a98cf87`)
+- **Quantity RETURN first slice:** uçtan uca implement edilmiştir (kernel, service, UI, `inventory.return_stock` permission rollout)
+- **Phase 4.5:** Quantity TRANSFER — IN PROGRESS
+- **Son doğrulanmış test suite:** 1072 passed
+- **Managed permission count:** 22
 - **Gate 3:** PASS (2026-09-12)
 
 Phase 2 ayrıntıları için bkz. [Yol Haritası](#yol-haritası).
@@ -178,13 +183,31 @@ python manage.py setup_roles
 
 **Phase 4.1:** Quantity RECEIPT UI + permission rollout — COMPLETE (2026-09-12; commit `927e83b2`)
 
-**Son doğrulanmış test suite:** 823 passed
+**Phase 4.2:** Quantity ISSUE — COMPLETE (2026-09-12)
 
-**Managed permission count:** 19
+- kernel: `bc77b50`
+- service: `e99a6c3`
+- UI/workflow: `077e9d5`
 
-**Quantity ISSUE first slice:** `DEC-027` — PASS FOR NEXT IMPLEMENTATION (2026-09-12). Phase 4.2A → 4.2B → 4.2C. Henüz implement edilmemiştir.
+**Phase 4.3:** Inventory Transaction History — COMPLETE (2026-09-12; commit `cec8284`)
 
-**Gate 3:** PASS (2026-09-12; audited HEAD `4cf89525`; bkz. [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) §4.5). Kapsam: Phase 3 (Location, Employee, ProductionLine) ve quantity-only RECEIPT slice (4.0A–4.1). Gate 3, `DEC-027` quantity ISSUE authorization'ını kapsamaz. TRANSFER, RETURN, serialized inventory, correction ve count/baseline henüz implement edilmemiştir. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
+**Phase 4.4:** Quantity unused linked RETURN — COMPLETE (2026-09-12)
+
+- kernel + DEC-028: `e96ec2d`
+- service / concurrency / projection: `3e68f02`
+- UI + permission rollout: `a98cf87`
+
+Fresh-role policy (`inventory.return_stock`): TECHNICIAN no; STOREKEEPER yes; ADMIN_MANAGER yes.
+
+Broader RETURN senaryoları deferred: serialized, used/removed goods, defective/condition-changing, unknown provenance, supplier rejection, technician-originated approval, correction/count interactions.
+
+**Phase 4.5:** Quantity TRANSFER — IN PROGRESS
+
+**Son doğrulanmış test suite:** 1072 passed
+
+**Managed permission count:** 22
+
+**Gate 3:** PASS (2026-09-12; audited HEAD `4cf89525`; bkz. [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) §4.5). Tarihsel kapsam: Phase 3 (Location, Employee, ProductionLine) ve quantity-only RECEIPT slice (4.0A–4.1). Phase 4.2 ISSUE, Phase 4.3 history ve Phase 4.4 RETURN first slice sonradan implement edilmiştir; Gate 3 bunları audit etmemiştir. TRANSFER, serialized inventory, correction ve count/baseline henüz implement edilmemiştir. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
 
 ### Sağlık kontrolü
 
