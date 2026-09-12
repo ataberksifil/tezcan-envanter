@@ -21,7 +21,7 @@ class QuantityProjectionMismatch:
 def verify_quantity_projection(
     *, using: str = "default"
 ) -> tuple[QuantityProjectionMismatch, ...]:
-    """Compare RECEIPT + RETURN - ISSUE quantity ledger with StockBalance."""
+    """Compare RECEIPT + RETURN + TRANSFER(target) - ISSUE - TRANSFER(source) with StockBalance."""
     inbound = {
         (row["material_id"], row["target_location_id"], row["condition_id"]): row[
             "quantity"
@@ -29,20 +29,20 @@ def verify_quantity_projection(
         for row in (
             InventoryTransactionLine.objects.using(using)
             .filter(
-                transaction__transaction_type__in=("RECEIPT", "RETURN"),
+                transaction__transaction_type__in=("RECEIPT", "RETURN", "TRANSFER"),
             )
             .values("material_id", "target_location_id", "condition_id")
             .annotate(quantity=Sum("quantity"))
         )
     }
-    issues = {
+    outbound = {
         (row["material_id"], row["source_location_id"], row["condition_id"]): row[
             "quantity"
         ]
         for row in (
             InventoryTransactionLine.objects.using(using)
             .filter(
-                transaction__transaction_type="ISSUE",
+                transaction__transaction_type__in=("ISSUE", "TRANSFER"),
             )
             .values("material_id", "source_location_id", "condition_id")
             .annotate(quantity=Sum("quantity"))
@@ -50,8 +50,8 @@ def verify_quantity_projection(
     }
     zero = Decimal("0.000")
     expected = {
-        identity: inbound.get(identity, zero) - issues.get(identity, zero)
-        for identity in set(inbound) | set(issues)
+        identity: inbound.get(identity, zero) - outbound.get(identity, zero)
+        for identity in set(inbound) | set(outbound)
     }
     actual = {
         (row["material_id"], row["location_id"], row["condition_id"]): row[
