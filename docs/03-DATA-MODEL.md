@@ -61,7 +61,7 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 - **Check Constraints:** Ad, soyad ve sicil numarası outer trim sonrası boş olamaz.
 - **Recommended Indexes:** Unique `employee_number`; unique partial `user_id`; gerektiğinde `last_name, first_name`.
 - **Delete Policy:** Hard delete application surface yok; `active/inactive` lifecycle. User silinince link `SET_NULL`. Transaction snapshot'ları çalışan değişikliğinden etkilenmez.
-- **Notes / TBD:** Eski sicil numarası ayrı historical registry ile rezerve edilmez; import/matching immutable identity key varsaymamalıdır. Gelecek audit: `accounts.employee.created/updated/deactivated/reactivated`. Permissions: `accounts.view_employee`, `accounts.add_employee`, `accounts.change_employee` (`DEC-024`). Employee henüz implement edilmemiştir.
+- **Notes / TBD:** Eski sicil numarası ayrı historical registry ile rezerve edilmez; import/matching immutable identity key varsaymamalıdır. Gelecek audit: `accounts.employee.created/updated/deactivated/reactivated`. Permissions: `accounts.view_employee`, `accounts.add_employee`, `accounts.change_employee` (`DEC-024`). Employee foundation Phase 3.2'de implement edilmiştir.
 
 ## 5. Catalog Tabloları
 
@@ -186,7 +186,7 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 
 ## 6A. ProductionLine Tabloları (inventory app)
 
-Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain yapısıdır (`DEC-025`). ProductionLine henüz implement edilmemiştir.
+Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain yapısıdır (`DEC-025`). ProductionLine foundation Phase 3.3'te implement edilmiştir; ISSUE henüz implement edilmemiştir.
 
 ### 6A.1 `production_lines`
 

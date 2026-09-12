@@ -278,7 +278,7 @@ Employee master değişse bile receiver snapshot okunabilir kalır. Normal kulla
 
 `DEC-HG-003` (**DECIDED**, `DEC-025`): `ProductionLine` dynamic master-data entity (`inventory` app); recursive hierarchy; code/name lifecycle. Exact usage place ayrı required free text; `UsagePlace` modeli yok. ISSUE data/UI inventory hard gate'lerini bekler; fabrika hatları uydurulmaz/seed edilmez.
 
-`DEC-HG-004` (**DECIDED**, `DEC-024`): `accounts.Employee` ayrı entity; sicil string/global unique/editable; nullable one-to-one User link (ownership Employee, SET_NULL). Phase 3.2 Employee foundation implementation sıradaki adım. Personal/photo/audit retention pilot öncesi karara bağlanır; receiver snapshot her durumda korunur. Managed permissions: `accounts.view_employee`, `accounts.add_employee`, `accounts.change_employee`.
+`DEC-HG-004` (**DECIDED**, `DEC-024`): `accounts.Employee` ayrı entity; sicil string/global unique/editable; nullable one-to-one User link (ownership Employee, SET_NULL). Phase 3.2 Employee foundation implementation COMPLETE. Personal/photo/audit retention pilot öncesi karara bağlanır; receiver snapshot her durumda korunur. Managed permissions: `accounts.view_employee`, `accounts.add_employee`, `accounts.change_employee`.
 
 ## 14. Corrections
 

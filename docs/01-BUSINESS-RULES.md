@@ -280,7 +280,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | OD-023 | Eksik karar | Fabrikanın mutabık kalınmış yerel saat dilimi yapılandırması ve hafta başlangıcı bilinmiyor. | Türkiye yerel iş zamanı yönü korunur. |
 | OD-024 | Eksik karar | Envanter geçmişi, audit kayıtları ve fotoğrafların saklama/silme süreleri bilinmiyor. | Retention politikası varsayılmaz. |
 | OD-025 | Eksik karar | Kategoriye özgü teknik alanlar ve zorunlulukları bilinmiyor. | Gerçek örnek ve Excel analizi beklenir. |
-| OD-026 | Kısmen kararlı | Rol atama/onay süreci Phase 2 için `DEC-022` ile kararlıdır. Kullanıcı–Employee ilişkisi `DEC-024` ile kararlıdır: nullable one-to-one, ownership Employee, delete `SET_NULL`; sicil string/global unique/editable. | Employee foundation implementation Phase 3.2'de başlar; retention pilot öncesi kararları açık kalır. |
+| OD-026 | Kısmen kararlı | Rol atama/onay süreci Phase 2 için `DEC-022` ile kararlıdır. Kullanıcı–Employee ilişkisi `DEC-024` ile kararlıdır: nullable one-to-one, ownership Employee, delete `SET_NULL`; sicil string/global unique/editable. | Employee foundation implementation Phase 3.2 COMPLETE; retention pilot öncesi kararları açık kalır. |
 | OD-027 | Eksik karar | Kondisyon değişikliğinin kendisinin hangi kayıtlı iş olayıyla yapılacağı bilinmiyor. | Kondisyon sessizce değiştirilemez; olay türü varsayılmaz. |
 | OD-028 | Eksik karar | Nicel stok doğruluğu hedefi ve kabul edilebilir sapma yaklaşımı bilinmiyor. | Fiziksel bulunabilirlik temel başarı yönüdür. |
 | OD-029 | Zamanlama belirsizliği | QR/barkod V1 kapsamındadır; ara sürümdeki teslim anı belirtilmemiştir. | En geç nihai V1 üretim devreye alımından önce doğrulanmalıdır. |

@@ -1447,7 +1447,7 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 | `DEC-HG-001` | Count/reconciliation schema, service ve UI; stock-stability modeli seçilmeden başlayamaz. |
 | `DEC-HG-002` | Correction schema/service; bounds ve lineage kararı olmadan başlayamaz. |
 | `DEC-HG-003` | **DECIDED** (`DEC-025`). ProductionLine foundation kararlı; ISSUE implementasyonu inventory gate'lerini bekler. |
-| `DEC-HG-004` | **DECIDED** (`DEC-024`). Employee foundation kararlı; Phase 3.2 implementation sıradaki adım. |
+| `DEC-HG-004` | **DECIDED** (`DEC-024`). Employee foundation kararlı; Phase 3.2 implementation COMPLETE. ISSUE implementasyonu inventory gate'lerini bekler. |
 | `DEC-HG-005` | RETURN schema/service/UI ve aktif menü; beş return kararı olmadan başlayamaz. |
 
 ### BLOCKS UI IMPLEMENTATION

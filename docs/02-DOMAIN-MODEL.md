@@ -168,7 +168,7 @@ Zorunlu `location_type` / sabit WAREHOUSE/WORKSHOP/SHELF/BIN enum Phase 3.1'de y
 
 Elektrik Deposu, Alkali Elektrik, Enstrüman Atölyesi ve Bobinaj Atölyesi bilinen örnek / gerçek dünya girdileridir; tahmini hiyerarşi/kod/`can_hold_stock` seed satırı oluşturulmaz.
 
-Location hiyerarşisi dinamik ve arbitrary-depth'tir; hard-coded warehouse/corridor/rack/bin schema seviyeleri zorunlu değildir (`DEC-021`, `DEC-023`). Örnek evrim `site → workshop → warehouse → area → shelf → sub-shelf` olabilir; zorunlu yapı değildir. Generic tree framework tanıtılmaz. Path/depth cache bu fazda persist edilmez. `can_hold_stock` leaf/child/name/depth/type'tan türetilmez. Location henüz implement edilmemiştir; Phase 3.1 foundation implementation sıradadır.
+Location hiyerarşisi dinamik ve arbitrary-depth'tir; hard-coded warehouse/corridor/rack/bin schema seviyeleri zorunlu değildir (`DEC-021`, `DEC-023`). Örnek evrim `site → workshop → warehouse → area → shelf → sub-shelf` olabilir; zorunlu yapı değildir. Generic tree framework tanıtılmaz. Path/depth cache bu fazda persist edilmez. `can_hold_stock` leaf/child/name/depth/type'tan türetilmez. Location foundation Phase 3.1'de implement edilmiştir.
 
 Domain davranışı:
 
@@ -346,7 +346,7 @@ Her `ISSUE` işlemi aşağıdaki tarihsel iş bağlamını korur:
 
 Alıcı için `Employee` UUID referansı ve zorunlu kimlik snapshot'ı (`employee_number`, `first_name`, `last_name`) taşınır (`DEC-024`). Üretim hattı ve fiili kullanım yeri iki ayrı zorunlu iş bilgisidir; depo `Location` hiyerarşisine zorla bağlanmaz.
 
-**ProductionLine (`DEC-025`):** Üretim hattı, `inventory` app sahipliği altında dinamik master-data entity'dir. UUID kalıcı kimlik; `code` (globally unique, case-sensitive, editable) ve `name` (non-unique, editable); nullable recursive `parent`; arbitrary depth hierarchy; self-parent ve cycle yasak; Location hiyerarşisinden bağımsız. Active/inactive lifecycle; inactive yeni ISSUE seçiminde kullanılamaz. Gelecek ISSUE, seçilen `ProductionLine` UUID'sini ve `code`/`name` snapshot'larını taşır. Tahmin edilmiş fabrika hatları seed edilmez. ProductionLine henüz implement edilmemiştir.
+**ProductionLine (`DEC-025`):** Üretim hattı, `inventory` app sahipliği altında dinamik master-data entity'dir. UUID kalıcı kimlik; `code` (globally unique, case-sensitive, editable) ve `name` (non-unique, editable); nullable recursive `parent`; arbitrary depth hierarchy; self-parent ve cycle yasak; Location hiyerarşisinden bağımsız. Active/inactive lifecycle; inactive yeni ISSUE seçiminde kullanılamaz. Gelecek ISSUE, seçilen `ProductionLine` UUID'sini ve `code`/`name` snapshot'larını taşır. Tahmin edilmiş fabrika hatları seed edilmez. ProductionLine foundation Phase 3.3'te implement edilmiştir; ISSUE henüz implement edilmemiştir.
 
 **Fiili kullanım yeri (exact usage place):** V1 future ISSUE ayrı required free-text değer gerektirir. `ProductionLine` structured selectable context sağlar; exact usage place ayrı kalır. `UsagePlace` modeli yoktur; Location veya ProductionLine'dan infer edilmez.
 

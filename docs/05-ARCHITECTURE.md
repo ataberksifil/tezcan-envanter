@@ -412,7 +412,7 @@ Template/HTMX response içinde buton görünürlüğü kullanıcı deneyimidir; 
 
 - **`DEC-HG-002` Corrections:** Tek/cumulative correction, partial line semantics, original-line linkage, over-correction, later movements, correction-of-correction, requester=approver ve yetersiz current stock kararlaştırılmadan correction schema/service implementation yoktur.
 - **`DEC-HG-003` ProductionLine foundation:** **DECIDED** (`DEC-025`). `ProductionLine` dynamic master-data entity (`inventory` app); recursive hierarchy; exact usage place ayrı free text. ISSUE data/UI inventory hard gate'lerini bekler.
-- **`DEC-HG-004` Employee foundation:** **DECIDED** (`DEC-024`). `accounts.Employee` ayrı entity; sicil/User link/lifecycle kararlı. Phase 3.2 implementation sıradaki adım. Retention pilot öncesi kararları açık kalır; receiver snapshot korunur.
+- **`DEC-HG-004` Employee foundation:** **DECIDED** (`DEC-024`). `accounts.Employee` ayrı entity; sicil/User link/lifecycle kararlı. Phase 3.2 implementation COMPLETE. Retention pilot öncesi kararları açık kalır; receiver snapshot korunur.
 - **`DEC-HG-005` Return:** Prior ISSUE, partial quantity, condition authority, serialized current-state ve never-issued found/wrong-delivery semantics çözülmeden RETURN schema/service/UI ve aktif menü yoktur.
 
 ## 16. Web / UI Architecture
@@ -885,7 +885,11 @@ Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs
 
 **Phase 3.2-0:** Employee + ProductionLine decision pack — COMPLETE (`DEC-024`, `DEC-025`, 2026-09-11).
 
-**Sıradaki implementation alanı:** Phase 3.2 — Employee foundation implementation. Employee ve ProductionLine henüz implement edilmemiştir. Inventory başlamamıştır.
+**Phase 3.2:** Employee foundation implementation — COMPLETE (2026-09-12).
+
+**Phase 3.3:** ProductionLine foundation implementation — COMPLETE (2026-09-12).
+
+**Sıradaki:** Inventory Core / first inventory mutation architecture preflight; implementation kapsamı kanonik preflight disposition bekler. Inventory mutation başlamamıştır. Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur.
 
 ## 37. Dynamic Configuration Architecture
 
@@ -901,8 +905,8 @@ Onaylı mimari ilke (`DEC-021`):
 - `UnitOfMeasure`
 - `Material`
 - Location hiyerarşisi (`DEC-023`; Phase 3.1 COMPLETE)
-- `ProductionLine` (`DEC-025`; implementasyon Employee sonrası)
-- `Employee` (`DEC-024`; implementasyon Phase 3.2)
+- `ProductionLine` (`DEC-025`; Phase 3.3 COMPLETE)
+- `Employee` (`DEC-024`; Phase 3.2 COMPLETE)
 - Onaylı reason/reference listeleri
 - Technical-field tanımları (`DEC-OPEN-019`)
 - Yapılandırılabilir eşikler
@@ -978,9 +982,11 @@ Kanonik sıra (`DEC-021`):
 | 3.0 | Location foundation decisions — **COMPLETE** (`DEC-023`, 2026-09-11) |
 | 3.1 | Location foundation implementation — **COMPLETE** |
 | 3.2-0 | Employee + ProductionLine decision pack — **COMPLETE** (`DEC-024`, `DEC-025`, 2026-09-11) |
-| 3.2 | Employee foundation implementation — sıradaki. Employee henüz implement edilmemiştir. |
-| 3.x | ProductionLine foundation implementation — Employee sonrası |
+| 3.2 | Employee foundation implementation — **COMPLETE** (2026-09-12) |
+| 3.3 | ProductionLine foundation implementation — **COMPLETE** (2026-09-12) |
 
-**Sıradaki:** Phase 3.2 — Employee foundation implementation.
+**Son doğrulanmış test suite:** 655 passed
 
-Employee ve ProductionLine henüz implement edilmemiştir. Inventory mutation implementasyonu henüz başlamamıştır. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur.
+**Sıradaki:** Inventory Core / first inventory mutation architecture preflight; implementation kapsamı kanonik preflight disposition bekler.
+
+Inventory mutation implementasyonu henüz başlamamıştır. Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur.

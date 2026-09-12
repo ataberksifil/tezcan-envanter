@@ -271,7 +271,7 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   7. **Future ISSUE contract:** Receiver `Employee` UUID referansı; transaction `employee_number`, `first_name`, `last_name` snapshot'lar; sonraki Employee edit historical ISSUE'yu rewrite etmez; inactive Employee yeni ISSUE için kullanılamaz. ISSUE henüz implement edilmez.
   8. **Permissions:** Phase 3 managed: `accounts.view_employee`, `accounts.add_employee`, `accounts.change_employee`. `delete_employee` expose edilmez. `add_employee` ve `change_employee`, `view_employee` gerektirir. User-link editing `change_employee` kapsamındadır; `manage_access` gerekmez.
   9. **Default role templates (yalnız NEW/MISSING bootstrap Groups):** TECHNICIAN + `view_employee`; STOREKEEPER + `view_employee`; ADMIN_MANAGER + view/add/change. `setup_roles` non-destructive; mevcut Group'lar reconcile edilmez.
-  10. **Phase 3 roadmap:** Phase 3.2-0 Employee + ProductionLine decision pack COMPLETE. Sıradaki: Phase 3.2 Employee foundation implementation. Employee henüz implement edilmemiştir.
+  10. **Phase 3 roadmap:** Phase 3.2-0 Employee + ProductionLine decision pack COMPLETE. Phase 3.2 Employee foundation implementation COMPLETE (2026-09-12).
 - **Consequence:** `DEC-HG-004` employee foundation kısmı kapanır. Employee implementation Phase 3.2'de `DEC-024` şekline uyar. Retention pilot öncesi kararları açık kalır.
 
 ### DEC-025 — Phase 3 ProductionLine Foundation Policy
@@ -292,7 +292,7 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   7. **Exact usage place:** V1 future ISSUE ayrı required free-text exact usage-place değeri gerektirir. `ProductionLine` structured selectable context; exact usage place ayrı kalır. `UsagePlace` modeli şimdi yoktur. Location veya ProductionLine'dan infer edilmez.
   8. **Permissions (planlanan):** `inventory.view_productionline`, `inventory.add_productionline`, `inventory.change_productionline`. `delete` expose edilmez. Write requires view. Yönetim shell üzerinden dinamik yönetim. Bu docs görevinde permission kodu değiştirilmez.
   9. **Seed:** Tahmin edilmiş fabrika hatları seed edilmez.
-  10. **Phase 3 roadmap:** ProductionLine foundation implementation Employee'den sonra gelir.
+  10. **Phase 3 roadmap:** ProductionLine foundation implementation Phase 3.3'te COMPLETE (2026-09-12).
 - **Consequence:** `DEC-HG-003` ProductionLine foundation kısmı kapanır. ISSUE data/UI hâlâ inventory hard gate'leri (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005` vb.) ve implementasyon görevleri bekler.
 
 ## 3. Açık İş Kararları
@@ -303,8 +303,8 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 |---|---|---|---|---|---|---|
 | `DEC-HG-001` | Physical count stock-stability strategy | `DEFERRED_WITH_HARD_GATE` | OD-011, OD-012, DM-B14, UF-O-06, Gate0-AUD-001 | Herhangi bir count/reconciliation schema/service/UI implementasyonu | İş sahibi + operasyon + mimari review | Scoped freeze, as-of snapshot/replay veya kanıtlanmış revalidation/reconfirmation seçeneklerinden biri seçilmeli. Explicit scope, expected timing, idempotent reconciliation, double-apply guard ve serialized discrepancy çözümü zorunlu. |
 | `DEC-HG-002` | Correction bounds ve lineage | `DEFERRED_WITH_HARD_GATE` | OD-017, COR-011, DM-B13, UF-O-13, Gate0-AUD-006 | Correction schema/service implementation | İş sahibi + inventory architect | Tek/cumulative approval, partial correction, original-line link, over-correction, later movement, correction-of-correction, requester=approver ve yetersiz current stock cevaplanmalı. |
-| `DEC-HG-003` | Production line veri modeli | `DECIDED` | OD-007, DM-B07, UF-O-01, Gate0-AUD-010 | ProductionLine foundation implementation | — | `DEC-025` ile kapatıldı. `ProductionLine` dynamic master-data entity; recursive hierarchy; code/name lifecycle; exact usage place ayrı free text. ISSUE henüz implement edilmez. |
-| `DEC-HG-004` | Employee identity linkage ve number reuse | `DECIDED` | OD-026 (employee linkage), DM-B01, DM-B08, UF-O-02, UF-O-16, UF-O-17, Gate0-AUD-017 | Employee foundation implementation (Phase 3.2) | — | `DEC-024` ile kapatıldı (foundation). `accounts.Employee` ayrı entity; sicil string/global unique/editable; nullable one-to-one User link SET_NULL; lifecycle active/inactive. Retention pilot öncesi kararları (`DEC-OPEN-013`, `DEC-OPEN-018`) açık kalır. Receiver snapshot korunur. |
+| `DEC-HG-003` | Production line veri modeli | `DECIDED` | OD-007, DM-B07, UF-O-01, Gate0-AUD-010 | ProductionLine foundation implementation (Phase 3.3 COMPLETE) | — | `DEC-025` ile kapatıldı. `ProductionLine` dynamic master-data entity; recursive hierarchy; code/name lifecycle; exact usage place ayrı free text. Foundation Phase 3.3 COMPLETE; ISSUE henüz implement edilmez. |
+| `DEC-HG-004` | Employee identity linkage ve number reuse | `DECIDED` | OD-026 (employee linkage), DM-B01, DM-B08, UF-O-02, UF-O-16, UF-O-17, Gate0-AUD-017 | Employee foundation implementation (Phase 3.2 COMPLETE) | — | `DEC-024` ile kapatıldı (foundation). `accounts.Employee` ayrı entity; sicil string/global unique/editable; nullable one-to-one User link SET_NULL; lifecycle active/inactive. Foundation Phase 3.2 COMPLETE. Retention pilot öncesi kararları (`DEC-OPEN-013`, `DEC-OPEN-018`) açık kalır. Receiver snapshot korunur. |
 | `DEC-HG-005` | RETURN semantics | `DEFERRED_WITH_HARD_GATE` | OD-004, RET-004, DM-B11, UF-O-04, UF-O-12, Gate0-AUD-018 | Return schema/service/UI | İş sahibi | Prior ISSUE zorunluluğu, partial quantity, condition actor, serialized state ve sistemde issue edilmemiş found/wrong-delivery davranışı cevaplanmalı. RETURN aktif UI'da yer alamaz. |
 | `DEC-OPEN-001` | Condition'ın available/minimum stock etkisi | `OPEN` | OD-001, OD-002, OD-003, OD-027, DM-B04, UF-O-11 | Issue availability, return, low-stock report | İş sahibi | Condition ile movement type ayrımı değişmez. |
 | `DEC-OPEN-002` | Quantity stock için çoklu lokasyondan seçim/dağıtım | `OPEN` | OD-005 | İlgili issue/picking feature | İş sahibi | Çoklu lokasyonda stok tutabilme modeli desteklenir. |
@@ -351,8 +351,8 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Before | Mandatory decisions / gates |
 |---|---|
 | First Django migration / Django bootstrap | `DEC-019`: project-owned `AUTH_USER_MODEL` (`accounts.User`, minimal `AbstractUser`) |
-| Employee foundation implementation (Phase 3.2) | `DEC-024`; Employee şekli, sicil, User link, lifecycle, permission ve audit politikası kararlıdır. Employee henüz implement edilmemiştir. |
-| ProductionLine foundation implementation | `DEC-025`; şekil, hiyerarşi, code/name, lifecycle ve permission politikası kararlıdır. ProductionLine henüz implement edilmemiştir. |
+| Employee foundation implementation (Phase 3.2) | **COMPLETE** (2026-09-12). `DEC-024`; Employee şekli, sicil, User link, lifecycle, permission ve audit politikası kararlıdır. |
+| ProductionLine foundation implementation (Phase 3.3) | **COMPLETE** (2026-09-12). `DEC-025`; şekil, hiyerarşi, code/name, lifecycle ve permission politikası kararlıdır. |
 | Catalog/import identity matching | `DEC-OPEN-004`, `DEC-OPEN-021` (Material code; Location code `DEC-023`; Employee number `DEC-024` ile kararlı); history sonrası tracking mode için `DEC-013` zaten kararlı |
 | Issue data/UI | `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005` ve inventory implementasyonu; `DEC-HG-003`/`DEC-HG-004` foundation kararlı (`DEC-024`, `DEC-025`); receiver snapshots değişmez |
 | Technician field intake request/approval workflow | `DEC-020` kararlıdır; talep/onay schema/service/UI implementasyonu ayrı görevdir; hareket türü eşlemesi `DEC-HG-005` çözülmeden yapılmaz |
@@ -370,11 +370,13 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 2.6 UnitOfMeasure UI | `DEC-021` UoM policy; `DEC-OPEN-010` rounding/conversion çözülmeden precision semantics uydurulmaz |
 | Phase 2.8B technical specifications | **Disposition: `DEFER`** (2026-09-11). `DEC-021`, `DEC-OPEN-019` (`OPEN` kalır; yeni DEC yok). Bkz. §4.1. |
 | Phase 2.9C technical-field configuration | **Disposition: `SKIPPED`** (2026-09-11). Onaylı gerçek fabrika teknik alan kanıtı yok; Phase 2.8B DEFER otoritatif kalır. `DEC-OPEN-019` (`OPEN` kalır; yeni DEC yok). Bkz. §4.2. |
-| Location / ProductionLine UI | Location foundation `DEC-023` (Phase 3.0 COMPLETE). Phase 3.1 Location implementation COMPLETE. `ProductionLine` foundation `DEC-025` (Phase 3.2-0 COMPLETE); implementasyon Employee sonrası. |
+| Location / ProductionLine UI | Location foundation `DEC-023` (Phase 3.0 COMPLETE). Phase 3.1 Location implementation COMPLETE. `ProductionLine` foundation `DEC-025` (Phase 3.3 COMPLETE). |
 | Phase 3.0 Location foundation decisions | **COMPLETE** (2026-09-11). `DEC-023`. Bkz. §4.1 Phase 3.0. |
 | Phase 3.1 Location foundation implementation | **COMPLETE**. `DEC-023`. Bkz. §4.1. |
-| Phase 3.2-0 Employee + ProductionLine decision pack | **COMPLETE** (2026-09-11). `DEC-024`, `DEC-025`. Bkz. §4.1 Phase 3.2-0. Employee ve ProductionLine henüz implement edilmemiştir. |
-| Phase 3.2 Employee foundation implementation | `DEC-024`; sicil, User link, lifecycle, izin ve audit politikası kararlıdır. Employee henüz implement edilmemiştir. Inventory başlamamıştır. |
+| Phase 3.2-0 Employee + ProductionLine decision pack | **COMPLETE** (2026-09-11). `DEC-024`, `DEC-025`. Bkz. §4.1 Phase 3.2-0. |
+| Phase 3.2 Employee foundation implementation | **COMPLETE** (2026-09-12). `DEC-024`; sicil, User link, lifecycle, izin ve audit politikası kararlıdır. Bkz. §4.1 Phase 3.2. |
+| Phase 3.3 ProductionLine foundation implementation | **COMPLETE** (2026-09-12). `DEC-025`; şekil, hiyerarşi, code/name, lifecycle ve permission politikası kararlıdır. Bkz. §4.1 Phase 3.3. |
+| Inventory Core / first inventory mutation preflight | Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) korunur; inventory mutation başlamamıştır. Gate 3 bağımsız audit çalıştırılmamıştır. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 
@@ -440,11 +442,33 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
   - `DEC-HG-003` ProductionLine foundation kısmı `DEC-025` ile kapatıldı
   - `DEC-HG-004` Employee foundation kısmı `DEC-024` ile kapatıldı
   - Employee number policy `DEC-024`; Material code remainder `DEC-OPEN-021`'de açık kalır
-  - Employee ve ProductionLine henüz implement edilmemiştir
+  - Employee ve ProductionLine foundation implementation Phase 3.2/3.3'te tamamlandı (tarihsel not: karar anında henüz implement edilmemişti)
   - Inventory başlamamıştır
-- **Sıradaki:** Phase 3.2 — Employee foundation implementation
-- **Sonra:** ProductionLine foundation implementation
+- **Sıradaki (tarihsel):** Phase 3.2 — Employee foundation implementation (**COMPLETE**)
+- **Sonra (tarihsel):** ProductionLine foundation implementation (**COMPLETE**, Phase 3.3)
 - **Açık kalan hard gate'ler:** `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`
+
+#### Phase 3.2 — Employee Foundation Implementation
+
+- **Disposition:** `COMPLETE` (2026-09-12)
+- **Anlam:**
+  - `accounts.Employee` foundation `DEC-024` şeklinde implement edildi
+  - Yönetim shell CRUD, service-layer mutation, audit ve permission kontrolleri uygulandı
+  - Inventory mutation başlamamıştır
+- **Kanıt özeti:** commit `8a759cbf7362f1f8d9ee696108af6163ecfac2f5`; full suite 655 passed (son doğrulanmış)
+- **Not:** Phase 3.2 implementation review/audit PASS, proje Gate PASS anlamına gelmez. Son formal proje gate: Gate 2 PASS.
+
+#### Phase 3.3 — ProductionLine Foundation Implementation
+
+- **Disposition:** `COMPLETE` (2026-09-12)
+- **Anlam:**
+  - `ProductionLine` foundation `DEC-025` şeklinde implement edildi
+  - Yönetim shell CRUD, service-layer mutation, audit ve permission kontrolleri uygulandı
+  - ISSUE data/UI inventory hard gate'lerini bekler
+  - Inventory mutation başlamamıştır
+- **Kanıt özeti:** commit `418d49e4bb0300b4b6f5b4071304e3a857b55ba9`; full suite 655 passed (son doğrulanmış)
+- **Sıradaki:** Inventory Core / first inventory mutation architecture preflight; implementation kapsamı kanonik preflight disposition bekler
+- **Not:** Phase 3.3 implementation review/audit PASS, proje Gate PASS anlamına gelmez. Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur.
 
 ## 5. Audit Finding Disposition
 

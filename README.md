@@ -3,17 +3,20 @@
 ## Proje Durumu
 
 - **Gate 0:** PASS
-- **Phase 1 (1.1–1.8):** tamamlandı
+- **Phase 1 (1.1–1.8):** COMPLETE
 - **Gate 1:** PASS
-- **Phase 2:** TAMAMLANDI
+- **Phase 2:** COMPLETE
 - **Gate 2:** PASS
 - **Phase 2.8B:** DEFER (`DEC-OPEN-019` OPEN)
 - **Phase 2.9C:** SKIPPED
-- **Sıradaki:** Phase 3.2 — Employee foundation implementation
 - **Phase 3.0:** Location foundation decisions COMPLETE (`DEC-023`)
 - **Phase 3.1:** Location foundation implementation COMPLETE
 - **Phase 3.2-0:** Employee + ProductionLine decision pack COMPLETE (`DEC-024`, `DEC-025`)
-- **Henüz implement edilmemiş:** Employee, ProductionLine; inventory mutation başlamamıştır
+- **Phase 3.2:** Employee foundation implementation COMPLETE
+- **Phase 3.3:** ProductionLine foundation implementation COMPLETE
+- **Inventory mutation:** NOT STARTED
+- **Gate 3:** NOT RUN — PASS kaydı yok
+- **Sıradaki:** Inventory Core / first inventory mutation architecture preflight; implementation kapsamı kanonik preflight disposition bekler
 
 Phase 2 ayrıntıları için bkz. [Yol Haritası](#yol-haritası).
 
@@ -155,9 +158,15 @@ python manage.py setup_roles
 
 **Phase 3.2-0:** Employee + ProductionLine decision pack — COMPLETE (`DEC-024`, `DEC-025`, 2026-09-11)
 
-**Sıradaki:** Phase 3.2 — Employee foundation implementation. Employee ve ProductionLine henüz implement edilmemiştir.
+**Phase 3.2:** Employee foundation implementation — COMPLETE (2026-09-12; commit `8a759cbf`)
 
-Inventory mutation implementasyonu henüz başlamamıştır. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
+**Phase 3.3:** ProductionLine foundation implementation — COMPLETE (2026-09-12; commit `418d49e4`)
+
+**Son doğrulanmış test suite:** 655 passed
+
+**Sıradaki:** Inventory Core / first inventory mutation architecture preflight; implementation kapsamı kanonik preflight disposition bekler.
+
+Inventory mutation implementasyonu henüz başlamamıştır. **Gate 3** bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
 
 ### Sağlık kontrolü
 
