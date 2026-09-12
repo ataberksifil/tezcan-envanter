@@ -106,6 +106,7 @@ class InventoryTransaction(models.Model):
     class Meta:
         permissions = [
             ("receive_stock", "Can receive stock"),
+            ("issue_stock", "Can issue stock"),
         ]
         indexes = [
             models.Index(fields=["occurred_at"], name="inventory_tx_occurred_idx"),

@@ -1100,11 +1100,16 @@ def test_kernel_does_not_create_plain_stock_audit_event(kernel_objects):
     assert AuditEvent.objects.count() == initial_count
 
 
-def test_receipt_routes_are_operational_not_management_and_admin_stays_readonly():
+def test_receipt_and_issue_routes_are_operational_not_management_and_admin_stays_readonly():
     assert hasattr(inventory_services, "receive_quantity")
+    assert hasattr(inventory_services, "issue_quantity")
     assert hasattr(inventory_forms, "QuantityReceiptForm")
+    assert hasattr(inventory_forms, "QuantityIssueForm")
     receipt_patterns = [
         pattern for pattern in inventory_urlpatterns if pattern.name.startswith("receipt-")
+    ]
+    issue_patterns = [
+        pattern for pattern in inventory_urlpatterns if pattern.name.startswith("issue-")
     ]
     management_patterns = [
         pattern
@@ -1115,6 +1120,10 @@ def test_receipt_routes_are_operational_not_management_and_admin_stays_readonly(
         "receipt-create",
         "receipt-detail",
     }
+    assert {pattern.name for pattern in issue_patterns} == {
+        "issue-create",
+        "issue-detail",
+    }
     assert management_patterns
     assert all(
         str(pattern.pattern).startswith("management/") for pattern in management_patterns
@@ -1122,17 +1131,20 @@ def test_receipt_routes_are_operational_not_management_and_admin_stays_readonly(
     assert all(
         str(pattern.pattern).startswith("inventory/") for pattern in receipt_patterns
     )
+    assert all(
+        str(pattern.pattern).startswith("inventory/") for pattern in issue_patterns
+    )
     assert InventoryTransaction not in admin.site._registry
     assert InventoryTransactionLine not in admin.site._registry
     assert IssueContext not in admin.site._registry
     assert StockBalance not in admin.site._registry
 
 
-def test_managed_permission_boundary_is_nineteen_with_receive_stock_only():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 19
+def test_managed_permission_boundary_is_twenty_with_issue_stock():
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 20
     assert "inventory.receive_stock" in SAFE_CATALOG_PERMISSION_LABELS
-    assert "inventory.issue_stock" not in SAFE_CATALOG_PERMISSION_LABELS
-    assert "issue_stock" not in {
+    assert "inventory.issue_stock" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "issue_stock" in {
         codename for codename, _name in InventoryTransaction._meta.permissions
     }
     assert not any(

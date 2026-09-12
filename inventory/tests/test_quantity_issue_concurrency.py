@@ -58,14 +58,13 @@ class QuantityIssueConcurrencyTests(TransactionTestCase):
             code=f"IC-PL-{suffix}", name="Issue race line"
         )
         self.actor = get_user_model().objects.create_user(username=f"ic-{suffix}")
-        content_type = ContentType.objects.get_for_model(InventoryTransaction)
-        self.issue_permission, _ = Permission.objects.get_or_create(
-            content_type=content_type,
+        self.issue_permission = Permission.objects.get(
+            content_type__app_label="inventory",
             codename="issue_stock",
-            defaults={"name": "Test-only issue permission"},
         )
         receipt_permission = Permission.objects.get(
-            content_type=content_type, codename="receive_stock"
+            content_type__app_label="inventory",
+            codename="receive_stock",
         )
         self.actor.user_permissions.add(self.issue_permission, receipt_permission)
         self.actor = get_user_model().objects.get(pk=self.actor.pk)
@@ -86,7 +85,6 @@ class QuantityIssueConcurrencyTests(TransactionTestCase):
                 """
             )
         get_user_model().objects.filter(pk=self.actor.pk).delete()
-        Permission.objects.filter(pk=self.issue_permission.pk).delete()
         ProductionLine.objects.filter(pk=self.production_line.pk).delete()
         Employee.objects.filter(pk=self.employee.pk).delete()
         Material.objects.filter(pk=self.material.pk).delete()

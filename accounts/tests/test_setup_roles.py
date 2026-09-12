@@ -215,6 +215,7 @@ def test_existing_storekeeper_customized_catalog_permissions_are_preserved(
         "add_material",
         "change_unitofmeasure",
         "receive_stock",
+        "issue_stock",
     }
 
 
@@ -388,6 +389,49 @@ def test_existing_admin_manager_does_not_gain_receive_stock_on_rerun(catalog_per
 
     assert _permission_pks_for_group(ADMIN_MANAGER) == before
     assert "receive_stock" not in _template_codenames_for_group(ADMIN_MANAGER)
+
+
+def test_new_technician_storekeeper_and_admin_manager_templates_receive_issue_stock():
+    _run_setup_roles()
+    assert "issue_stock" in _template_codenames_for_group(TECHNICIAN)
+    assert "issue_stock" in _template_codenames_for_group(STOREKEEPER)
+    assert "issue_stock" in _template_codenames_for_group(ADMIN_MANAGER)
+
+
+def test_existing_technician_does_not_gain_issue_stock_on_rerun(catalog_permissions):
+    _run_setup_roles()
+    technician = Group.objects.get(name=TECHNICIAN)
+    technician.permissions.remove(catalog_permissions["issue_stock"])
+    before = _permission_pks_for_group(TECHNICIAN)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(TECHNICIAN) == before
+    assert "issue_stock" not in _template_codenames_for_group(TECHNICIAN)
+
+
+def test_existing_storekeeper_does_not_gain_issue_stock_on_rerun(catalog_permissions):
+    _run_setup_roles()
+    storekeeper = Group.objects.get(name=STOREKEEPER)
+    storekeeper.permissions.remove(catalog_permissions["issue_stock"])
+    before = _permission_pks_for_group(STOREKEEPER)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(STOREKEEPER) == before
+    assert "issue_stock" not in _template_codenames_for_group(STOREKEEPER)
+
+
+def test_existing_admin_manager_does_not_gain_issue_stock_on_rerun(catalog_permissions):
+    _run_setup_roles()
+    admin_manager = Group.objects.get(name=ADMIN_MANAGER)
+    admin_manager.permissions.remove(catalog_permissions["issue_stock"])
+    before = _permission_pks_for_group(ADMIN_MANAGER)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(ADMIN_MANAGER) == before
+    assert "issue_stock" not in _template_codenames_for_group(ADMIN_MANAGER)
 
 
 def test_ordinary_user_has_perm_follows_actual_group_permissions_after_customization(

@@ -501,8 +501,9 @@ def test_receive_stock_permission_is_managed_and_in_storekeeper_admin_templates(
         codename="receive_stock",
     )
     assert permission.name == "Can receive stock"
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 19
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 20
     assert RECEIVE_STOCK_PERMISSION in SAFE_CATALOG_PERMISSION_LABELS
+    assert "issue_stock" in DEFAULT_ROLE_TEMPLATES["TECHNICIAN"]
     assert "receive_stock" not in DEFAULT_ROLE_TEMPLATES["TECHNICIAN"]
     assert "receive_stock" in DEFAULT_ROLE_TEMPLATES["STOREKEEPER"]
     assert "receive_stock" in DEFAULT_ROLE_TEMPLATES["ADMIN_MANAGER"]

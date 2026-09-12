@@ -47,13 +47,10 @@ User = get_user_model()
 
 
 def _issue_permission():
-    content_type = ContentType.objects.get_for_model(InventoryTransaction)
-    permission, _ = Permission.objects.get_or_create(
-        content_type=content_type,
+    return Permission.objects.get(
+        content_type__app_label="inventory",
         codename="issue_stock",
-        defaults={"name": "Test-only issue permission"},
     )
-    return permission
 
 
 def _grant_issue_stock(user):
@@ -470,7 +467,6 @@ def test_projection_verifier_subtracts_issue_and_keeps_negative_corruption_visib
 
 
 @pytest.mark.django_db
-def test_phase_4_2b_does_not_roll_out_issue_permission():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 19
-    assert ISSUE_STOCK_PERMISSION not in SAFE_CATALOG_PERMISSION_LABELS
-    assert "issue_stock" not in dict(InventoryTransaction._meta.permissions)
+def test_issue_stock_permission_is_canonical_after_migration():
+    assert ISSUE_STOCK_PERMISSION in SAFE_CATALOG_PERMISSION_LABELS
+    assert "issue_stock" in dict(InventoryTransaction._meta.permissions)

@@ -10,10 +10,13 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from inventory.forms import (
     ProductionLineForm,
+    QuantityIssueForm,
     QuantityReceiptForm,
+    attach_issue_validation_error,
     attach_receipt_validation_error,
 )
 from inventory.models import InventoryTransaction, ProductionLine
+from inventory.services.issues import issue_quantity
 from inventory.services.production_lines import (
     create_production_line,
     set_production_line_active,
@@ -257,6 +260,99 @@ class ReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
         else:
             messages.success(request, "Stok girişi kaydedildi.")
         return redirect("inventory:receipt-detail", pk=result.transaction.pk)
+
+
+class IssueCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "inventory.issue_stock"
+    template_name = "inventory/issue_form.html"
+
+    def get(self, request):
+        form = QuantityIssueForm()
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": form,
+                "form_title": "Stok çıkışı",
+                "submit_label": "Kaydet",
+            },
+        )
+
+    def post(self, request):
+        form = QuantityIssueForm(request.POST)
+        if not form.is_valid():
+            return render(
+                request,
+                self.template_name,
+                {
+                    "form": form,
+                    "form_title": "Stok çıkışı",
+                    "submit_label": "Kaydet",
+                },
+            )
+
+        material = form.cleaned_data["material"]
+        try:
+            result = issue_quantity(
+                actor=request.user,
+                operation_id=form.cleaned_data["operation_id"],
+                material_id=material.pk,
+                unit_id=material.unit_id,
+                condition_id=form.cleaned_data["condition"].pk,
+                source_location_id=form.cleaned_data["source_location"].pk,
+                quantity=form.cleaned_data["quantity"],
+                receiver_employee_id=form.cleaned_data["receiver_employee"].pk,
+                production_line_id=form.cleaned_data["production_line"].pk,
+                usage_location_text=form.cleaned_data["usage_location_text"],
+            )
+        except PermissionDenied:
+            raise
+        except ValidationError as exc:
+            attach_issue_validation_error(form, exc)
+            return render(
+                request,
+                self.template_name,
+                {
+                    "form": form,
+                    "form_title": "Stok çıkışı",
+                    "submit_label": "Kaydet",
+                },
+            )
+
+        if result.replayed:
+            messages.info(request, "Bu stok çıkışı daha önce kaydedilmişti.")
+        else:
+            messages.success(request, "Stok çıkışı kaydedildi.")
+        return redirect("inventory:issue-detail", pk=result.transaction.pk)
+
+
+class IssueDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = "inventory.issue_stock"
+    model = InventoryTransaction
+    context_object_name = "issue"
+    template_name = "inventory/issue_detail.html"
+
+    def get_queryset(self):
+        return (
+            InventoryTransaction.objects.filter(
+                transaction_type=InventoryTransaction.TransactionType.ISSUE,
+            )
+            .select_related("acting_user", "issue_context")
+            .prefetch_related(
+                "lines__material__unit",
+                "lines__condition",
+                "lines__source_location",
+            )
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        lines = list(self.object.lines.all())
+        if len(lines) != 1:
+            raise Http404("Issue not found")
+        context["line"] = lines[0]
+        context["issue_context"] = self.object.issue_context
+        return context
 
 
 class ReceiptDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):

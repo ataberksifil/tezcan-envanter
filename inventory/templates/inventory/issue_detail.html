@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Stok çıkışı — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">Stok çıkışı kaydı</h1>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-primary" href="{% url 'inventory:issue-create' %}">Yeni stok çıkışı</a>
+        <a class="btn btn-outline-secondary" href="{% url 'home' %}">Ana sayfa</a>
+    </div>
+</div>
+
+<dl class="row mb-0">
+    <dt class="col-sm-3">İşlem UUID</dt>
+    <dd class="col-sm-9 font-monospace">{{ issue.id }}</dd>
+
+    <dt class="col-sm-3">Zaman</dt>
+    <dd class="col-sm-9">{{ issue.occurred_at }}</dd>
+
+    <dt class="col-sm-3">İşlemi yapan</dt>
+    <dd class="col-sm-9">{{ issue.acting_user.get_username }}</dd>
+
+    <dt class="col-sm-3">Malzeme kodu</dt>
+    <dd class="col-sm-9">{{ line.material.material_code }}</dd>
+
+    <dt class="col-sm-3">Malzeme adı</dt>
+    <dd class="col-sm-9">{{ line.material.name }}</dd>
+
+    <dt class="col-sm-3">Miktar</dt>
+    <dd class="col-sm-9">{{ line.quantity }}</dd>
+
+    <dt class="col-sm-3">Birim</dt>
+    <dd class="col-sm-9">{{ line.unit.code }} ({{ line.unit.name }})</dd>
+
+    <dt class="col-sm-3">Kondisyon</dt>
+    <dd class="col-sm-9">{{ line.condition.name }}</dd>
+
+    <dt class="col-sm-3">Kaynak konum kodu</dt>
+    <dd class="col-sm-9">{{ line.source_location.code }}</dd>
+
+    <dt class="col-sm-3">Kaynak konum adı</dt>
+    <dd class="col-sm-9">{{ line.source_location.name }}</dd>
+
+    <dt class="col-sm-3">Alıcı ad</dt>
+    <dd class="col-sm-9">{{ issue_context.receiver_first_name_snapshot }}</dd>
+
+    <dt class="col-sm-3">Alıcı soyad</dt>
+    <dd class="col-sm-9">{{ issue_context.receiver_last_name_snapshot }}</dd>
+
+    <dt class="col-sm-3">Alıcı sicil</dt>
+    <dd class="col-sm-9">{{ issue_context.receiver_employee_number_snapshot }}</dd>
+
+    <dt class="col-sm-3">Üretim hattı kodu</dt>
+    <dd class="col-sm-9">{{ issue_context.production_line_code_snapshot }}</dd>
+
+    <dt class="col-sm-3">Üretim hattı adı</dt>
+    <dd class="col-sm-9">{{ issue_context.production_line_name_snapshot }}</dd>
+
+    <dt class="col-sm-3">Kullanım yeri</dt>
+    <dd class="col-sm-9">{{ issue_context.usage_location_text }}</dd>
+</dl>
+{% endblock %}

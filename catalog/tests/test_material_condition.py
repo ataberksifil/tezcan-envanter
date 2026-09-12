@@ -168,8 +168,8 @@ def test_seed_migration_defines_exactly_four_reference_rows():
     assert len(seed_migration.SEEDED_CONDITION_IDS) == 4
 
 
-def test_managed_permission_set_remains_exactly_nineteen():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 19
+def test_managed_permission_set_remains_exactly_twenty():
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 20
     assert not any(
         "materialcondition" in label for label in SAFE_CATALOG_PERMISSION_LABELS
     )

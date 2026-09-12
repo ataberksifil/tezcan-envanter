@@ -45,4 +45,14 @@ urlpatterns = [
         views.ReceiptDetailView.as_view(),
         name="receipt-detail",
     ),
+    path(
+        "inventory/issues/new/",
+        views.IssueCreateView.as_view(),
+        name="issue-create",
+    ),
+    path(
+        "inventory/issues/<uuid:pk>/",
+        views.IssueDetailView.as_view(),
+        name="issue-detail",
+    ),
 ]
