@@ -17,10 +17,12 @@
 - **Inventory Core preflight:** PASS FOR NEXT IMPLEMENTATION (`DEC-026`)
 - **Phase 4.0A:** MaterialCondition foundation COMPLETE (2026-09-12; commit `05bee71a`)
 - **Phase 4.0B:** Quantity Inventory Kernel COMPLETE (2026-09-12; commit `4cf52669`)
-- **Phase 4.0C:** First Mutation — quantity RECEIPT service — NOT STARTED
-- **Son doğrulanmış test suite:** 746 passed
+- **Phase 4.0C:** First Mutation — quantity RECEIPT service — COMPLETE (2026-09-12; commit `4546739e`)
+- **Phase 4.1:** Quantity RECEIPT UI + permission rollout — COMPLETE (2026-09-12; commit `927e83b2`)
+- **Quantity RECEIPT:** onaylı quantity-only slice uçtan uca implement edilmiştir (kernel, service, UI, `inventory.receive_stock` permission rollout)
+- **Son doğrulanmış test suite:** 823 passed
+- **Managed permission count:** 19
 - **Gate 3:** NOT RUN — PASS kaydı yok
-- **Sıradaki:** Phase 4.0C — quantity RECEIPT service
 
 Phase 2 ayrıntıları için bkz. [Yol Haritası](#yol-haritası).
 
@@ -172,13 +174,15 @@ python manage.py setup_roles
 
 **Phase 4.0B:** Quantity Inventory Kernel — COMPLETE (2026-09-12; commit `4cf52669`)
 
-**Phase 4.0C:** First Mutation — quantity RECEIPT service — NOT STARTED
+**Phase 4.0C:** First Mutation — quantity RECEIPT service — COMPLETE (2026-09-12; commit `4546739e`)
 
-**Son doğrulanmış test suite:** 746 passed
+**Phase 4.1:** Quantity RECEIPT UI + permission rollout — COMPLETE (2026-09-12; commit `927e83b2`)
 
-**Sıradaki:** Phase 4.0C — quantity RECEIPT service
+**Son doğrulanmış test suite:** 823 passed
 
-Inventory Core preflight disposition kanonikleşmiştir. Quantity inventory kernel implement edilmiştir; ilk gerçek mutation (quantity RECEIPT) henüz başlamamıştır. **Gate 3** bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
+**Managed permission count:** 19
+
+Inventory Core preflight disposition kanonikleşmiştir. Onaylı quantity-only slice için quantity RECEIPT uçtan uca implement edilmiştir (immutable ledger kernel, idempotent `receive_stock` service, `StockBalance` projection, PostgreSQL concurrency koruması, `inventory.receive_stock` managed permission rollout, receipt create/detail UI, `operation_id` double-submit koruması). ISSUE, TRANSFER, RETURN, serialized inventory, correction ve count/baseline henüz implement edilmemiştir. **Gate 3** bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
 
 ### Sağlık kontrolü
 

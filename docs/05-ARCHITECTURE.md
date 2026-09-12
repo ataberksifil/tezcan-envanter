@@ -386,15 +386,18 @@ Django Auth, Groups ve Permissions kullanılır. `TECHNICIAN`, `STOREKEEPER`, `A
 | Count/reconciliation | TBD |
 | Reports/export | TBD |
 
-Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration permission'larını expose eder; inventory receipt/issue/approval izinleri ilgili inventory hard gate'leri tasarlanana kadar dinamik olarak atanamaz (`DEC-021`). `setup_roles` varsayılan davranışı non-destructive'tir: eksik varsayılan rol oluşturulur ve şablon izinleri atanır; mevcut rol permission'ları korunur (`DEC-021`).
+Phase 2 dinamik rol yönetimi yalnızca güvenli catalog/configuration permission'larını expose eder (`DEC-021`). Phase 4.1 ile yalnız `inventory.receive_stock` managed allowlist'e eklenmiştir; issue/transfer/return/correction/count approval izinleri ilgili inventory hard gate'leri çözülene kadar expose edilmez. `setup_roles` varsayılan davranışı non-destructive'tir: eksik varsayılan rol oluşturulur ve şablon izinleri atanır; mevcut rol permission'ları korunur (`DEC-021`).
 
 Phase 2.9B erişim yönetimi politikası (`DEC-022`):
 
 - Django `Group` rol modeli olarak kalır; runtime authorization permission tabanlıdır.
 - Yönetim capability: `accounts.manage_access` (catalog permission allowlist'inin dışında, ayrı delegation capability).
 - Bootstrap otorite: Django superuser; superuser olmayan access manager `manage_access` veremez/alamaz.
-- Safe Phase 2 allowlist (dokuz permission): Category, UnitOfMeasure ve Material için `view_*`, `add_*`, `change_*` yalnızca; `delete_*`, inventory, audit mutation, auth model-management ve workflow permission'ları expose edilmez.
-- Phase 3 Location allowlist extension (`DEC-022` item 13, `DEC-023`): `locations.view_location`, `locations.add_location`, `locations.change_location`. `delete_location` expose edilmez. `setup_roles` mevcut Group'ları reconcile etmez.
+- Safe Phase 2 allowlist (dokuz permission): Category, UnitOfMeasure ve Material için `view_*`, `add_*`, `change_*` yalnızca; `delete_*`, audit mutation, auth model-management ve workflow permission'ları expose edilmez.
+- Phase 3 Location allowlist extension (`DEC-022` item 13, `DEC-023`): `locations.view_location`, `locations.add_location`, `locations.change_location`. `delete_location` expose edilmez.
+- Phase 3 Employee ve ProductionLine managed izinleri (`DEC-024`, `DEC-025`): `accounts.view_employee`, `accounts.add_employee`, `accounts.change_employee`; `inventory.view_productionline`, `inventory.add_productionline`, `inventory.change_productionline`.
+- Phase 4.1 quantity RECEIPT allowlist extension (`DEC-026`): yalnız `inventory.receive_stock`. Issue/transfer/return/correction/count izinleri expose edilmez. Managed permission count: **19**.
+- `setup_roles` mevcut Group'ları reconcile etmez; fresh bootstrap'ta `STOREKEEPER` ve `ADMIN_MANAGER` `receive_stock` alır, `TECHNICIAN` almaz.
 - Write/view invariant: `add_*`/`change_*`, karşılık gelen `view_*` olmadan yapılandırılamaz; sunucu tarafı service validation otoritedir.
 - User-role boundary: yalnız `User.groups`; password, privilege flag'leri, Employee linkage ve direct `user_permissions` yönetilmez.
 - Anti-escalation: non-superuser access manager kendi üyeliklerini, `manage_access` taşıyan rol/kullanıcıları, superuser/`is_staff`/direct-permission kullanıcıları ve actor kümesini aşan hedefleri değiştiremez.
@@ -895,9 +898,11 @@ Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs
 
 **Phase 4.0B:** Quantity Inventory Kernel — COMPLETE (2026-09-12).
 
-**Phase 4.0C:** First Mutation — quantity RECEIPT service — NOT STARTED.
+**Phase 4.0C:** First Mutation — quantity RECEIPT service — COMPLETE (2026-09-12).
 
-**Sıradaki:** Phase 4.0C — quantity RECEIPT service. Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur.
+**Phase 4.1:** Quantity RECEIPT UI + permission rollout — COMPLETE (2026-09-12).
+
+Onaylı quantity-only slice için quantity RECEIPT uçtan uca implement edilmiştir (`receive_stock` service, receipt UI, `inventory.receive_stock` managed permission rollout). ISSUE, TRANSFER, RETURN, serialized inventory, correction ve count/baseline henüz implement edilmemiştir. Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur.
 
 ## 37. Dynamic Configuration Architecture
 
@@ -957,7 +962,7 @@ Onaylı politika (`DEC-022`):
 
 - Rol modeli: Django `Group`; bootstrap şablonları runtime identity değildir.
 - Management permission: `accounts.manage_access` — rol yönetimi, onaylı rol permission'ları, kullanıcı–rol atamaları.
-- Safe catalog allowlist: dokuz Phase 2 permission (Category/UoM/Material view/add/change); Phase 3 Location extension: `locations.view_location`, `locations.add_location`, `locations.change_location` (`DEC-023`). `accounts.manage_access` allowlist dışındadır. `setup_roles` mevcut Group'ları reconcile etmez.
+- Safe catalog allowlist: dokuz Phase 2 permission (Category/UoM/Material view/add/change); Phase 3 Location extension: `locations.view_location`, `locations.add_location`, `locations.change_location` (`DEC-023`); Phase 3 Employee/ProductionLine managed izinleri (`DEC-024`, `DEC-025`); Phase 4.1 quantity RECEIPT extension: yalnız `inventory.receive_stock` (`DEC-026`). Toplam managed permission count: **19**. `accounts.manage_access` allowlist dışındadır. `setup_roles` mevcut Group'ları reconcile etmez.
 - Rol lifecycle: hard delete yok; custom rename mümkün; bootstrap roller canonical ad ile korunur; `setup_roles` non-destructive.
 - Privilege safety: non-superuser actor için self-modification, `manage_access` escalation ve hedef kümesi aşımı engellenir.
 - Audit UUID: `uuid5(ROLE_NAMESPACE, str(group.pk))` ve `uuid5(USER_NAMESPACE, str(user.pk))`; namespace sabitleri kaynak kodda fixed.
@@ -1001,15 +1006,17 @@ Inventory Core preflight disposition kanonikleşmiştir (`DEC-026`; `PASS FOR NE
 |---|---|
 | 4.0A | MaterialCondition foundation — **COMPLETE** (2026-09-12) |
 | 4.0B | Quantity Inventory Kernel — **COMPLETE** (2026-09-12) |
-| 4.0C | First Mutation: quantity RECEIPT service — **NOT STARTED** |
-| 4.1 | Receipt UI + permission rollout — bekler (4.0C sonrası) |
+| 4.0C | First Mutation: quantity RECEIPT service — **COMPLETE** (2026-09-12; commit `4546739e`) |
+| 4.1 | Receipt UI + permission rollout — **COMPLETE** (2026-09-12; commit `927e83b2`) |
 
-**Onaylı ilk mutation:** quantity RECEIPT only. ISSUE, TRANSFER, RETURN, correction, count/baseline ve serialized mutation bu preflight kapsamı dışındadır.
+**Onaylı ilk mutation:** quantity RECEIPT only — uçtan uca implement edilmiştir. ISSUE, TRANSFER, RETURN, correction, count/baseline ve serialized mutation bu preflight kapsamı dışındadır ve henüz implement edilmemiştir.
 
 **Ledger/projection contract:** `InventoryTransaction` + `InventoryTransactionLine` immutable business ledger; `StockBalance` quantity projection. Plain successful receipt ledger generic `AuditEvent` duplicate etmez.
 
-**Son doğrulanmış test suite:** 746 passed
+**Quantity RECEIPT implementation (Phase 4.0C–4.1):** idempotent `receive_stock` service; PostgreSQL concurrency koruması; receipt create/detail UI; `inventory.receive_stock` managed permission rollout; `operation_id` double-submit koruması.
 
-**Sıradaki:** Phase 4.0C — quantity RECEIPT service
+**Son doğrulanmış test suite:** 823 passed
+
+**Managed permission count:** 19
 
 Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-010`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur.

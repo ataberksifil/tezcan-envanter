@@ -320,9 +320,10 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   11. **Not authorized by this decision:** ISSUE; TRANSFER; RETURN (`DEC-HG-005` blocked); correction (`DEC-HG-002` blocked); count/baseline (`DEC-HG-001` blocked).
 - **Implementation status (2026-09-12):**
   - Phase 4.0A MaterialCondition foundation — **COMPLETE** (commit `05bee71ace10c799aab6b70f314f50e3df369b64`)
-  - Phase 4.0B Quantity Inventory Kernel — **COMPLETE** (commit `4cf52669f81da11e8ac95006eaf0754b6a7e0bf3`; latest verified full suite: 746 passed)
-  - Phase 4.0C quantity RECEIPT service — **NOT STARTED**
-- **Consequence:** Preflight disposition kanonikleşmiştir. Phase 4.0C quantity RECEIPT service implementasyonu başlayabilir. Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) ve açık kararlar (`DEC-OPEN-004`, `DEC-OPEN-010`) status değiştirmeden korunur. Bu karar Gate 3 PASS anlamına gelmez.
+  - Phase 4.0B Quantity Inventory Kernel — **COMPLETE** (commit `4cf52669f81da11e8ac95006eaf0754b6a7e0bf3`)
+  - Phase 4.0C quantity RECEIPT service — **COMPLETE** (commit `4546739e1a46db5e176b43d460b2e2b42644e998`)
+  - Phase 4.1 Receipt UI + permission rollout — **COMPLETE** (commit `927e83b2364f93afec47dc22cf22be2f60e51d5a`; latest verified full suite: 823 passed; managed permission count: 19)
+- **Consequence:** Preflight disposition kanonikleşmiştir. Onaylı quantity-only slice (`4.0A` → `4.0B` → `4.0C` → `4.1`) tamamlanmıştır; quantity RECEIPT kernel, idempotent service, UI ve `inventory.receive_stock` permission rollout mevcuttur. Plain successful receipt ledger-only kalır; generic `AuditEvent` duplicate edilmez. ISSUE, TRANSFER, RETURN, correction, count/baseline ve serialized mutation bu karar kapsamı dışındadır. Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) ve açık kararlar (`DEC-OPEN-004`, `DEC-OPEN-010`) status değiştirmeden korunur. Bu karar Gate 3 PASS anlamına gelmez.
 
 ## 3. Açık İş Kararları
 
@@ -408,7 +409,8 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Inventory Core / first inventory mutation preflight | **COMPLETE** (2026-09-12). `DEC-026`; preflight verdict `PASS FOR NEXT IMPLEMENTATION`. Quantity-only slice: 4.0A → 4.0B → 4.0C → 4.1. Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) korunur. Gate 3 bağımsız audit çalıştırılmamıştır. |
 | Phase 4.0A MaterialCondition foundation | **COMPLETE** (2026-09-12). Commit `05bee71a`. Bkz. §4.1 Phase 4.0A. |
 | Phase 4.0B Quantity Inventory Kernel | **COMPLETE** (2026-09-12). Commit `4cf52669`; full suite 746 passed. Bkz. §4.1 Phase 4.0B. |
-| Phase 4.0C quantity RECEIPT service | **NOT STARTED**. `DEC-026` preflight PASS; sıradaki implementasyon görevi. ISSUE/TRANSFER/RETURN/correction/count/baseline bu karar kapsamı dışındadır. |
+| Phase 4.0C quantity RECEIPT service | **COMPLETE** (2026-09-12). Commit `4546739e`. Bkz. §4.1 Phase 4.0C. |
+| Phase 4.1 Receipt UI + permission rollout | **COMPLETE** (2026-09-12). Commit `927e83b2`; full suite 823 passed; managed permission count 19. Bkz. §4.1 Phase 4.1. ISSUE/TRANSFER/RETURN/correction/count/baseline bu karar kapsamı dışındadır. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 
@@ -529,20 +531,38 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 - **Anlam:**
   - Quantity inventory kernel (`InventoryTransaction`, `InventoryTransactionLine`, `StockBalance`, idempotency, locking contract) implement edildi
   - Ledger immutability guard, projection update contract ve concurrency/idempotency altyapısı hazır
-  - Henüz gerçek inventory mutation service (RECEIPT) implement edilmemiştir
-- **Kanıt özeti:** commit `4cf52669f81da11e8ac95006eaf0754b6a7e0bf3`; full suite 746 passed (son doğrulanmış)
-- **Sıradaki:** Phase 4.0C — First Mutation: quantity RECEIPT service (**NOT STARTED**)
+- **Kanıt özeti:** commit `4cf52669f81da11e8ac95006eaf0754b6a7e0bf3`; full suite 746 passed (Phase 4.0B tamamlandığında doğrulanmış)
+- **Sıradaki (tarihsel):** Phase 4.0C — First Mutation: quantity RECEIPT service (**COMPLETE**)
 - **Not:** Phase 4.0B implementation completion, Gate 3 PASS anlamına gelmez.
 
 #### Phase 4.0C — First Mutation: Quantity RECEIPT Service
 
-- **Disposition:** `NOT STARTED`
+- **Disposition:** `COMPLETE` (2026-09-12)
 - **Anlam:**
-  - `DEC-026` preflight PASS ile quantity RECEIPT service implementasyonu sıradaki görevdir
+  - `receive_stock` idempotent quantity RECEIPT service implement edildi
   - Yalnız quantity RECEIPT; ISSUE, TRANSFER, RETURN, correction, count/baseline ve serialized mutation kapsam dışı
+  - Plain successful receipt ledger-only kalır; generic `AuditEvent` duplicate edilmez
+  - `StockBalance` projection; `InventoryTransaction` + `InventoryTransactionLine` immutable business ledger
+- **Kanıt özeti:** commit `4546739e1a46db5e176b43d460b2e2b42644e998`
 - **Preflight:** `DEC-026` (`PASS FOR NEXT IMPLEMENTATION`)
+- **Sıradaki (tarihsel):** Phase 4.1 — Receipt UI + permission rollout (**COMPLETE**)
 - **Açık kalan hard gate'ler:** `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`
 - **Açık kalan ilgili kararlar:** `DEC-OPEN-004`, `DEC-OPEN-010`
+- **Not:** Phase 4.0C implementation completion, Gate 3 PASS anlamına gelmez.
+
+#### Phase 4.1 — Quantity RECEIPT UI + Permission Rollout
+
+- **Disposition:** `COMPLETE` (2026-09-12)
+- **Anlam:**
+  - Receipt create/detail UI implement edildi
+  - `inventory.receive_stock` managed permission rollout tamamlandı (managed permission count: 19)
+  - `setup_roles` fresh bootstrap: `STOREKEEPER` ve `ADMIN_MANAGER` alır; `TECHNICIAN` hariç tutulur
+  - `operation_id` double-submit koruması UI/service sınırında korunur
+  - Yalnız quantity RECEIPT; ISSUE, TRANSFER, RETURN, correction, count/baseline ve serialized mutation kapsam dışı
+- **Kanıt özeti:** commit `927e83b2364f93afec47dc22cf22be2f60e51d5a`; full suite 823 passed (son doğrulanmış)
+- **Açık kalan hard gate'ler:** `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`
+- **Açık kalan ilgili kararlar:** `DEC-OPEN-004`, `DEC-OPEN-010`
+- **Not:** Phase 4.1 implementation completion, Gate 3 PASS anlamına gelmez.
 
 ## 5. Audit Finding Disposition
 
