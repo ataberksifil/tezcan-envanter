@@ -103,6 +103,9 @@ class InventoryTransaction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        permissions = [
+            ("receive_stock", "Can receive stock"),
+        ]
         indexes = [
             models.Index(fields=["occurred_at"], name="inventory_tx_occurred_idx"),
             models.Index(

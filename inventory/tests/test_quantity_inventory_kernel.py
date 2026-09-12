@@ -651,7 +651,7 @@ def test_kernel_does_not_create_plain_stock_audit_event(kernel_objects):
 
 
 def test_no_inventory_operation_surface_or_writable_admin_registration():
-    assert not hasattr(inventory_services, "receive_quantity")
+    assert hasattr(inventory_services, "receive_quantity")
     assert not hasattr(inventory_forms, "ReceiveQuantityForm")
     assert all("operation" not in pattern.name for pattern in inventory_urlpatterns)
     assert InventoryTransaction not in admin.site._registry
