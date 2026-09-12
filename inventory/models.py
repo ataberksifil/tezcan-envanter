@@ -85,6 +85,7 @@ class ProductionLine(models.Model):
 class InventoryTransaction(models.Model):
     class TransactionType(models.TextChoices):
         RECEIPT = "RECEIPT", "Stok girişi"
+        ISSUE = "ISSUE", "Stok çıkışı"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     operation_id = models.UUIDField()
@@ -123,8 +124,8 @@ class InventoryTransaction(models.Model):
                 name="inventory_tx_fingerprint_hex",
             ),
             models.CheckConstraint(
-                condition=Q(transaction_type="RECEIPT"),
-                name="inventory_tx_type_receipt_only",
+                condition=Q(transaction_type__in=["RECEIPT", "ISSUE"]),
+                name="inventory_tx_type_receipt_or_issue",
             ),
         ]
 
@@ -177,6 +178,8 @@ class InventoryTransactionLine(models.Model):
     )
     target_location = models.ForeignKey(
         "locations.Location",
+        null=True,
+        blank=True,
         on_delete=models.RESTRICT,
         related_name="inventory_lines_as_target",
         db_index=False,
@@ -198,8 +201,19 @@ class InventoryTransactionLine(models.Model):
                 name="inventory_line_qty_positive",
             ),
             models.CheckConstraint(
-                condition=Q(source_location__isnull=True),
-                name="inventory_line_receipt_source_null",
+                condition=(
+                    Q(source_location__isnull=False)
+                    | Q(target_location__isnull=False)
+                ),
+                name="inventory_line_source_or_target_present",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(source_location__isnull=True)
+                    | Q(target_location__isnull=True)
+                    | ~Q(source_location=F("target_location"))
+                ),
+                name="inventory_line_source_ne_target",
             ),
         ]
 
@@ -212,6 +226,80 @@ class InventoryTransactionLine(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValidationError("Tamamlanmış envanter işlem satırı silinemez.")
+
+
+class IssueContext(models.Model):
+    transaction = models.OneToOneField(
+        InventoryTransaction,
+        primary_key=True,
+        on_delete=models.RESTRICT,
+        related_name="issue_context",
+    )
+    receiver_employee = models.ForeignKey(
+        "accounts.Employee",
+        on_delete=models.RESTRICT,
+        related_name="issue_contexts",
+        db_index=False,
+    )
+    receiver_first_name_snapshot = models.CharField(max_length=150)
+    receiver_last_name_snapshot = models.CharField(max_length=150)
+    receiver_employee_number_snapshot = models.CharField(max_length=64)
+    production_line = models.ForeignKey(
+        ProductionLine,
+        on_delete=models.RESTRICT,
+        related_name="issue_contexts",
+        db_index=False,
+    )
+    production_line_code_snapshot = models.CharField(max_length=64)
+    production_line_name_snapshot = models.CharField(max_length=255)
+    usage_location_text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["receiver_employee"],
+                name="inventory_issue_receiver_idx",
+            ),
+            models.Index(
+                fields=["production_line"],
+                name="inventory_issue_prodline_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=~Q(receiver_first_name_snapshot__regex=r"^\s*$"),
+                name="inventory_issue_receiver_first_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=~Q(receiver_last_name_snapshot__regex=r"^\s*$"),
+                name="inventory_issue_receiver_last_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=~Q(receiver_employee_number_snapshot__regex=r"^\s*$"),
+                name="inventory_issue_receiver_number_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=~Q(production_line_code_snapshot__regex=r"^\s*$"),
+                name="inventory_issue_line_code_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=~Q(production_line_name_snapshot__regex=r"^\s*$"),
+                name="inventory_issue_line_name_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=~Q(usage_location_text__regex=r"^\s*$"),
+                name="inventory_issue_usage_nonblank",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Stok çıkış bağlamı değiştirilemez.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Stok çıkış bağlamı silinemez.")
 
 
 class StockBalance(models.Model):

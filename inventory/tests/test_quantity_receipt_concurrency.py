@@ -60,6 +60,7 @@ class QuantityReceiptConcurrencyTests(TransactionTestCase):
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    inventory_issuecontext,
                     inventory_inventorytransactionline,
                     inventory_inventorytransaction,
                     inventory_stockbalance

@@ -13,10 +13,13 @@ from django.db import transaction
 from django.test import TransactionTestCase
 from django.utils import timezone
 
+from accounts.models import Employee
 from catalog.models import Category, Material, MaterialCondition, UnitOfMeasure
 from inventory.models import (
     InventoryTransaction,
     InventoryTransactionLine,
+    IssueContext,
+    ProductionLine,
     StockBalance,
 )
 from locations.models import Location
@@ -55,6 +58,15 @@ class QuantityInventoryConcurrencyTests(TransactionTestCase):
         self.user = get_user_model().objects.create_user(
             username=f"race-{suffix}"
         )
+        self.employee = Employee.objects.create(
+            employee_number=f"RACE-E-{suffix}",
+            first_name="Ayşe",
+            last_name="Yılmaz",
+        )
+        self.production_line = ProductionLine.objects.create(
+            code=f"RACE-PL-{suffix}",
+            name="Race üretim hattı",
+        )
 
     def _fixture_teardown(self):
         # Ledger DELETE is intentionally forbidden. These test-only tables are
@@ -64,6 +76,7 @@ class QuantityInventoryConcurrencyTests(TransactionTestCase):
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    inventory_issuecontext,
                     inventory_inventorytransactionline,
                     inventory_inventorytransaction,
                     inventory_stockbalance
@@ -73,6 +86,8 @@ class QuantityInventoryConcurrencyTests(TransactionTestCase):
         Material.objects.filter(pk=self.material.pk).delete()
         Location.objects.filter(pk=self.location.pk).delete()
         MaterialCondition.objects.filter(pk=self.condition.pk).delete()
+        ProductionLine.objects.filter(pk=self.production_line.pk).delete()
+        Employee.objects.filter(pk=self.employee.pk).delete()
         UnitOfMeasure.objects.filter(pk=self.unit.pk).delete()
         Category.objects.filter(pk=self.category.pk).delete()
         get_user_model().objects.filter(pk=self.user.pk).delete()
@@ -207,12 +222,18 @@ class QuantityInventoryConcurrencyTests(TransactionTestCase):
         self.assertGreater(balance.quantity, 0)
         self.assertTrue(self.location.can_hold_stock)
 
-    def _line_writer(self, writer_ready, release_writer):
+    def _line_writer(
+        self,
+        writer_ready,
+        release_writer,
+        *,
+        transaction_type=InventoryTransaction.TransactionType.RECEIPT,
+    ):
         with transaction.atomic():
             header = InventoryTransaction.objects.create(
                 operation_id=uuid.uuid4(),
                 request_fingerprint="f" * 64,
-                transaction_type=InventoryTransaction.TransactionType.RECEIPT,
+                transaction_type=transaction_type,
                 acting_user_id=self.user.pk,
                 occurred_at=timezone.now(),
             )
@@ -223,8 +244,29 @@ class QuantityInventoryConcurrencyTests(TransactionTestCase):
                 quantity=Decimal("1"),
                 unit_id=self.unit.pk,
                 condition_id=self.condition.pk,
-                target_location_id=self.location.pk,
+                source_location_id=(
+                    self.location.pk
+                    if transaction_type == InventoryTransaction.TransactionType.ISSUE
+                    else None
+                ),
+                target_location_id=(
+                    self.location.pk
+                    if transaction_type == InventoryTransaction.TransactionType.RECEIPT
+                    else None
+                ),
             )
+            if transaction_type == InventoryTransaction.TransactionType.ISSUE:
+                IssueContext.objects.create(
+                    transaction=header,
+                    receiver_employee_id=self.employee.pk,
+                    receiver_first_name_snapshot=self.employee.first_name,
+                    receiver_last_name_snapshot=self.employee.last_name,
+                    receiver_employee_number_snapshot=self.employee.employee_number,
+                    production_line_id=self.production_line.pk,
+                    production_line_code_snapshot=self.production_line.code,
+                    production_line_name_snapshot=self.production_line.name,
+                    usage_location_text="Pano 7",
+                )
             writer_ready.set()
             if not release_writer.wait(timeout=10):
                 raise TimeoutError("Ledger writer was not released.")
@@ -252,6 +294,26 @@ class QuantityInventoryConcurrencyTests(TransactionTestCase):
         self.assertEqual(self.material.tracking_mode, Material.TrackingMode.QUANTITY)
         self.assertTrue(
             InventoryTransactionLine.objects.filter(material=self.material).exists()
+        )
+
+    def test_first_issue_line_serializes_against_tracking_mode_change(self):
+        writer_result, updater_result = self._run_writer_first_race(
+            writer=lambda writer_ready, release_writer: self._line_writer(
+                writer_ready,
+                release_writer,
+                transaction_type=InventoryTransaction.TransactionType.ISSUE,
+            ),
+            updater=self._tracking_mode_updater,
+        )
+
+        self.assertEqual(writer_result, "committed")
+        self.assertIn("cannot change after inventory history", updater_result)
+        self.material.refresh_from_db()
+        self.assertEqual(self.material.tracking_mode, Material.TrackingMode.QUANTITY)
+        issue_line = InventoryTransactionLine.objects.get(material=self.material)
+        self.assertEqual(
+            issue_line.transaction.transaction_type,
+            InventoryTransaction.TransactionType.ISSUE,
         )
 
     def _zero_balance_writer(self, writer_ready, release_writer):
