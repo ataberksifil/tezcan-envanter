@@ -406,13 +406,14 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 3.2-0 Employee + ProductionLine decision pack | **COMPLETE** (2026-09-11). `DEC-024`, `DEC-025`. Bkz. §4.1 Phase 3.2-0. |
 | Phase 3.2 Employee foundation implementation | **COMPLETE** (2026-09-12). `DEC-024`; sicil, User link, lifecycle, izin ve audit politikası kararlıdır. Bkz. §4.1 Phase 3.2. |
 | Phase 3.3 ProductionLine foundation implementation | **COMPLETE** (2026-09-12). `DEC-025`; şekil, hiyerarşi, code/name, lifecycle ve permission politikası kararlıdır. Bkz. §4.1 Phase 3.3. |
-| Inventory Core / first inventory mutation preflight | **COMPLETE** (2026-09-12). `DEC-026`; preflight verdict `PASS FOR NEXT IMPLEMENTATION`. Quantity-only slice: 4.0A → 4.0B → 4.0C → 4.1. Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) korunur. Gate 3 bağımsız audit çalıştırılmamıştır. |
+| Inventory Core / first inventory mutation preflight | **COMPLETE** (2026-09-12). `DEC-026`; preflight verdict `PASS FOR NEXT IMPLEMENTATION`. Quantity-only slice: 4.0A → 4.0B → 4.0C → 4.1. Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) korunur. |
 | Phase 4.0A MaterialCondition foundation | **COMPLETE** (2026-09-12). Commit `05bee71a`. Bkz. §4.1 Phase 4.0A. |
 | Phase 4.0B Quantity Inventory Kernel | **COMPLETE** (2026-09-12). Commit `4cf52669`; full suite 746 passed. Bkz. §4.1 Phase 4.0B. |
 | Phase 4.0C quantity RECEIPT service | **COMPLETE** (2026-09-12). Commit `4546739e`. Bkz. §4.1 Phase 4.0C. |
 | Phase 4.1 Receipt UI + permission rollout | **COMPLETE** (2026-09-12). Commit `927e83b2`; full suite 823 passed; managed permission count 19. Bkz. §4.1 Phase 4.1. ISSUE/TRANSFER/RETURN/correction/count/baseline bu karar kapsamı dışındadır. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
+| Gate 3 | Phase 3 + quantity-only RECEIPT (4.0A–4.1) — **Disposition: `PASS`** (2026-09-12). Bkz. §4.5. ISSUE/TRANSFER/RETURN/serialized/correction/count-baseline authorize edilmemiştir. |
 
 ### 4.1 Phase Gate Dispositions
 
@@ -456,6 +457,21 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 - **Kanıt özeti (2026-09-11):** PostgreSQL/model/migration consistency PASS; Category/UoM/Material PASS; immutable audit PASS; `DEC-022` access management PASS; inactive-user security fix PASS; Django Admin bypass closure PASS; targeted suite PASS; full suite 478 passed; repository clean; blocking finding yok.
 - **Not:** Gate 2 PASS, `DEC-HG-001`–`DEC-HG-005`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019` ve `DEC-OPEN-021` (Material code remainder) dahil gelecek faz hard gate/open kararlarını çözmez. Location foundation `DEC-023` ile Phase 3.0'da ayrıca kararlaştırılmıştır.
 
+#### Gate 3 — Phase 3 + Quantity RECEIPT
+
+- **Disposition:** `PASS`
+- **Recorded on:** 2026-09-12
+- **Audited final HEAD:** `4cf895250bea37e42da4af9fac8d68c28253048e`
+- **Technical code target:** `927e83b2364f93afec47dc22cf22be2f60e51d5a` (Phase 4.1 quantity RECEIPT slice)
+- **Audit conclusion:** Gate 3 passed; audited scope validated.
+- **Anlam:**
+  - Phase 3 foundation (Location, Employee, ProductionLine) kabul edildi
+  - Quantity-only RECEIPT slice kabul edildi: MaterialCondition foundation, quantity inventory kernel, `receive_stock` service, receipt UI, `inventory.receive_stock` permission rollout
+  - ISSUE, TRANSFER, RETURN, serialized inventory, correction ve count/baseline henüz implement edilmemiştir ve bu gate tarafından authorize edilmemiştir
+- **Kapsam sınırı:** Gate 3 PASS yalnız Phase 3 (Location, Employee, ProductionLine) ile quantity-only RECEIPT slice'ını (4.0A–4.1) doğrular.
+- **Kanıt özeti (2026-09-12):** PostgreSQL 18.6; disposable test DB only; development DB untouched; application role `SUPERUSER=false`, `CREATEDB=false`, `CREATEROLE=false`; public schema refreshed only in disposable test DB; migrations applied from zero successfully; all project migrations applied; exactly four canonical `MaterialCondition` seeds present; deterministic UUID5 seed identities matched; required inventory functions/triggers present and enabled; required inventory constraints present; `inventory.receive_stock` exists exactly once; fresh-schema full suite 823 passed / 0 failed / 0 skipped / 0 xfailed; pytest exit 0.
+- **Not:** Gate 3 PASS, `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-010` ve diğer gelecek faz hard gate/open kararlarını çözmez. `DEC-026` quantity-only boundary korunur.
+
 #### Phase 3.0 — Location Foundation Decisions
 
 - **Disposition:** `COMPLETE` (2026-09-11)
@@ -490,7 +506,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
   - Yönetim shell CRUD, service-layer mutation, audit ve permission kontrolleri uygulandı
   - Inventory mutation başlamamıştır
 - **Kanıt özeti:** commit `8a759cbf7362f1f8d9ee696108af6163ecfac2f5`; full suite 655 passed (son doğrulanmış)
-- **Not:** Phase 3.2 implementation review/audit PASS, proje Gate PASS anlamına gelmez. Son formal proje gate: Gate 2 PASS.
+- **Not:** Phase 3.2 implementation review/audit PASS, o an proje Gate PASS anlamına gelmezdi; sonraki bağımsız Gate 3 audit §4.5'te `PASS` olarak kaydedilmiştir.
 
 #### Phase 3.3 — ProductionLine Foundation Implementation
 
@@ -502,7 +518,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
   - Inventory mutation başlamamıştır
 - **Kanıt özeti:** commit `418d49e4bb0300b4b6f5b4071304e3a857b55ba9`; full suite 655 passed (son doğrulanmış)
 - **Sıradaki (tarihsel):** Inventory Core / first inventory mutation architecture preflight (**COMPLETE**, `DEC-026`, 2026-09-12)
-- **Not:** Phase 3.3 implementation review/audit PASS, proje Gate PASS anlamına gelmez. Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur.
+- **Not:** Phase 3.3 implementation review/audit PASS, o an proje Gate PASS anlamına gelmezdi; sonraki bağımsız Gate 3 audit §4.5'te `PASS` olarak kaydedilmiştir.
 
 #### Inventory Core / First Inventory Mutation Preflight
 
@@ -514,7 +530,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
   - Quantity-only first slice; ISSUE, TRANSFER, RETURN, correction, count/baseline ve serialized mutation bu karar kapsamı dışındadır
   - Plain successful inventory ledger mutation generic `AuditEvent` duplicate etmez
   - Açık hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`) ve açık kararlar (`DEC-OPEN-004`, `DEC-OPEN-010`) korunur
-- **Not:** Preflight PASS, Gate 3 PASS anlamına gelmez. Gate 3 bağımsız audit çalıştırılmamıştır.
+- **Not:** Preflight PASS, o an Gate 3 PASS anlamına gelmezdi; sonraki bağımsız Gate 3 audit §4.5'te `PASS` olarak kaydedilmiştir.
 
 #### Phase 4.0A — MaterialCondition Foundation
 

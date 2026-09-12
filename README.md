@@ -22,7 +22,7 @@
 - **Quantity RECEIPT:** onaylı quantity-only slice uçtan uca implement edilmiştir (kernel, service, UI, `inventory.receive_stock` permission rollout)
 - **Son doğrulanmış test suite:** 823 passed
 - **Managed permission count:** 19
-- **Gate 3:** NOT RUN — PASS kaydı yok
+- **Gate 3:** PASS (2026-09-12)
 
 Phase 2 ayrıntıları için bkz. [Yol Haritası](#yol-haritası).
 
@@ -182,7 +182,7 @@ python manage.py setup_roles
 
 **Managed permission count:** 19
 
-Inventory Core preflight disposition kanonikleşmiştir. Onaylı quantity-only slice için quantity RECEIPT uçtan uca implement edilmiştir (immutable ledger kernel, idempotent `receive_stock` service, `StockBalance` projection, PostgreSQL concurrency koruması, `inventory.receive_stock` managed permission rollout, receipt create/detail UI, `operation_id` double-submit koruması). ISSUE, TRANSFER, RETURN, serialized inventory, correction ve count/baseline henüz implement edilmemiştir. **Gate 3** bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
+**Gate 3:** PASS (2026-09-12; audited HEAD `4cf89525`; bkz. [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) §4.5). Kapsam: Phase 3 (Location, Employee, ProductionLine) ve quantity-only RECEIPT slice (4.0A–4.1). ISSUE, TRANSFER, RETURN, serialized inventory, correction ve count/baseline henüz implement edilmemiştir ve Gate 3 PASS tarafından authorize edilmemiştir. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
 
 ### Sağlık kontrolü
 

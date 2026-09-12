@@ -880,7 +880,7 @@ Task 0.9 `AGENTS.md` / repository rules içinde aşağıdaki mimari korumaları 
 
 Re-audit başarılı olmadan Phase 1 otomatik başlamaz.
 
-Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs/06-DECISION-REGISTER.md` §4.3) → Phase 2 başladı → Phase 2 tamamlandı → **Gate 2 PASS** (2026-09-11; bkz. `docs/06-DECISION-REGISTER.md` §4.4) → **Phase 2: CLOSED**.
+Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs/06-DECISION-REGISTER.md` §4.3) → Phase 2 başladı → Phase 2 tamamlandı → **Gate 2 PASS** (2026-09-11; bkz. `docs/06-DECISION-REGISTER.md` §4.4) → **Phase 2: CLOSED** → Phase 3 + quantity-only RECEIPT slice tamamlandı → **Gate 3 PASS** (2026-09-12; bkz. `docs/06-DECISION-REGISTER.md` §4.5).
 
 **Phase 3.0:** Location foundation decisions — COMPLETE (`DEC-023`).
 
@@ -902,7 +902,7 @@ Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs
 
 **Phase 4.1:** Quantity RECEIPT UI + permission rollout — COMPLETE (2026-09-12).
 
-Onaylı quantity-only slice için quantity RECEIPT uçtan uca implement edilmiştir (`receive_stock` service, receipt UI, `inventory.receive_stock` managed permission rollout). ISSUE, TRANSFER, RETURN, serialized inventory, correction ve count/baseline henüz implement edilmemiştir. Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur.
+Onaylı quantity-only slice için quantity RECEIPT uçtan uca implement edilmiştir (`receive_stock` service, receipt UI, `inventory.receive_stock` managed permission rollout). ISSUE, TRANSFER, RETURN, serialized inventory, correction ve count/baseline henüz implement edilmemiştir. **Gate 3 PASS** (2026-09-12; bkz. `06` §4.5) yalnız Phase 3 foundation ve bu quantity-only RECEIPT slice'ını doğrular; sonraki inventory mutation'ları authorize etmez.
 
 ## 37. Dynamic Configuration Architecture
 
@@ -1019,4 +1019,4 @@ Inventory Core preflight disposition kanonikleşmiştir (`DEC-026`; `PASS FOR NE
 
 **Managed permission count:** 19
 
-Gate 3 bağımsız audit çalıştırılmamıştır; PASS kaydı yoktur. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-010`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur.
+**Gate 3:** **PASS** (2026-09-12; audited HEAD `4cf895250bea37e42da4af9fac8d68c28253048e`; fresh PostgreSQL migration-from-zero; fresh-schema full suite 823 passed / 0 skipped; bkz. `06` §4.5). Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-010`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. ISSUE, TRANSFER, RETURN, serialized inventory, correction ve count/baseline Gate 3 kapsamı dışındadır.
