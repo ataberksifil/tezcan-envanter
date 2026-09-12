@@ -494,17 +494,16 @@ def test_actor_must_belong_to_requested_database_alias(receipt_objects):
 
 
 @pytest.mark.django_db
-def test_permission_is_defined_but_not_managed_or_in_default_groups():
+def test_receive_stock_permission_is_managed_and_in_storekeeper_admin_templates():
     permission = Permission.objects.get(
         content_type__app_label="inventory",
         content_type__model="inventorytransaction",
         codename="receive_stock",
     )
     assert permission.name == "Can receive stock"
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 18
-    assert RECEIVE_STOCK_PERMISSION not in SAFE_CATALOG_PERMISSION_LABELS
-    assert all(
-        "receive_stock" not in permissions
-        for permissions in DEFAULT_ROLE_TEMPLATES.values()
-    )
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 19
+    assert RECEIVE_STOCK_PERMISSION in SAFE_CATALOG_PERMISSION_LABELS
+    assert "receive_stock" not in DEFAULT_ROLE_TEMPLATES["TECHNICIAN"]
+    assert "receive_stock" in DEFAULT_ROLE_TEMPLATES["STOREKEEPER"]
+    assert "receive_stock" in DEFAULT_ROLE_TEMPLATES["ADMIN_MANAGER"]
     assert not Group.objects.filter(permissions=permission).exists()

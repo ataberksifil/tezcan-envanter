@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Stok girişi — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">Stok girişi kaydı</h1>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-primary" href="{% url 'inventory:receipt-create' %}">Yeni stok girişi</a>
+        <a class="btn btn-outline-secondary" href="{% url 'home' %}">Ana sayfa</a>
+    </div>
+</div>
+
+<dl class="row mb-0">
+    <dt class="col-sm-3">İşlem UUID</dt>
+    <dd class="col-sm-9 font-monospace">{{ receipt.id }}</dd>
+
+    <dt class="col-sm-3">Zaman</dt>
+    <dd class="col-sm-9">{{ receipt.occurred_at }}</dd>
+
+    <dt class="col-sm-3">İşlemi yapan</dt>
+    <dd class="col-sm-9">{{ receipt.acting_user.get_username }}</dd>
+
+    <dt class="col-sm-3">Malzeme kodu</dt>
+    <dd class="col-sm-9">{{ line.material.material_code }}</dd>
+
+    <dt class="col-sm-3">Malzeme adı</dt>
+    <dd class="col-sm-9">{{ line.material.name }}</dd>
+
+    <dt class="col-sm-3">Miktar</dt>
+    <dd class="col-sm-9">{{ line.quantity }}</dd>
+
+    <dt class="col-sm-3">Birim</dt>
+    <dd class="col-sm-9">{{ line.unit.code }} ({{ line.unit.name }})</dd>
+
+    <dt class="col-sm-3">Kondisyon</dt>
+    <dd class="col-sm-9">{{ line.condition.name }}</dd>
+
+    <dt class="col-sm-3">Hedef konum kodu</dt>
+    <dd class="col-sm-9">{{ line.target_location.code }}</dd>
+
+    <dt class="col-sm-3">Hedef konum adı</dt>
+    <dd class="col-sm-9">{{ line.target_location.name }}</dd>
+</dl>
+{% endblock %}

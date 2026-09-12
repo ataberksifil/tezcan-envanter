@@ -1,20 +1,25 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from django.http import Http404
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from inventory.forms import ProductionLineForm
-from inventory.models import ProductionLine
+from inventory.forms import (
+    ProductionLineForm,
+    QuantityReceiptForm,
+    attach_receipt_validation_error,
+)
+from inventory.models import InventoryTransaction, ProductionLine
 from inventory.services.production_lines import (
     create_production_line,
     set_production_line_active,
     update_production_line,
 )
+from inventory.services.receipts import receive_quantity
 
 PRODUCTION_LINE_LIST_PAGE_SIZE = 50
 STATUS_ALL = "all"
@@ -191,3 +196,92 @@ class ProductionLineReactivateView(ProductionLineStateView):
     target_active = True
     success_message = "Üretim hattı aktifleştirildi."
     noop_message = "Üretim hattı zaten aktif."
+
+
+class ReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "inventory.receive_stock"
+    template_name = "inventory/receipt_form.html"
+
+    def get(self, request):
+        form = QuantityReceiptForm()
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": form,
+                "form_title": "Stok girişi",
+                "submit_label": "Kaydet",
+            },
+        )
+
+    def post(self, request):
+        form = QuantityReceiptForm(request.POST)
+        if not form.is_valid():
+            return render(
+                request,
+                self.template_name,
+                {
+                    "form": form,
+                    "form_title": "Stok girişi",
+                    "submit_label": "Kaydet",
+                },
+            )
+
+        material = form.cleaned_data["material"]
+        try:
+            result = receive_quantity(
+                actor=request.user,
+                operation_id=form.cleaned_data["operation_id"],
+                material_id=material.pk,
+                unit_id=material.unit_id,
+                condition_id=form.cleaned_data["condition"].pk,
+                target_location_id=form.cleaned_data["target_location"].pk,
+                quantity=form.cleaned_data["quantity"],
+            )
+        except PermissionDenied:
+            raise
+        except ValidationError as exc:
+            attach_receipt_validation_error(form, exc)
+            return render(
+                request,
+                self.template_name,
+                {
+                    "form": form,
+                    "form_title": "Stok girişi",
+                    "submit_label": "Kaydet",
+                },
+            )
+
+        if result.replayed:
+            messages.info(request, "Bu stok girişi daha önce kaydedilmişti.")
+        else:
+            messages.success(request, "Stok girişi kaydedildi.")
+        return redirect("inventory:receipt-detail", pk=result.transaction.pk)
+
+
+class ReceiptDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = "inventory.receive_stock"
+    model = InventoryTransaction
+    context_object_name = "receipt"
+    template_name = "inventory/receipt_detail.html"
+
+    def get_queryset(self):
+        return (
+            InventoryTransaction.objects.filter(
+                transaction_type=InventoryTransaction.TransactionType.RECEIPT,
+            )
+            .select_related("acting_user")
+            .prefetch_related(
+                "lines__material__unit",
+                "lines__condition",
+                "lines__target_location",
+            )
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        lines = list(self.object.lines.all())
+        if len(lines) != 1:
+            raise Http404("Receipt not found")
+        context["line"] = lines[0]
+        return context

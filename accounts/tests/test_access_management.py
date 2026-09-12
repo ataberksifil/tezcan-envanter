@@ -184,8 +184,8 @@ def test_safe_permissions_and_manage_access_superuser_round_trip_are_audited():
     assert MANAGE_ACCESS_PERMISSION not in canonical_role_snapshot(role)["permissions"]
 
 
-def test_managed_permission_set_is_exactly_eighteen():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 18
+def test_managed_permission_set_is_exactly_nineteen():
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 19
     assert "accounts.view_employee" in SAFE_CATALOG_PERMISSION_LABELS
     assert "accounts.add_employee" in SAFE_CATALOG_PERMISSION_LABELS
     assert "accounts.change_employee" in SAFE_CATALOG_PERMISSION_LABELS
@@ -194,6 +194,10 @@ def test_managed_permission_set_is_exactly_eighteen():
     assert "inventory.add_productionline" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.change_productionline" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.delete_productionline" not in SAFE_CATALOG_PERMISSION_LABELS
+    assert "inventory.receive_stock" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "inventory.add_inventorytransaction" not in SAFE_CATALOG_PERMISSION_LABELS
+    assert "inventory.change_inventorytransaction" not in SAFE_CATALOG_PERMISSION_LABELS
+    assert "inventory.delete_inventorytransaction" not in SAFE_CATALOG_PERMISSION_LABELS
 
 
 @pytest.mark.parametrize(
@@ -206,10 +210,16 @@ def test_managed_permission_set_is_exactly_eighteen():
         "audit.view_auditevent",
         "inventory.view_stockbalance",
         "inventory.delete_productionline",
+        "inventory.add_inventorytransaction",
+        "inventory.change_inventorytransaction",
+        "inventory.delete_inventorytransaction",
+        "inventory.add_stockbalance",
+        "inventory.change_stockbalance",
+        "inventory.delete_stockbalance",
         "accounts.manage_access",
     ],
 )
-def test_service_rejects_every_permission_outside_safe_eighteen(forged):
+def test_service_rejects_every_permission_outside_safe_nineteen(forged):
     actor = make_superuser()
     role = Group.objects.create(name="Safe")
     with pytest.raises(ValidationError):

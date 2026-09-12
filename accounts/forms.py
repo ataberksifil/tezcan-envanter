@@ -28,6 +28,7 @@ PERMISSION_CHOICES = (
     ("inventory.view_productionline", "Üretim hattı — görüntüleme"),
     ("inventory.add_productionline", "Üretim hattı — oluşturma"),
     ("inventory.change_productionline", "Üretim hattı — değiştirme"),
+    ("inventory.receive_stock", "Stok girişi yapabilir"),
 )
 assert tuple(value for value, _label in PERMISSION_CHOICES) == SAFE_CATALOG_PERMISSION_LABELS
 

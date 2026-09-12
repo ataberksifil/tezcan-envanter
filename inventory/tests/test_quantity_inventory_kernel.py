@@ -650,17 +650,36 @@ def test_kernel_does_not_create_plain_stock_audit_event(kernel_objects):
     assert AuditEvent.objects.count() == initial_count
 
 
-def test_no_inventory_operation_surface_or_writable_admin_registration():
+def test_receipt_routes_are_operational_not_management_and_admin_stays_readonly():
     assert hasattr(inventory_services, "receive_quantity")
-    assert not hasattr(inventory_forms, "ReceiveQuantityForm")
-    assert all("operation" not in pattern.name for pattern in inventory_urlpatterns)
+    assert hasattr(inventory_forms, "QuantityReceiptForm")
+    receipt_patterns = [
+        pattern for pattern in inventory_urlpatterns if pattern.name.startswith("receipt-")
+    ]
+    management_patterns = [
+        pattern
+        for pattern in inventory_urlpatterns
+        if pattern.name.startswith("production-line-")
+    ]
+    assert {pattern.name for pattern in receipt_patterns} == {
+        "receipt-create",
+        "receipt-detail",
+    }
+    assert management_patterns
+    assert all(
+        str(pattern.pattern).startswith("management/") for pattern in management_patterns
+    )
+    assert all(
+        str(pattern.pattern).startswith("inventory/") for pattern in receipt_patterns
+    )
     assert InventoryTransaction not in admin.site._registry
     assert InventoryTransactionLine not in admin.site._registry
     assert StockBalance not in admin.site._registry
 
 
-def test_managed_permission_boundary_remains_18():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 18
+def test_managed_permission_boundary_is_nineteen_with_receive_stock_only():
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 19
+    assert "inventory.receive_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert not any(
         label.startswith(
             (

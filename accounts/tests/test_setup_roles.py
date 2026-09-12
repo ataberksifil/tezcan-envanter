@@ -35,6 +35,7 @@ def catalog_permissions():
             "location",
             "employee",
             "productionline",
+            "inventorytransaction",
         ),
     )
     permissions = Permission.objects.filter(
@@ -213,6 +214,7 @@ def test_existing_storekeeper_customized_catalog_permissions_are_preserved(
         "view_employee",
         "add_material",
         "change_unitofmeasure",
+        "receive_stock",
     }
 
 
@@ -351,6 +353,41 @@ def test_setup_roles_never_injects_manage_access_and_leaves_custom_roles_untouch
     assert AuditEvent.objects.count() == 0
     _run_setup_roles()
     assert AuditEvent.objects.count() == 0
+
+
+def test_new_technician_template_does_not_receive_receive_stock():
+    _run_setup_roles()
+    assert "receive_stock" not in _template_codenames_for_group(TECHNICIAN)
+
+
+def test_new_storekeeper_and_admin_manager_templates_receive_receive_stock():
+    _run_setup_roles()
+    assert "receive_stock" in _template_codenames_for_group(STOREKEEPER)
+    assert "receive_stock" in _template_codenames_for_group(ADMIN_MANAGER)
+
+
+def test_existing_storekeeper_does_not_gain_receive_stock_on_rerun(catalog_permissions):
+    _run_setup_roles()
+    storekeeper = Group.objects.get(name=STOREKEEPER)
+    storekeeper.permissions.remove(catalog_permissions["receive_stock"])
+    before = _permission_pks_for_group(STOREKEEPER)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(STOREKEEPER) == before
+    assert "receive_stock" not in _template_codenames_for_group(STOREKEEPER)
+
+
+def test_existing_admin_manager_does_not_gain_receive_stock_on_rerun(catalog_permissions):
+    _run_setup_roles()
+    admin_manager = Group.objects.get(name=ADMIN_MANAGER)
+    admin_manager.permissions.remove(catalog_permissions["receive_stock"])
+    before = _permission_pks_for_group(ADMIN_MANAGER)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(ADMIN_MANAGER) == before
+    assert "receive_stock" not in _template_codenames_for_group(ADMIN_MANAGER)
 
 
 def test_ordinary_user_has_perm_follows_actual_group_permissions_after_customization(

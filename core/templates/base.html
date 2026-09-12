@@ -35,6 +35,11 @@
                                 <a class="nav-link" href="{% url 'catalog:material-list' %}">Malzemeler</a>
                             </li>
                         {% endif %}
+                        {% if perms.inventory.receive_stock %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'inventory:receipt-create' %}">Stok Girişi</a>
+                            </li>
+                        {% endif %}
                         {% show_management_nav user as management_nav_visible %}
                         {% if management_nav_visible %}
                             <li class="nav-item">
