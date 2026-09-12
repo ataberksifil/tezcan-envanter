@@ -21,15 +21,15 @@ class QuantityProjectionMismatch:
 def verify_quantity_projection(
     *, using: str = "default"
 ) -> tuple[QuantityProjectionMismatch, ...]:
-    """Compare quantity RECEIPT minus ISSUE ledger with StockBalance."""
-    receipts = {
+    """Compare RECEIPT + RETURN - ISSUE quantity ledger with StockBalance."""
+    inbound = {
         (row["material_id"], row["target_location_id"], row["condition_id"]): row[
             "quantity"
         ]
         for row in (
             InventoryTransactionLine.objects.using(using)
             .filter(
-                transaction__transaction_type="RECEIPT",
+                transaction__transaction_type__in=("RECEIPT", "RETURN"),
             )
             .values("material_id", "target_location_id", "condition_id")
             .annotate(quantity=Sum("quantity"))
@@ -50,8 +50,8 @@ def verify_quantity_projection(
     }
     zero = Decimal("0.000")
     expected = {
-        identity: receipts.get(identity, zero) - issues.get(identity, zero)
-        for identity in set(receipts) | set(issues)
+        identity: inbound.get(identity, zero) - issues.get(identity, zero)
+        for identity in set(inbound) | set(issues)
     }
     actual = {
         (row["material_id"], row["location_id"], row["condition_id"]): row[
