@@ -43,13 +43,15 @@ _ISSUE_STOCK = frozenset({"issue_stock"})
 _RETURN_STOCK = frozenset({"return_stock"})
 _TRANSFER_STOCK = frozenset({"transfer_stock"})
 _VIEW_INVENTORY_TRANSACTION = frozenset({"view_inventorytransaction"})
+_VIEW_STOCK_BALANCE = frozenset({"view_stockbalance"})
 
 DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
     TECHNICIAN: _VIEW_ONLY_CATALOG
     | frozenset({"view_location"})
     | _VIEW_ONLY_EMPLOYEE
     | _ISSUE_STOCK
-    | _VIEW_INVENTORY_TRANSACTION,
+    | _VIEW_INVENTORY_TRANSACTION
+    | _VIEW_STOCK_BALANCE,
     STOREKEEPER: _VIEW_ONLY_CATALOG
     | frozenset({"view_location"})
     | _VIEW_ONLY_EMPLOYEE
@@ -57,7 +59,8 @@ DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
     | _ISSUE_STOCK
     | _RETURN_STOCK
     | _TRANSFER_STOCK
-    | _VIEW_INVENTORY_TRANSACTION,
+    | _VIEW_INVENTORY_TRANSACTION
+    | _VIEW_STOCK_BALANCE,
     ADMIN_MANAGER: _VIEW_ADD_CHANGE_CATALOG
     | frozenset({"view_location", "add_location", "change_location"})
     | _VIEW_ADD_CHANGE_EMPLOYEE
@@ -66,7 +69,8 @@ DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
     | _ISSUE_STOCK
     | _RETURN_STOCK
     | _TRANSFER_STOCK
-    | _VIEW_INVENTORY_TRANSACTION,
+    | _VIEW_INVENTORY_TRANSACTION
+    | _VIEW_STOCK_BALANCE,
 }
 
 DEFAULT_ROLE_NAMES: tuple[str, ...] = (TECHNICIAN, STOREKEEPER, ADMIN_MANAGER)

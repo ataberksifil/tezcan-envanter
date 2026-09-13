@@ -680,8 +680,10 @@ def test_minimum_stock_value_displayed_as_threshold_only(app_client):
     assert "12,500" in with_min
     assert "Minimum stok eşiği" in with_min
     assert "Tanımlı değil" in without_min
-    assert "Mevcut stok" not in with_min
+    assert "Mevcut stok" in with_min
+    assert "Pozitif bakiye bulunmuyor" in with_min
     assert "Uyarı" not in with_min
+    assert "kullanılabilir" not in with_min.lower()
 
 
 def test_empty_technical_specs_copy(app_client):

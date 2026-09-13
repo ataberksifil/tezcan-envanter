@@ -59,6 +59,7 @@ class Command(BaseCommand):
                 "employee",
                 "productionline",
                 "inventorytransaction",
+                "stockbalance",
             ),
         )
         permissions = Permission.objects.using(database).filter(

@@ -76,6 +76,11 @@ urlpatterns = [
         name="transfer-detail",
     ),
     path(
+        "inventory/stock/",
+        views.StockListView.as_view(),
+        name="stock-list",
+    ),
+    path(
         "inventory/transactions/",
         views.TransactionHistoryListView.as_view(),
         name="transaction-history-list",

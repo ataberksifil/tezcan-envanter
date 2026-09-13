@@ -36,6 +36,7 @@ def catalog_permissions():
             "employee",
             "productionline",
             "inventorytransaction",
+            "stockbalance",
         ),
     )
     permissions = Permission.objects.filter(
@@ -219,6 +220,7 @@ def test_existing_storekeeper_customized_catalog_permissions_are_preserved(
         "return_stock",
         "transfer_stock",
         "view_inventorytransaction",
+        "view_stockbalance",
     }
 
 
@@ -487,6 +489,12 @@ def test_new_technician_storekeeper_and_admin_manager_templates_receive_view_inv
         assert "view_inventorytransaction" in _template_codenames_for_group(role_name)
 
 
+def test_new_technician_storekeeper_and_admin_manager_templates_receive_view_stockbalance():
+    _run_setup_roles()
+    for role_name in DEFAULT_ROLE_NAMES:
+        assert "view_stockbalance" in _template_codenames_for_group(role_name)
+
+
 def test_existing_technician_does_not_gain_view_inventorytransaction_on_rerun(
     catalog_permissions,
 ):
@@ -527,6 +535,18 @@ def test_existing_admin_manager_does_not_gain_view_inventorytransaction_on_rerun
 
     assert _permission_pks_for_group(ADMIN_MANAGER) == before
     assert "view_inventorytransaction" not in _template_codenames_for_group(ADMIN_MANAGER)
+
+
+def test_existing_technician_does_not_gain_view_stockbalance_on_rerun(catalog_permissions):
+    _run_setup_roles()
+    technician = Group.objects.get(name=TECHNICIAN)
+    technician.permissions.remove(catalog_permissions["view_stockbalance"])
+    before = _permission_pks_for_group(TECHNICIAN)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(TECHNICIAN) == before
+    assert "view_stockbalance" not in _template_codenames_for_group(TECHNICIAN)
 
 
 def test_ordinary_user_has_perm_follows_actual_group_permissions_after_customization(

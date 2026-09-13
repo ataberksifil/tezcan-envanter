@@ -55,6 +55,11 @@
                                 <a class="nav-link" href="{% url 'inventory:transfer-create' %}">Stok Transferi</a>
                             </li>
                         {% endif %}
+                        {% if perms.inventory.view_stockbalance %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'inventory:stock-list' %}">Mevcut Stok</a>
+                            </li>
+                        {% endif %}
                         {% if perms.inventory.view_inventorytransaction %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'inventory:transaction-history-list' %}">Envanter hareketleri</a>

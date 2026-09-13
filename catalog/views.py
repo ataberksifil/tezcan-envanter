@@ -28,6 +28,10 @@ from catalog.services.units_of_measure import (
     set_unit_of_measure_active,
     update_unit_of_measure,
 )
+from inventory.stock_list import (
+    STOCK_LIST_PERMISSION,
+    current_stock_balances_for_material,
+)
 from inventory.transaction_history import (
     TRANSACTION_HISTORY_PERMISSION,
     recent_transactions_for_material,
@@ -433,6 +437,10 @@ class MaterialDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
         )
         if self.request.user.has_perm(TRANSACTION_HISTORY_PERMISSION):
             context["recent_inventory_transactions"] = recent_transactions_for_material(
+                self.object.pk
+            )
+        if self.request.user.has_perm(STOCK_LIST_PERMISSION):
+            context["current_stock_balances"] = current_stock_balances_for_material(
                 self.object.pk
             )
         return context

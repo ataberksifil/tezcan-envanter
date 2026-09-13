@@ -88,6 +88,44 @@
     <dd class="col-sm-9">{{ material.updated_at }}</dd>
 </dl>
 
+{% if current_stock_balances is not None %}
+    <section class="mb-4" aria-labelledby="current-stock-heading">
+        <h2 class="h5" id="current-stock-heading">Mevcut stok</h2>
+        {% if current_stock_balances %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Konum</th>
+                            <th scope="col">Kondisyon</th>
+                            <th scope="col">Miktar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for balance in current_stock_balances %}
+                            <tr>
+                                <td>
+                                    <span title="{{ balance.location.id }}">{{ balance.location.code }} ({{ balance.location.name }})</span>
+                                    {% if not balance.location.active %}
+                                        <span class="badge text-bg-secondary">Pasif referans</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ balance.condition.name }}</td>
+                                <td class="text-nowrap">
+                                    {{ balance.quantity }}
+                                    {% if material.unit %}{{ material.unit.code }}{% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-body-secondary mb-0">Pozitif bakiye bulunmuyor.</p>
+        {% endif %}
+    </section>
+{% endif %}
+
 {% if recent_inventory_transactions %}
     <section class="mb-4" aria-labelledby="recent-transactions-heading">
         <h2 class="h5" id="recent-transactions-heading">Son envanter hareketleri</h2>

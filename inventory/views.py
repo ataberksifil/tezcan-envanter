@@ -19,7 +19,19 @@ from inventory.forms import (
     attach_return_validation_error,
     attach_transfer_validation_error,
 )
-from inventory.models import InventoryTransaction, InventoryTransactionLine, ProductionLine
+from inventory.models import (
+    InventoryTransaction,
+    InventoryTransactionLine,
+    ProductionLine,
+    StockBalance,
+)
+from inventory.stock_list import (
+    STOCK_LIST_PAGE_SIZE,
+    STOCK_LIST_PERMISSION,
+    build_stock_balance_queryset,
+    filter_params_from_request as stock_filter_params_from_request,
+    stock_list_filter_form_context,
+)
 from inventory.transaction_history import (
     TRANSACTION_HISTORY_PAGE_SIZE,
     TRANSACTION_HISTORY_PERMISSION,
@@ -475,6 +487,31 @@ class ReturnDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
                 - cumulative_returned,
             }
         )
+        return context
+
+
+class StockListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = STOCK_LIST_PERMISSION
+    model = StockBalance
+    context_object_name = "stock_balances"
+    template_name = "inventory/stock_list.html"
+    paginate_by = STOCK_LIST_PAGE_SIZE
+    http_method_names = ["get", "head"]
+
+    def get_queryset(self):
+        return build_stock_balance_queryset(self.request)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        params = stock_filter_params_from_request(self.request)
+        context.update(params)
+        context["location"] = (
+            str(params["location_id"]) if params["location_id"] is not None else ""
+        )
+        context["condition"] = (
+            str(params["condition_id"]) if params["condition_id"] is not None else ""
+        )
+        context.update(stock_list_filter_form_context())
         return context
 
 
