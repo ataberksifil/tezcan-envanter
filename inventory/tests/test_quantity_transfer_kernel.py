@@ -209,7 +209,7 @@ def test_transfer_transaction_type_and_valid_line_are_accepted(transfer_objects)
 def test_unsupported_transaction_type_is_rejected(transfer_objects):
     with pytest.raises(IntegrityError):
         with transaction.atomic():
-            _header(transfer_objects, "CONTROLLED_CORRECTION")
+            _header(transfer_objects, "UNSUPPORTED")
 
 
 @pytest.mark.parametrize(
@@ -361,7 +361,7 @@ def test_transfer_ledger_is_immutable_through_orm_and_raw_sql(transfer_objects):
 def test_transfer_permission_is_defined_and_rolled_out():
     permissions = dict(InventoryTransaction._meta.permissions)
     assert "transfer_stock" in permissions
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 23
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 25
     assert "inventory.return_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.transfer_stock" in SAFE_CATALOG_PERMISSION_LABELS
 
@@ -411,7 +411,10 @@ def test_transfer_kernel_migration_reverses_without_transfer_data_and_forwards_a
                 _header(transfer_objects, "TRANSFER")
         call_command("migrate", "inventory", TRANSFER_KERNEL_MIGRATION, verbosity=0)
     finally:
-        call_command("migrate", "inventory", TRANSFER_KERNEL_MIGRATION, verbosity=0)
+        # Restore the complete migration graph. Phase 5.2 adds inventory 0008 and
+        # a dependent corrections migration, so stopping at 0007 would leave the
+        # shared --reuse-db schema behind the current model state.
+        call_command("migrate", verbosity=0)
 
     assert recorder.migration_qs.filter(
         app="inventory", name=TRANSFER_KERNEL_MIGRATION

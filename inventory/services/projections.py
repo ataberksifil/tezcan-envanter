@@ -21,7 +21,7 @@ class QuantityProjectionMismatch:
 def verify_quantity_projection(
     *, using: str = "default"
 ) -> tuple[QuantityProjectionMismatch, ...]:
-    """Compare RECEIPT + RETURN + TRANSFER(target) - ISSUE - TRANSFER(source) with StockBalance."""
+    """Compare all canonical target additions and source deductions with StockBalance."""
     inbound = {
         (row["material_id"], row["target_location_id"], row["condition_id"]): row[
             "quantity"
@@ -29,7 +29,13 @@ def verify_quantity_projection(
         for row in (
             InventoryTransactionLine.objects.using(using)
             .filter(
-                transaction__transaction_type__in=("RECEIPT", "RETURN", "TRANSFER"),
+                transaction__transaction_type__in=(
+                    "RECEIPT",
+                    "RETURN",
+                    "TRANSFER",
+                    "CONTROLLED_CORRECTION",
+                ),
+                target_location__isnull=False,
             )
             .values("material_id", "target_location_id", "condition_id")
             .annotate(quantity=Sum("quantity"))
@@ -42,7 +48,12 @@ def verify_quantity_projection(
         for row in (
             InventoryTransactionLine.objects.using(using)
             .filter(
-                transaction__transaction_type__in=("ISSUE", "TRANSFER"),
+                transaction__transaction_type__in=(
+                    "ISSUE",
+                    "TRANSFER",
+                    "CONTROLLED_CORRECTION",
+                ),
+                source_location__isnull=False,
             )
             .values("material_id", "source_location_id", "condition_id")
             .annotate(quantity=Sum("quantity"))

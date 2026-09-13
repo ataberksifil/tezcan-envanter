@@ -260,7 +260,7 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 - **Primary Key:** `id`
 - **Foreign Keys:** `acting_user_id → auth user`; `source_transaction_id → inventory_transactions.id`. Correction ve baseline sonuç ilişkileri downstream workflow tabloları/linkleri tarafından sahiplenilir; inventory downstream app'lere reverse FK taşımaz.
 - **Unique Constraints:** `operation_id`; opsiyonel `transaction_number`.
-- **Current Check Constraint:** `transaction_type IN (RECEIPT, ISSUE, RETURN)`. TRANSFER, CONTROLLED_CORRECTION ve INITIAL_BALANCE ilgili karar/implementation fazlarından önce current DB domain'e eklenmez.
+- **Current Check Constraint:** `transaction_type IN (RECEIPT, ISSUE, RETURN, TRANSFER, CONTROLLED_CORRECTION)`. `INITIAL_BALANCE` count/baseline gate çözülmeden current DB domain'e eklenmez.
 - **Recommended Indexes:** `occurred_at`, `transaction_type, occurred_at`, `acting_user_id, occurred_at`, `source_transaction_id`; unique `operation_id`. Fingerprint tek başına lookup anahtarı değildir.
 - **Delete Policy:** `IMMUTABLE / NO DELETE`; PostgreSQL DB-level immutability guard zorunludur.
 - **Notes / TBD:** Ledger yalnızca tamamlanmış işlemleri içerdiği için mutable `status` alanı önerilmez. Taslak/validasyon import veya istek bağlamında tutulur. Committed header/line `UPDATE` ve `DELETE`, daha sonra Django migration ile yönetilecek PostgreSQL trigger-class guard tarafından reddedilmelidir; application/admin/ORM/raw application SQL bypass edemez. Exceptional repair/migration privileged, documented ve audited'dir. `INITIAL_BALANCE`, yalnızca onaylı `InventoryBaseline` üzerinden reconciled başlangıç stoğunu ledger'a alan kontrollü olaydır; serbest doğrudan stok yazımı değildir.
@@ -282,13 +282,14 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 | `source_location_id` | UUID | Evet | FK | Kaynak fiziksel lokasyon. |
 | `target_location_id` | UUID | Evet | FK | Hedef fiziksel lokasyon. |
 | `original_issue_line_id` | UUID | Evet | self-FK, RESTRICT | Yalnız RETURN line için zorunlu immutable original ISSUE lineage'i (`DEC-028`). |
+| `corrected_line_id` | UUID | Evet | self-FK, RESTRICT | Yalnız CONTROLLED_CORRECTION line için zorunlu canonical original-line lineage (`DEC-030`). |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Immutable satır kayıt zamanı. |
 
 - **Primary Key:** `id`
-- **Foreign Keys:** Başlık, material, asset, unit, condition, source/target location ve nullable `original_issue_line_id → inventory_transaction_lines.id`; tamamı historical delete restricted.
+- **Foreign Keys:** Başlık, material, asset, unit, condition, source/target location, nullable `original_issue_line_id` ve `corrected_line_id → inventory_transaction_lines.id`; tamamı historical delete restricted.
 - **Unique Constraints:** `(transaction_id, line_number)`. Gerekirse aynı işlemde aynı serialized asset tekrarını engelleyen `(transaction_id, serialized_asset_id)` koşullu unique.
 - **Check Constraints:** Ya `(serialized_asset_id IS NULL AND quantity > 0 AND unit_id IS NOT NULL)` ya da `(serialized_asset_id IS NOT NULL AND quantity IS NULL AND unit_id IS NULL)`; ikisi birlikte olamaz. `(source_location_id IS NULL OR target_location_id IS NULL OR source_location_id <> target_location_id)`.
-- **Recommended Indexes:** `transaction_id`, `material_id`, `serialized_asset_id`, `source_location_id`, `target_location_id`, `condition_id`, `original_issue_line_id`.
+- **Recommended Indexes:** `transaction_id`, `material_id`, `serialized_asset_id`, `source_location_id`, `target_location_id`, `condition_id`, `original_issue_line_id`, `corrected_line_id`.
 - **Delete Policy:** `IMMUTABLE / NO DELETE`.
 - **Notes / TBD:** Serialized satırda `quantity` **NULL** önerilir; `1` saklamak anonim quantity anlamını davet eder. Asset'ın `material_id` ile line material eşleşmesi ve tracking mode uyumu serviste zorunlu doğrulanır; catastrophic cross-table corruption için targeted PostgreSQL constraint trigger/guard gerekir. Sırf composite FK için redundant tracking-mode kolonu eklenmez; exact DB mekanizması implementation review konusudur. İşlem türüne göre source/target matrisi Bölüm 19'da sınıflandırılır.
 
@@ -352,29 +353,36 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 |---|---|---:|---|---|
 | `id` | UUID | Hayır | PK | Talep kimliği. |
 | `original_transaction_id` | UUID | Hayır | FK | Düzeltilecek özgün ledger işlemi. |
-| `requested_by_user_id` | Auth user PK tipi | Hayır | FK | Talep eden kullanıcı. |
-| `explanation` | TEXT | Hayır | Boş olamaz | Zorunlu açıklama. |
+| `original_line_id` | UUID | Hayır | FK | Transaction'a ait canonical özgün quantity satırı. |
+| `original_location_id` | UUID | Hayır | FK | Özgün line'ın source/target konumlarından düzeltilecek bucket. |
+| `requester_id` | Auth user PK tipi | Hayır | FK | Talep eden kullanıcı. |
+| `explanation` | TEXT | Hayır | Trim edilmiş 10..2000 | Zorunlu açıklama. |
+| `effect_type` | VARCHAR | Hayır | CHECK | `QUANTITY` veya `IDENTITY`. |
+| `quantity_effect` | NUMERIC(18,3) | Hayır | Effect-shape check | QUANTITY için signed/non-zero; IDENTITY için positive restatement miktarı. |
+| `corrected_material_id` | UUID | Evet | FK | IDENTITY için doğru material. |
+| `corrected_location_id` | UUID | Evet | FK | IDENTITY için doğru stock-holding location. |
+| `corrected_condition_id` | UUID | Evet | FK | IDENTITY için doğru condition. |
 | `status` | VARCHAR | Hayır | CHECK | `PENDING`, `APPROVED`, `REJECTED`. |
 | `requested_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Talep zamanı. |
-| `decided_by_user_id` | Auth user PK tipi | Evet | FK | Karar veren Yönetici/Müdür. |
+| `decided_by_id` | Auth user PK tipi | Evet | FK | Karar veren yetkili kullanıcı. |
 | `decided_at` | TIMESTAMPTZ | Evet | — | Sistem karar zamanı. |
 | `rejection_reason` | TEXT | Evet | PROPOSED | Ret gerekçesi. |
-| `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Teknik oluşturma zamanı. |
+| `resulting_transaction_id` | UUID | Evet | One-to-one FK | APPROVED ise `CONTROLLED_CORRECTION` sonucu; ilişki corrections tarafında. |
 | `updated_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Karar öncesi/karar güncelleme zamanı. |
 
 - **Primary Key:** `id`
-- **Foreign Keys:** Özgün transaction ve iki auth user FK'si; delete restricted.
-- **Unique Constraints:** Bir transaction için birden fazla talebin davranışı TBD olduğundan 1:1 unique konmaz.
-- **Check Constraints:** Status değer seti; `APPROVED/REJECTED` ise decider ve decided_at dolu, `PENDING` ise ikisi null. Ret gerekçesi DB'de zorunlu yapılmaz.
+- **Foreign Keys:** Özgün transaction/line/location, corrected identity, iki auth user ve workflow-owned result transaction FK'leri; delete restricted.
+- **Unique Constraints:** `(original_transaction_id) WHERE status = PENDING`; result transaction one-to-one. Terminal sonrası yeni request açılabilir.
+- **Check/trigger constraints:** Status/decision/result completeness; effect shape; trimmed explanation; original line membership ve non-correction QUANTITY root; original bucket membership; requester != decider; result type/lineage; submitted semantic fields immutable; no hard delete. Ret gerekçesi DB'de zorunlu yapılmaz.
 - **Recommended Indexes:** `status, requested_at`, `original_transaction_id`, `requested_by_user_id`, `decided_by_user_id`.
 - **Delete Policy:** Gönderim sonrası `IMMUTABLE / NO HARD DELETE`; yalnızca kontrollü durum geçişi.
-- **Notes / TBD:** Sonuç transaction ilişkisinin sahibi correction workflow'dur; ledger üzerinde reverse `correction_request_id` yoktur. Association shape, aynı kişinin talep/karar verip veremeyeceği, tek/cumulative sonuç, partial correction, original-line linkage, over-correction, sonraki hareket ve yetersiz current stock davranışı `DEC-HG-002` hard gate'i çözülmeden correction schema/service implementation başlayamaz. `rejection_reason` zorunluluğu yalnızca PROPOSED'dır.
+- **Notes:** `DEC-030` quantity first slice kararlıdır. Sonuç transaction ilişkisinin sahibi correction workflow'dur; ledger üzerinde reverse `correction_request_id` yoktur. Pure quantity effect bir correction line, identity restatement iki correction line üretir. `rejection_reason` zorunluluğu yalnızca PROPOSED'dır. Serialized/non-stock correction deferred kalır.
 
 ## 12. Attachment Tabloları
 
 ### 12.1 `attachments`
 
-**Purpose:** V1'de düzeltme talebinin zorunlu güncel fotoğraf kanıtını tutar.
+**Purpose:** Gelecekte düzeltme talebinin güncel fotoğraf kanıtını tutar. `DEC-031` nedeniyle Phase 5.2 ilk quantity diliminde tablo/model uygulanmaz.
 
 | Column | Conceptual Type | Null | Constraint | Description |
 |---|---|---:|---|---|
@@ -657,9 +665,9 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `inventory_transactions` | `issue_contexts` | 1 : 0..1 | Yalnızca ISSUE için zorunlu 1:1. |
 | `employees` | `issue_contexts` | 1 : 0..N | Receiver UUID referansı; snapshot zorunlu (`DEC-024`). |
 | `production_lines` | `issue_contexts` | 1 : 0..N | Hat UUID referansı; code/name snapshot zorunlu (`DEC-025`). |
-| `inventory_transactions` | `correction_requests` | 1 : 0..N | Birden çok talep davranışı TBD. |
-| `correction_requests` | `attachments` | 1 : 1..N | Gönderilmiş talepte en az bir fotoğraf servis invariant'ı. |
-| `correction_requests` | result transactions | 1 : 0..N | Downstream-owned association; exact shape `DEC-HG-002` ile gated. Ledger reverse FK taşımaz. |
+| `inventory_transactions` | `correction_requests` | 1 : 0..N | `DEC-030`: aynı original transaction için eşzamanlı en fazla bir `PENDING` talep; terminal sonrası yeni talep açılabilir. |
+| `correction_requests` | `attachments` | 1 : 0..N | `DEC-031`: fotoğraf/kanıt Phase 5.2 first slice'dan bilinçli olarak deferred; gelecekteki kanıt zorunluluğu açık karara bağlı kalır. |
+| `correction_requests` | result transaction | 1 : 0..1 | `DEC-030` downstream-owned one-to-one association; APPROVED ise zorunlu. Ledger reverse FK taşımaz. |
 | `physical_count_sessions` | quantity lines | 1 : 0..N | Oturum en az bir quantity veya asset satırına sahip olmalı. |
 | `physical_count_sessions` | asset lines | 1 : 0..N | Uzmanlaşmış serialized sayım satırı. |
 | `correction_requests` | count lines | 1 : 0..N | Fark çözümü bağlantısı. |
@@ -712,7 +720,7 @@ Her transaction line için `source_location_id` o lokasyondaki stok/state'i **az
 | `ISSUE` | Zorunlu `active && can_hold_stock` source | Null; kullanım yeri `issue_contexts`te | Service |
 | `RETURN` | Null | Zorunlu explicit target | `DEC-028` quantity first slice; original ISSUE line FK zorunlu, same material/unit/condition, cumulative cap. Target runtime `active && can_hold_stock` validation service fazındadır. |
 | `TRANSFER` | Zorunlu stock-holding source | Zorunlu, farklı stock-holding target | Source!=target DB row check + service |
-| `CONTROLLED_CORRECTION` | Azalış line'ında zorunlu | Artış line'ında zorunlu | Bounds/lineage `DEC-HG-002`; direction semantiği sabit |
+| `CONTROLLED_CORRECTION` | Azalış line'ında zorunlu | Artış line'ında zorunlu | `DEC-030`: one-line signed quantity veya two-line identity restatement; `corrected_line` zorunlu |
 | `INITIAL_BALANCE` | Null | Zorunlu stock-holding target | Yalnız baseline-owned scoped link ve inventory service |
 
 Broader RETURN ve controlled correction semantics kesinleşmeden DB'ye ek zorunluluk gömülmez; yalnız `DEC-028` quantity first-slice guards current schema'ya aittir.
@@ -933,7 +941,7 @@ erDiagram
     LOCATION o|--o{ INVENTORY_TRANSACTION_LINE : target
     INVENTORY_TRANSACTION ||--o| ISSUE_CONTEXT : issue_details
     INVENTORY_TRANSACTION ||--o{ CORRECTION_REQUEST : corrected_by
-    CORRECTION_REQUEST ||--|{ ATTACHMENT : evidenced_by
+    CORRECTION_REQUEST ||--o{ ATTACHMENT : evidenced_by
     PHYSICAL_COUNT_SESSION ||--o{ PHYSICAL_COUNT_QUANTITY_LINE : counts
     PHYSICAL_COUNT_SESSION ||--o{ PHYSICAL_COUNT_ASSET_LINE : counts
     IMPORT_BATCH ||--|{ IMPORT_ROW : stages
@@ -971,7 +979,7 @@ Bu legacy tablo güncel karar statüsünün kanonik kaydı değildir. `docs/06-D
 | DM-B10 | Olağan değişiklik `DEC-013` ile yasak; exceptional migration istenirse ayrı iş kararı gerekir. | `materials`, ledger validation |
 | DM-B11 | `DEC-028` unused linked QUANTITY RETURN için kararlı; broader serialized/used/defective/unknown-provenance RETURN açık kalır | Ledger service/FK kuralları |
 | DM-B12 | Transfer yetkileri ve zorunlu iş senaryoları nelerdir? | Permissions ve line validation |
-| DM-B13 | `DEC-HG-002`: Correction bounds/lineage ve aynı kişi talep/karar kuralları | `correction_requests`, downstream-owned transaction association |
+| DM-B13 | `DEC-030`: quantity correction bounds/lineage ve requester≠decider; broader correction deferred | `correction_requests`, downstream-owned transaction association |
 | DM-B14 | `DEC-HG-001`: Count stability; ayrıca tolerans, approver ve tamamlanma ölçütü | Count session, baseline |
 | DM-B15 | Bir baseline bir mi birden çok count session'a mı bağlanır? | `inventory_baselines` cardinality |
 | DM-B16 | `DEC-006`–`DEC-009` ile Gate 0'da kapatıldı: unique + conflict + lock, READ COMMITTED, lock order, fingerprint | StockBalance concurrency |

@@ -22,6 +22,7 @@ ALLOWED_TRANSACTION_TYPE_FILTERS = frozenset(
         InventoryTransaction.TransactionType.ISSUE,
         InventoryTransaction.TransactionType.RETURN,
         InventoryTransaction.TransactionType.TRANSFER,
+        InventoryTransaction.TransactionType.CONTROLLED_CORRECTION,
     }
 )
 
@@ -35,6 +36,9 @@ LINE_PREFETCH = Prefetch(
         "target_location",
         "original_issue_line__transaction",
         "original_issue_line__unit",
+        "corrected_line__transaction",
+        "corrected_line__material",
+        "corrected_line__condition",
     ).order_by("line_number"),
 )
 
@@ -130,6 +134,18 @@ def apply_transaction_history_filters(
                 transaction_type=InventoryTransaction.TransactionType.TRANSFER,
                 lines__target_location_id=location_id,
             )
+            | Q(
+                transaction_type=(
+                    InventoryTransaction.TransactionType.CONTROLLED_CORRECTION
+                ),
+                lines__source_location_id=location_id,
+            )
+            | Q(
+                transaction_type=(
+                    InventoryTransaction.TransactionType.CONTROLLED_CORRECTION
+                ),
+                lines__target_location_id=location_id,
+            )
         ).distinct()
 
     if actor_id is not None:
@@ -203,5 +219,9 @@ def filter_form_context() -> dict:
             (InventoryTransaction.TransactionType.ISSUE, "Stok çıkışı"),
             (InventoryTransaction.TransactionType.RETURN, "Stok iadesi"),
             (InventoryTransaction.TransactionType.TRANSFER, "Stok transferi"),
+            (
+                InventoryTransaction.TransactionType.CONTROLLED_CORRECTION,
+                "Kontrollü düzeltme",
+            ),
         ],
     }

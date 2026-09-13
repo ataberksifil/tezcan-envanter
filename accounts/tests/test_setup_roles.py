@@ -27,7 +27,7 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture
 def catalog_permissions():
     content_types = ContentType.objects.filter(
-        app_label__in=("catalog", "locations", "accounts", "inventory"),
+        app_label__in=("catalog", "locations", "accounts", "inventory", "corrections"),
         model__in=(
             "category",
             "unitofmeasure",
@@ -37,6 +37,7 @@ def catalog_permissions():
             "productionline",
             "inventorytransaction",
             "stockbalance",
+            "correctionrequest",
         ),
     )
     permissions = Permission.objects.filter(
@@ -57,6 +58,7 @@ def _template_codenames_for_group(group_name: str) -> set[str]:
                 "locations",
                 "accounts",
                 "inventory",
+                "corrections",
             )
         )
         if permission.codename in allowed
@@ -115,13 +117,18 @@ def test_new_view_only_templates_receive_no_catalog_write_or_delete_permissions(
 ):
     _run_setup_roles()
     codenames = _template_codenames_for_group(role_name)
-    assert not any(codename.startswith("add_") for codename in codenames)
+    assert not any(
+        codename.startswith("add_") and codename != "add_correctionrequest"
+        for codename in codenames
+    )
     assert not any(codename.startswith("change_") for codename in codenames)
     assert not any(codename.startswith("delete_") for codename in codenames)
     assert "view_location" in codenames
     assert "view_employee" in codenames
     assert "add_employee" not in codenames
     assert "change_employee" not in codenames
+    assert {"view_correctionrequest", "add_correctionrequest"} <= codenames
+    assert "decide_correctionrequest" not in codenames
 
 
 def test_new_admin_manager_receives_catalog_view_add_change_not_delete():
@@ -142,6 +149,31 @@ def test_new_admin_manager_receives_catalog_view_add_change_not_delete():
         "change_productionline",
     } <= codenames
     assert "delete_productionline" not in codenames
+    assert {
+        "view_correctionrequest",
+        "add_correctionrequest",
+        "decide_correctionrequest",
+    } <= codenames
+
+
+def test_fresh_correction_role_policy_and_non_destructive_rerun(catalog_permissions):
+    _run_setup_roles()
+    for role_name in (TECHNICIAN, STOREKEEPER):
+        codenames = _template_codenames_for_group(role_name)
+        assert {"view_correctionrequest", "add_correctionrequest"} <= codenames
+        assert "decide_correctionrequest" not in codenames
+    assert "decide_correctionrequest" in _template_codenames_for_group(
+        ADMIN_MANAGER
+    )
+
+    admin = Group.objects.get(name=ADMIN_MANAGER)
+    admin.permissions.remove(catalog_permissions["decide_correctionrequest"])
+    before = _permission_pks_for_group(ADMIN_MANAGER)
+    _run_setup_roles()
+    assert _permission_pks_for_group(ADMIN_MANAGER) == before
+    assert "decide_correctionrequest" not in _template_codenames_for_group(
+        ADMIN_MANAGER
+    )
 
 
 def test_running_twice_creates_no_duplicate_groups_and_no_permission_changes():
@@ -221,6 +253,8 @@ def test_existing_storekeeper_customized_catalog_permissions_are_preserved(
         "transfer_stock",
         "view_inventorytransaction",
         "view_stockbalance",
+        "view_correctionrequest",
+        "add_correctionrequest",
     }
 
 

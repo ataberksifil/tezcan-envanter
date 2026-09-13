@@ -24,41 +24,19 @@
     <dt class="col-sm-3">İşlemi yapan</dt>
     <dd class="col-sm-9">{{ transaction.acting_user.get_username }}</dd>
 
-    <dt class="col-sm-3">Satır numarası</dt>
-    <dd class="col-sm-9">{{ line.line_number }}</dd>
-
-    <dt class="col-sm-3">Malzeme kodu</dt>
-    <dd class="col-sm-9">{{ line.material.material_code }}</dd>
-
-    <dt class="col-sm-3">Malzeme adı</dt>
-    <dd class="col-sm-9">{{ line.material.name }}</dd>
-
-    <dt class="col-sm-3">Miktar</dt>
-    <dd class="col-sm-9">{{ line.quantity }}</dd>
-
-    <dt class="col-sm-3">Birim</dt>
-    <dd class="col-sm-9">{{ line.unit.code }} ({{ line.unit.name }})</dd>
-
-    <dt class="col-sm-3">Kondisyon</dt>
-    <dd class="col-sm-9">{{ line.condition.name }}</dd>
-
-    <dt class="col-sm-3">Kaynak konum</dt>
-    <dd class="col-sm-9">
-        {% if line.source_location %}
-            {{ line.source_location.code }} ({{ line.source_location.name }})
-        {% else %}
-            —
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Hedef konum</dt>
-    <dd class="col-sm-9">
-        {% if line.target_location %}
-            {{ line.target_location.code }} ({{ line.target_location.name }})
-        {% else %}
-            —
-        {% endif %}
-    </dd>
+    {% for rendered_line in lines %}
+        <dt class="col-sm-3">Satır {{ rendered_line.line_number }}</dt>
+        <dd class="col-sm-9">
+            {{ rendered_line.material.material_code }} — {{ rendered_line.material.name }};
+            {{ rendered_line.quantity }} {{ rendered_line.unit.code }};
+            {{ rendered_line.condition.name }};
+            {% if rendered_line.source_location %}{{ rendered_line.source_location.code }} kaynağından azalış{% endif %}
+            {% if rendered_line.target_location %}{{ rendered_line.target_location.code }} hedefine artış{% endif %}
+            {% if rendered_line.corrected_line %}
+                <br><span class="text-body-secondary">Düzeltilen özgün satır: <a href="{% url 'inventory:transaction-history-detail' rendered_line.corrected_line.transaction_id %}">{{ rendered_line.corrected_line.transaction_id }} / satır {{ rendered_line.corrected_line.line_number }}</a></span>
+            {% endif %}
+        </dd>
+    {% endfor %}
 
     {% if transaction.transaction_type == "ISSUE" and issue_context %}
         <dt class="col-sm-3">Alıcı ad</dt>
@@ -90,4 +68,17 @@
         <dd class="col-sm-9">{{ original_issue_line.quantity }} {{ original_issue_line.unit.code }}</dd>
     {% endif %}
 </dl>
+
+{% if perms.corrections.add_correctionrequest and transaction.transaction_type != "CONTROLLED_CORRECTION" %}
+    <a class="btn btn-primary mt-3" href="{% url 'corrections:request-create' transaction.pk %}">Düzeltme talebi oluştur</a>
+{% endif %}
+
+{% if linked_correction_requests %}
+    <h2 class="h5 mt-4">Düzeltme talepleri</h2>
+    <ul>
+    {% for item in linked_correction_requests %}
+        <li><a href="{% url 'corrections:request-detail' item.pk %}">{{ item.requested_at }} — {{ item.get_status_display }}</a></li>
+    {% endfor %}
+    </ul>
+{% endif %}
 {% endblock %}

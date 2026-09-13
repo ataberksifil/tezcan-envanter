@@ -65,6 +65,11 @@
                                 <a class="nav-link" href="{% url 'inventory:transaction-history-list' %}">Envanter hareketleri</a>
                             </li>
                         {% endif %}
+                        {% if perms.corrections.view_correctionrequest %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'corrections:request-list' %}">Düzeltme talepleri</a>
+                            </li>
+                        {% endif %}
                         {% show_management_nav user as management_nav_visible %}
                         {% if management_nav_visible %}
                             <li class="nav-item">

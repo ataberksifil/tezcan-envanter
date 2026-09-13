@@ -126,7 +126,7 @@ Tekil takipte zorunlu tanımlayıcılar, seri numarası kuralları ve takip biç
 - **FR-008:** Sistem malzeme durumunu kayıt altına alabilmelidir.
 - **FR-009:** Sistem negatif stok oluşmasını önlemelidir.
 - **FR-010:** Sistem işlem geçmişini saklamalı ve yetkili kullanıcılarca görüntülenebilir kılmalıdır.
-- **FR-011:** Sistem açıklama ve güncel destekleyici fotoğraf içeren düzeltme talebi iş akışını desteklemelidir.
+- **FR-011:** Sistem açıklamalı düzeltme talebi iş akışını desteklemelidir. Güncel destekleyici fotoğraf gereksinimi korunur; ilk quantity controlled-correction diliminde `DEC-031` ile ertelenmiştir.
 - **FR-012:** Düzeltmeler yönetici/müdür onayına tabi olmalıdır.
 - **FR-013:** Sistem malzeme bazında yapılandırılabilir minimum stok seviyesi desteklemelidir.
 - **FR-014:** Minimum seviyenin altına düşen stok, uygun yetkili kullanıcılar için açıkça görünür olmalıdır.
@@ -202,6 +202,8 @@ Hareket kayıtlarının muhasebe mantığı, iade ve düzeltmelerin ters kayıt 
 - **AUD-006:** Kontrollü düzeltme yalnızca yetkili yönetici/müdür süreci üzerinden sonuçlandırılmalıdır.
 - **AUD-007:** Talebin oluşturulması, değerlendirilmesi, onayı/reddi ve stok üzerindeki sonucu denetlenebilir olmalıdır.
 - **AUD-008:** Önemli işlemlerin kullanıcı ve zaman bilgisi korunmalıdır.
+
+`DEC-030` ilk quantity correction diliminde yanlış quantity/location/condition/material desteklenir; partial ve repeated correction canonical original line'a köklenir, correction-of-correction yoktur, original ledger değişmez ve onay current stock üzerinde atomik `CONTROLLED_CORRECTION` etkisi oluşturur. Requester kendi talebinde karar veremez. `DEC-031` evidence/photo uygulamasını bu ilk dilimden erteler; future authenticated visibility, format/HEIC ve retention gereksinimleri korunur.
 
 Düzeltmenin ters hareket, dengeleme kaydı veya başka bir kontrollü mekanizma ile uygulanacağı; ret/iptal durumları; onaylayan ile talep edenin aynı kişi olup olamayacağı; fotoğraf saklama ve erişim politikası **TBD**'dir.
 
@@ -356,7 +358,7 @@ Onaylanmış V1 taahhüdü oluşturmayan gelecek değerlendirmeleri:
 | TBD-002 | Esnek nitelik ve kategori ayrıntı modeli | Sonraki veri modeli fazında tasarlanacak. |
 | TBD-003 | Tekil/seri takibin ayrıntıları | Zorunlu tanımlayıcılar, seri kuralları ve takip biçimi değişiklik koşulları belirlenecek. |
 | TBD-004 | Hareket türü ve malzeme durumu ayrımı | Bilinen kavramların işlem türü, durum veya ikisi olarak sınıflandırılması resmi iş kurallarında netleştirilecek. |
-| TBD-005 | İade, söküm, arıza ve düzeltme mekanikleri | `DEC-028` unused linked QUANTITY RETURN first slice'ını kararlaştırır; broader RETURN, söküm/arıza ve correction mekanikleri açık kalır (`DEC-HG-002`, `DEC-HG-005`). |
+| TBD-005 | İade, söküm, arıza ve düzeltme mekanikleri | `DEC-028` unused linked QUANTITY RETURN; `DEC-030` quantity controlled correction first slice'ını kararlaştırır. Broader RETURN, söküm/arıza, serialized/non-stock correction ve count interaction açık kalır. |
 | TBD-006 | Transfer gereksinimi | Hangi operasyonlarda transferin zorunlu olduğu ve kaynak/hedef kuralları doğrulanacak. |
 | TBD-007 | Ölçü birimleri ve kısmi miktarlar | Kablo gibi malzemeler dahil birim ve dönüşüm kuralları belirlenmedi. |
 | TBD-008 | Konum hiyerarşisi | Hiyerarşi, kod, `can_hold_stock` ve yaşam döngüsü `DEC-023` ile kararlıdır. Çoklu konum dağıtımı (`DEC-OPEN-002`) ve sayım alanı sınırları (`DEC-HG-001`) açık kalır. |
@@ -452,7 +454,7 @@ Aşağıdaki onaylı gereksinimler bir sonraki görevde resmi, test edilebilir i
 
 7. **Düzeltme ve denetim**
    - Geçmiş hareketin sessizce değiştirilememesi.
-   - Düzeltme talebinde açıklama ve güncel destekleyici fotoğraf zorunluluğu.
+   - Düzeltme talebinde açıklama zorunluluğu; evidence/photo ilk quantity diliminde `DEC-031` ile deferred.
    - Yönetici/müdür onayı, ret ve uygulama akışı.
    - Düzeltmenin stok geçmişine denetlenebilir biçimde yansıması.
 

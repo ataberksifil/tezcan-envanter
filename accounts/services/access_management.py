@@ -45,6 +45,7 @@ WRITE_VIEW_DEPENDENCIES: tuple[tuple[str, str], ...] = (
     ("accounts.change_employee", "accounts.view_employee"),
     ("inventory.add_productionline", "inventory.view_productionline"),
     ("inventory.change_productionline", "inventory.view_productionline"),
+    ("corrections.add_correctionrequest", "corrections.view_correctionrequest"),
 )
 
 
@@ -437,7 +438,9 @@ def _validate_write_view_dependencies(labels: set[str]) -> None:
 
 def _load_supported_permissions(using: str) -> dict[str, Permission]:
     permissions = Permission.objects.using(using).filter(
-        content_type__app_label__in=("accounts", "catalog", "locations", "inventory")
+        content_type__app_label__in=(
+            "accounts", "catalog", "locations", "inventory", "corrections"
+        )
     ).select_related("content_type")
     permission_map = {
         permission_label(permission): permission

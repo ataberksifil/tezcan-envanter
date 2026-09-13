@@ -396,6 +396,34 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
 - **Consequence:** Quantity TRANSFER first slice kernel/schema/DB guards authorize edilmiştir. Serialized, custody, condition-change ve multi-bucket TRANSFER senaryoları açık/deferred kalır. `DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005` broader RETURN ve `DEC-OPEN-009` status değiştirmez.
 - **Implementation status:** Phase 4.5 COMPLETE (2026-09-12). Kernel/schema/DB guards, idempotent `transfer_quantity` service + TRANSFER projection arithmetic, create/detail UI, history/material integration ve `inventory.transfer_stock` managed rollout uygulanmıştır. Managed permission count 23'tür; fresh STOREKEEPER/ADMIN_MANAGER alır, TECHNICIAN almaz. Broader TRANSFER kapsamı (serialized, condition-changing, multi-source/target, FIFO/FEFO, custody, person-to-person, production usage, correction/count, QR/offline) değişmemiştir.
 
+### DEC-030 — Quantity Controlled Correction First-Slice Semantics
+
+- **Status:** `DECIDED`
+- **Required before:** Phase 5.2 controlled correction schema/service/UI
+- **Resolves:** `DEC-HG-002` yalnız quantity controlled-correction first slice için; partial/repeated correction, canonical original-line lineage, signed effects, later movement, self-decision, lifecycle, cardinality, authorization ve idempotency.
+- **Decision:**
+  1. İlk dilim yalnız `QUANTITY` malzeme için yanlış quantity, location, condition veya material düzeltir. Receiver, ProductionLine, usage-location text, transaction timestamp ve `IssueContext` rewrite kapsam dışıdır; serialized correction yoktur.
+  2. Düzeltme özgün ledger satırını değiştirmez. Onay, immutable ledger'a yalnız `CONTROLLED_CORRECTION` transaction ekler. Inventory, `corrections` modülüne bağımlı olmaz; sonuç transaction ilişkisini `CorrectionRequest` sahiplenir.
+  3. Her correction line ayrı nullable `corrected_line` self-FK ile canonical özgün satıra bağlanır. Correction transaction line'ı root olamaz; correction-of-correction chain yoktur. Non-correction line'larda bu alan null'dır.
+  4. Partial ve repeated correction serbesttir; aynı özgün satır zaman içinde birden çok approved correction alabilir. Yeni correction daima aynı canonical özgün satıra köklenir.
+  5. Pure quantity correction signed semantic effect kullanır: pozitif değer current bucket'ı artırır, negatif değer azaltır; upward cap yoktur. Negatif cumulative effect özgün quantity equivalent'ını sıfırın altına indiremez. Current balance negatif olamaz.
+  6. Identity restatement tek transaction içinde tam iki line'dır: yanlış kaydedilmiş özgün bucket'tan azalış ve doğru material/location/condition bucket'ına eşit miktarda artış. Pure quantity correction tam bir line'dır; arbitrary multiline yoktur.
+  7. Correction time travel değildir. Approval, ilgili current balance'ları deterministic sırada kilitler ve yeniden doğrular. Gerekli azalış current stock ile karşılanamıyorsa atomik olarak başarısız olur, ledger/projection/audit değişmez ve request `PENDING` kalır. Later movement tek başına blocker değildir.
+  8. Requester kendi talebini approve veya reject edemez. Pilot önkoşulu en az iki approval-capable user'dır; bu gereksinim development kolaylığı için gevşetilemez.
+  9. Lifecycle yalnız `PENDING`, `APPROVED`, `REJECTED`dır. Terminal request yeniden açılamaz; sonra yeni request açılabilir. Aynı original transaction için aynı anda en fazla bir `PENDING` request vardır.
+  10. Açıklama trim edilir; minimum 10, maksimum 2000 karakterdir. `PENDING` request stok veya ledger etkisi oluşturmaz.
+  11. Default permissions: TECHNICIAN ve STOREKEEPER `view/add`; ADMIN_MANAGER `view/add/decide`. Runtime authorization permission tabanlıdır. `decide_correctionrequest` dynamic safe allowlist'e eklenmez; `setup_roles` mevcut Group'ları değiştirmez.
+  12. Approval existing inventory idempotency architecture'ını kullanır; request identity'den deterministic operation identity türetilir ve server SHA-256 fingerprint korunur. Approval/rejection kararı `AuditEvent` üretir; stok hareketi ayrıca generic audit event olarak kopyalanmaz.
+- **Consequence:** `DEC-HG-002`, bu quantity first slice için kapanır. Serialized correction, non-stock context rewrite, evidence implementation ve correction/count/baseline etkileşimleri authorize edilmez.
+
+### DEC-031 — Correction Evidence First Slice Deferral
+
+- **Status:** `DECIDED`
+- **Required before:** Phase 5.2 first quantity controlled-correction slice
+- **Decision:** Daha önce onaylı supporting-photo/evidence gereksinimi silinmez, ancak Phase 5.2'nin ilk quantity controlled-correction diliminde bilinçli olarak ertelenir. Bu dilimde upload, evidence/attachment modeli, storage, HEIC işleme, dosya validation, retention veya retrieval endpoint'i uygulanmaz.
+- **Future contract:** Evidence eklendiğinde correction-view yetkili kullanıcılar evidence görebilir; erişim authenticated ve object/permission checked application path üzerinden olur, public media URL kullanılmaz. Format/size/currentness, HEIC/device support, visibility ayrıntıları ve retention `DEC-OPEN-013`/`DEC-OPEN-018` kapsamında sonuçlandırılmalıdır.
+- **Consequence:** Phase 5.2 evidence olmadan ilerleyebilir; ilerideki evidence fazı bu kaydı sessizce kalıcı muafiyet olarak yorumlayamaz.
+
 ## 3. Açık İş Kararları
 
 Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` alanında kanonik karar kaydına bağlanır.
@@ -403,7 +431,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Decision ID | Topic | Status | Source IDs | Required Before | Owner/Input Needed | Notes |
 |---|---|---|---|---|---|---|
 | `DEC-HG-001` | Physical count stock-stability strategy | `DEFERRED_WITH_HARD_GATE` | OD-011, OD-012, DM-B14, UF-O-06, Gate0-AUD-001 | Herhangi bir count/reconciliation schema/service/UI implementasyonu | İş sahibi + operasyon + mimari review | Scoped freeze, as-of snapshot/replay veya kanıtlanmış revalidation/reconfirmation seçeneklerinden biri seçilmeli. Explicit scope, expected timing, idempotent reconciliation, double-apply guard ve serialized discrepancy çözümü zorunlu. |
-| `DEC-HG-002` | Correction bounds ve lineage | `DEFERRED_WITH_HARD_GATE` | OD-017, COR-011, DM-B13, UF-O-13, Gate0-AUD-006 | Correction schema/service implementation | İş sahibi + inventory architect | Tek/cumulative approval, partial correction, original-line link, over-correction, later movement, correction-of-correction, requester=approver ve yetersiz current stock cevaplanmalı. |
+| `DEC-HG-002` | Correction bounds ve lineage | `DECIDED_FOR_QUANTITY_FIRST_SLICE` | OD-017, COR-011, DM-B13, UF-O-13, Gate0-AUD-006 | Serialized/broader correction | İş sahibi + inventory architect | `DEC-030` quantity first slice için gate'i kapatır. Serialized, non-stock context rewrite, evidence ve correction/count/baseline etkileşimi deferred kalır. |
 | `DEC-HG-003` | Production line veri modeli | `DECIDED` | OD-007, DM-B07, UF-O-01, Gate0-AUD-010 | ProductionLine foundation implementation (Phase 3.3 COMPLETE) | — | `DEC-025` ile kapatıldı. `ProductionLine` dynamic master-data entity; recursive hierarchy; code/name lifecycle; exact usage place ayrı free text. Foundation Phase 3.3 ve quantity ISSUE Phase 4.2 COMPLETE. |
 | `DEC-HG-004` | Employee identity linkage ve number reuse | `DECIDED` | OD-026 (employee linkage), DM-B01, DM-B08, UF-O-02, UF-O-16, UF-O-17, Gate0-AUD-017 | Employee foundation implementation (Phase 3.2 COMPLETE) | — | `DEC-024` ile kapatıldı (foundation). `accounts.Employee` ayrı entity; sicil string/global unique/editable; nullable one-to-one User link SET_NULL; lifecycle active/inactive. Foundation Phase 3.2 COMPLETE. Retention pilot öncesi kararları (`DEC-OPEN-013`, `DEC-OPEN-018`) açık kalır. Receiver snapshot korunur. |
 | `DEC-HG-005` | RETURN semantics | `DECIDED_FOR_QUANTITY_FIRST_SLICE` | OD-004, RET-004, DM-B11, UF-O-04, UF-O-12, Gate0-AUD-018 | Broader RETURN schema/service/UI | İş sahibi | `DEC-028`, yalnız unused linked QUANTITY RETURN first slice için gate'i kapatır. Serialized, used/defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları deferred/hard-gated kalır. |
@@ -458,7 +486,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Quantity ISSUE first slice (Phase 4.2A–4.2C) | **COMPLETE** (2026-09-12). `DEC-027`; receiver/ProductionLine snapshots, kernel/service/UI ve `inventory.issue_stock` rollout uygulanmıştır. |
 | Technician field intake request/approval workflow | `DEC-020` kararlıdır; talep/onay schema/service/UI ve hareket türü eşlemesi `DEC-028` ordinary direct RETURN slice'ından ayrıdır ve ayrıca kararlaştırılmalıdır. |
 | Quantity unused linked RETURN | **COMPLETE** (Phase 4.4, 2026-09-12). `DEC-028`; kernel/schema/DB guards, service/projection, UI ve permission rollout uygulanmıştır. Broader RETURN `DEC-HG-005` altında deferred kalır. |
-| Corrections | `DEC-HG-002`; ayrıca `DEC-OPEN-006` yalnız PROPOSED kalır |
+| Quantity controlled corrections (Phase 5.2) | **COMPLETE** (2026-09-13; 1242 test passed). `DEC-030`, `DEC-031`; `DEC-OPEN-006` rejection reason için yalnız PROPOSED kalır |
 | Counting/reconciliation | `DEC-HG-001` ve `DEC-OPEN-007`; stability modeli olmadan Phase 11/count implementation başlayamaz |
 | Baseline schema/cutover | `DEC-OPEN-008` approval + count-session cardinality; `DEC-002` ve `DEC-015` teknik contract'ları sabittir |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |
@@ -485,6 +513,8 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Quantity ISSUE first slice | **COMPLETE** (2026-09-12). `DEC-027`; Phase 4.2A `bc77b50`, 4.2B `e99a6c3`, 4.2C `077e9d5`; managed permission count 21. |
 | Quantity RETURN first slice (Phase 4.4) | **COMPLETE** (2026-09-12). `DEC-028`; kernel, service/projection, UI/history integration ve `inventory.return_stock` rollout uygulanmıştır; broader RETURN deferred kalır. |
 | Quantity TRANSFER first slice | **COMPLETE** (Phase 4.5, 2026-09-12). `DEC-029`; kernel, service/projection, UI/history/material integration ve `inventory.transfer_stock` rollout uygulanmıştır. Broader TRANSFER senaryoları deferred kalır. |
+| Phase 5.1 current-stock visibility | **COMPLETE** at `44f1d30b7b8a72b768293de3ecbff32769e3f454`. |
+| Phase 5.2 quantity controlled correction | **COMPLETE** (`DEC-030`, `DEC-031`, 2026-09-13; 1242 test passed). Evidence bu ilk dilimde deferred. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 | Gate 3 | Phase 3 + quantity-only RECEIPT (4.0A–4.1) — **Disposition: `PASS`** (2026-09-12). Bkz. §4.5. ISSUE/TRANSFER/RETURN/serialized/correction/count-baseline authorize edilmemiştir. |
@@ -693,7 +723,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | `AUD-003` | HIGH | `ACCEPT_NOW` | Her hierarchy node stok tutabiliyor | Stock-eligible capability ekle | `DEC-004`; leaf-only değil `can_hold_stock` | `02`, `03`, `04`, `05`, `AGENTS` |
 | `AUD-004` | HIGH | `ACCEPT_NOW` | Ledger immutability yalnız policy | Trigger veya restricted DB role | `DEC-005`; preferred PostgreSQL trigger guard | `02`, `03`, `05`, `AGENTS` |
 | `AUD-005` | HIGH | `ACCEPT_NOW` | Nonexistent balance row lock edilemiyor; lock order eksik | Unique + on-conflict + lock ve deterministic ordering | `DEC-006`–`DEC-008` | `02`, `03`, `04`, `05`, `AGENTS` |
-| `AUD-006` | HIGH | `DEFER_WITH_HARD_GATE` | Over/partial correction ve lineage belirsiz | Bounds ve line linkage kararları | `DEC-HG-002`; correction implementation öncesi | `02`, `03`, `04`, `05`, `AGENTS` |
+| `AUD-006` | HIGH | `DEFER_WITH_HARD_GATE` | Over/partial correction ve lineage belirsiz | Bounds ve line linkage kararları | `DEC-030` quantity first slice için gate'i kapattı; broader/serialized correction deferred | `02`, `03`, `04`, `05`, `AGENTS` |
 | `AUD-007` | HIGH | `ACCEPT_NOW` | operation_id conflicting payload'u ayıramıyor | Payload fingerprint | `DEC-009`; server-generated SHA-256 canonical fingerprint | `02`, `03`, `04`, `05`, `AGENTS` |
 | `AUD-008` | HIGH | `ACCEPT_NOW` | Projection rebuild/verify yalnız teorik | Verify ve protected rebuild operation | `DEC-014` | `02`, `03`, `05`, `AGENTS` |
 | `AUD-009` | HIGH | `ACCEPT_NOW` | Reverse workflow FKs ve barcode ownership dependency cycle yaratıyor | İlişkileri downstream'e taşı; neutral identification | `DEC-010`, `DEC-011` | `02`, `03`, `04`, `05`, `AGENTS` |

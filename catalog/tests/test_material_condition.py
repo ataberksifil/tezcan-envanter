@@ -169,7 +169,7 @@ def test_seed_migration_defines_exactly_four_reference_rows():
 
 
 def test_managed_permission_set_remains_exactly_twenty_three():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 23
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 25
     assert not any(
         "materialcondition" in label for label in SAFE_CATALOG_PERMISSION_LABELS
     )

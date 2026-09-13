@@ -260,7 +260,7 @@ Server-side authorization zorunludur; gizli/disabled button güvenlik değildir.
 
 Phase 3 managed Location permissions (`DEC-023`, `DEC-022` item 13): `locations.view_location`, `locations.add_location`, `locations.change_location`. Application access management `delete_location` expose etmez. `add_location` veya `change_location`, `view_location` gerektirir. Varsayılan şablonlar ileride `TECHNICIAN`/`STOREKEEPER` için `view_location`, `ADMIN_MANAGER` için view/add/change içerebilir. `setup_roles` non-destructive kalır; mevcut Group'lara sessizce yeni izin verilmez.
 
-Count/reconciliation ve reporting permission'larını uydurma. `DEC-028` direct quantity RETURN için `inventory.return_stock`, `DEC-029` quantity TRANSFER first slice için `inventory.transfer_stock` permission'ını onaylar. Phase 4.4 ve Phase 4.5 rollout tamamlanmıştır: fresh `STOREKEEPER` ve `ADMIN_MANAGER` bu izinleri alır, `TECHNICIAN` almaz; managed permission count 23'tür. `setup_roles` non-destructive kalır ve mevcut Group'lara bu izinleri sessizce eklemez.
+Count/reconciliation ve reporting permission'larını uydurma. `DEC-028` direct quantity RETURN için `inventory.return_stock`, `DEC-029` quantity TRANSFER first slice için `inventory.transfer_stock` permission'ını onaylar. Phase 4.4 ve Phase 4.5 rollout tamamlanmıştır: fresh `STOREKEEPER` ve `ADMIN_MANAGER` bu izinleri alır, `TECHNICIAN` almaz. `DEC-030` ile correction view/add safe-managed, decision permission ise safe allowlist dışındadır; managed permission count 25'tir. `setup_roles` non-destructive kalır ve mevcut Group'lara bu izinleri sessizce eklemez.
 
 `DEC-HG-005`, `DEC-028` ile yalnız unused linked QUANTITY RETURN first slice için kapanmıştır: exactly one immutable original ISSUE line; exactly one RETURN line; partial ve multiple RETURN allowed; cumulative linked quantity original ISSUE quantity'yi aşamaz; material/unit/condition original line ile aynıdır; source null, explicit target required; ordinary actor gelecekte `STOREKEEPER` veya `ADMIN_MANAGER`, `TECHNICIAN` değildir. Serialized, used/removed, defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları deferred/hard-gated kalır.
 
@@ -285,10 +285,11 @@ Employee master değişse bile receiver snapshot okunabilir kalır. Normal kulla
 `CorrectionRequest` için zorunlu:
 
 - original transaction
+- original transaction line
 - requester
 - explanation
-- current supporting photo
 - request timestamp
+- requested quantity correction veya identity restatement
 
 `PENDING` talep stock değiştirmez. Approval:
 
@@ -298,9 +299,11 @@ Employee master değişse bile receiver snapshot okunabilir kalır. Normal kulla
 - controlled, traceable inventory effect üretir
 - decision actor/time'ı korur
 
-Rejection reason yalnız **PROPOSED**'dır; onay gelmeden mandatory constraint/form kuralı yapma.
+`DEC-030` quantity first slice'ı kararlıdır: partial/repeated correction serbest; lineage canonical original line'a köklenir; correction-of-correction yoktur; signed positive effect artırır, signed negative effect azaltır; upward cap yoktur; cumulative negative effect original quantity equivalent'ını sıfırın altına indiremez; approval current balance üzerinde lock/revalidate eder; insufficient stock request'i `PENDING` bırakır; requester kendi talebini approve/reject edemez. Pure quantity correction bir line, material/location/condition identity restatement eşit miktarlı decrease+increase olarak iki line üretir.
 
-`DEC-HG-002`: Tek/cumulative approved correction, partial correction, original-line reference, over-correction, correction after later movement, correction-of-correction lineage, requester=approver ve current stock'un negative correction'ı karşılayamaması karara bağlanmadan correction schema/service implementation başlatma.
+Status yalnız `PENDING`, `APPROVED`, `REJECTED`dır; bir original transaction için aynı anda en fazla bir `PENDING` request vardır. Açıklama trim edilmiş 10..2000 karakterdir. Rejection reason yalnız **PROPOSED**'dır; mandatory yapma.
+
+`DEC-031`: supporting photo/evidence ilk Phase 5.2 quantity diliminden bilinçli olarak deferred'dır. Upload/model/storage/HEIC/retention/retrieval şimdi uygulanmaz. Gelecekte correction-view yetkili kullanıcı visibility'si, authenticated object-level retrieval ve `DEC-OPEN-013`/`018` kararları korunur.
 
 ## 15. Physical Count, Import ve Baseline
 

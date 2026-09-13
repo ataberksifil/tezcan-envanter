@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Düzeltme talepleri — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Düzeltme talepleri</h1>
+<form class="row g-2 mb-3" method="get">
+    <div class="col-sm-4">
+        <label class="form-label" for="id_status">Durum</label>
+        <select class="form-select" id="id_status" name="status">
+            <option value="">Tümü</option>
+            {% for value, label in status_choices %}<option value="{{ value }}"{% if status_filter == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-sm-2 align-self-end"><button class="btn btn-outline-secondary" type="submit">Filtrele</button></div>
+</form>
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead><tr><th>Talep zamanı</th><th>İşlem</th><th>Satır / malzeme</th><th>Talep eden</th><th>Tür</th><th>Durum</th><th></th></tr></thead>
+        <tbody>
+        {% for item in correction_requests %}
+            <tr>
+                <td>{{ item.requested_at }}</td>
+                <td class="font-monospace">{{ item.original_transaction_id }}</td>
+                <td>{{ item.original_line.line_number }} — {{ item.original_line.material.material_code }}</td>
+                <td>{{ item.requester.get_username }}</td>
+                <td>{{ item.get_effect_type_display }}</td>
+                <td>{{ item.get_status_display }}</td>
+                <td><a class="btn btn-sm btn-outline-secondary" href="{% url 'corrections:request-detail' item.pk %}">Detay</a></td>
+            </tr>
+        {% empty %}<tr><td colspan="7" class="text-body-secondary">Kayıt bulunamadı.</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

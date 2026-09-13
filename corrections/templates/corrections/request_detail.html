@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Düzeltme talebi — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Düzeltme talebi</h1>
+    <a class="btn btn-outline-secondary" href="{% url 'corrections:request-list' %}">Listeye dön</a>
+</div>
+<dl class="row">
+    <dt class="col-sm-3">Talep UUID</dt><dd class="col-sm-9 font-monospace">{{ correction_request.pk }}</dd>
+    <dt class="col-sm-3">Özgün işlem</dt><dd class="col-sm-9"><a href="{% url 'inventory:transaction-history-detail' correction_request.original_transaction_id %}">{{ correction_request.original_transaction_id }}</a></dd>
+    <dt class="col-sm-3">Özgün satır</dt><dd class="col-sm-9">{{ correction_request.original_line.line_number }} — {{ correction_request.original_line.material.material_code }} / {{ correction_request.original_line.condition.name }} / {{ correction_request.original_location.code }}</dd>
+    <dt class="col-sm-3">Talep eden</dt><dd class="col-sm-9">{{ correction_request.requester.get_username }}</dd>
+    <dt class="col-sm-3">Açıklama</dt><dd class="col-sm-9">{{ correction_request.explanation }}</dd>
+    <dt class="col-sm-3">Tür</dt><dd class="col-sm-9">{{ correction_request.get_effect_type_display }}</dd>
+    <dt class="col-sm-3">Miktar etkisi</dt><dd class="col-sm-9">{{ correction_request.quantity_effect }}</dd>
+    {% if correction_request.effect_type == "IDENTITY" %}
+        <dt class="col-sm-3">Doğru kimlik</dt><dd class="col-sm-9">{{ correction_request.corrected_material.material_code }} / {{ correction_request.corrected_condition.name }} / {{ correction_request.corrected_location.code }}</dd>
+    {% endif %}
+    <dt class="col-sm-3">Durum</dt><dd class="col-sm-9">{{ correction_request.get_status_display }}</dd>
+    <dt class="col-sm-3">Talep zamanı</dt><dd class="col-sm-9">{{ correction_request.requested_at }}</dd>
+    <dt class="col-sm-3">Karar veren</dt><dd class="col-sm-9">{% if correction_request.decided_by %}{{ correction_request.decided_by.get_username }}{% else %}—{% endif %}</dd>
+    <dt class="col-sm-3">Karar zamanı</dt><dd class="col-sm-9">{{ correction_request.decided_at|default:"—" }}</dd>
+    {% if correction_request.rejection_reason %}<dt class="col-sm-3">Ret gerekçesi</dt><dd class="col-sm-9">{{ correction_request.rejection_reason }}</dd>{% endif %}
+    <dt class="col-sm-3">Sonuç işlemi</dt><dd class="col-sm-9">{% if correction_request.resulting_transaction %}<a href="{% url 'inventory:transaction-history-detail' correction_request.resulting_transaction_id %}">{{ correction_request.resulting_transaction_id }}</a>{% else %}—{% endif %}</dd>
+</dl>
+{% if correction_request.status == "PENDING" and perms.corrections.decide_correctionrequest %}
+    {% if correction_request.requester_id == user.id %}
+        <div class="alert alert-warning">Kendi talebinizde karar veremezsiniz.</div>
+    {% else %}
+        <div class="d-flex flex-wrap gap-3 align-items-start">
+            <form method="post" action="{% url 'corrections:approve' correction_request.pk %}">{% csrf_token %}<button class="btn btn-success" type="submit">Onayla</button></form>
+            <form method="post" action="{% url 'corrections:reject' correction_request.pk %}" class="card card-body">{% csrf_token %}{{ rejection_form.as_p }}<button class="btn btn-danger" type="submit">Reddet</button></form>
+        </div>
+    {% endif %}
+{% endif %}
+{% endblock %}

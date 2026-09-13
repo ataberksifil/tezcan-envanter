@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Düzeltme talebi — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Düzeltme talebi</h1>
+    <a class="btn btn-outline-secondary" href="{% url 'inventory:transaction-history-detail' original_transaction.pk %}">İşleme dön</a>
+</div>
+<p class="text-body-secondary">Özgün işlem: <span class="font-monospace">{{ original_transaction.pk }}</span>. Talep beklemedeyken stok değişmez.</p>
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    {% for field in form %}
+        <div class="mb-3">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+        </div>
+    {% endfor %}
+    <div class="alert alert-secondary">Fotoğraf/kanıt bu ilk quantity correction diliminde alınmaz; sonraki evidence fazına ertelenmiştir.</div>
+    <button class="btn btn-primary" type="submit">Talebi oluştur</button>
+</form>
+{% endblock %}

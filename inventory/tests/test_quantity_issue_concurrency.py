@@ -78,6 +78,7 @@ class QuantityIssueConcurrencyTests(TransactionTestCase):
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    corrections_correctionrequest,
                     inventory_issuecontext,
                     inventory_inventorytransactionline,
                     inventory_inventorytransaction,

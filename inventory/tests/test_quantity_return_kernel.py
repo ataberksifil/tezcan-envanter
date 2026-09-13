@@ -182,7 +182,7 @@ def test_return_transaction_type_and_valid_line_are_accepted(return_objects):
 def test_unsupported_transaction_type_remains_rejected(return_objects):
     with pytest.raises(IntegrityError):
         with transaction.atomic():
-            _header(return_objects, "CONTROLLED_CORRECTION")
+            _header(return_objects, "UNSUPPORTED")
 
 
 @pytest.mark.parametrize(
@@ -432,5 +432,5 @@ def test_return_cannot_own_issue_context_and_issue_behavior_is_unchanged(return_
 def test_return_permission_definition_is_in_managed_rollout():
     permissions = dict(InventoryTransaction._meta.permissions)
     assert "return_stock" in permissions
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 23
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 25
     assert "inventory.return_stock" in SAFE_CATALOG_PERMISSION_LABELS

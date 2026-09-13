@@ -257,7 +257,7 @@ def test_receipt_and_issue_transaction_types_are_allowed(kernel_objects):
 def test_unsupported_transaction_type_is_rejected_by_database(kernel_objects):
     with pytest.raises(IntegrityError):
         with transaction.atomic():
-            create_header(kernel_objects, transaction_type="CONTROLLED_CORRECTION")
+            create_header(kernel_objects, transaction_type="UNSUPPORTED")
 
 
 def test_operation_id_is_globally_unique_across_receipt_and_issue(kernel_objects):
@@ -1140,8 +1140,8 @@ def test_receipt_and_issue_routes_are_operational_not_management_and_admin_stays
     assert StockBalance not in admin.site._registry
 
 
-def test_managed_permission_boundary_is_twenty_three_with_transfer_stock():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 23
+def test_managed_permission_boundary_is_twenty_five_with_correction_request():
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 25
     assert "inventory.receive_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.issue_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.return_stock" in SAFE_CATALOG_PERMISSION_LABELS

@@ -330,7 +330,7 @@ Her satırda source azalış, target artış anlamına gelir; aşağıdaki tablo
 | `ISSUE` | Zorunlu stock-holding location | Yok | Kaynak miktarı azaltır veya tekil varlığı stok dışına çıkarır; zorunlu `IssueContext` taşır. |
 | `RETURN` | Yok | Zorunlu, açıkça seçilen stock-holding location | `DEC-028` unused linked QUANTITY slice: exactly one original ISSUE line; same material/unit/condition; partial/multiple allowed; cumulative cap original ISSUE quantity. Broader RETURN deferred'dır. |
 | `TRANSFER` | Zorunlu stock-holding location | Zorunlu, source'dan farklı stock-holding location | Tek atomik olayda source azalır, target artar. |
-| `CONTROLLED_CORRECTION` | Azalış düzeltmesinde zorunlu | Artış düzeltmesinde zorunlu | Bir line tek yönlü etki taşır; partial/cumulative ve lineage kuralları `DEC-HG-002` çözülmeden implement edilemez. |
+| `CONTROLLED_CORRECTION` | Azalış line'ında zorunlu | Artış line'ında zorunlu | `DEC-030`: pure signed quantity effect tek line; identity restatement eşit miktarlı decrease+increase olarak iki line; ikisi de canonical original line lineage taşır. |
 | `INITIAL_BALANCE` | Yok | Zorunlu stock-holding location | Yalnız reconciled baseline üzerinden açılış stoğunu bir kez oluşturur. |
 
 ### IssueContext
@@ -381,9 +381,10 @@ Eşzamanlı mutation PostgreSQL `READ COMMITTED` varsayımıyla önce lock, sonr
 Kavramsal içerik:
 
 - özgün `InventoryTransaction`,
+- özgün `InventoryTransactionLine` ve etkilenen original bucket location,
 - talep eden `ApplicationUser`,
 - açıklama,
-- en az bir güncel destekleyici fotoğraf `Attachment`,
+- signed quantity effect veya corrected material/location/condition identity,
 - sistemce kaydedilen talep zamanı,
 - durum,
 - karar veren `ADMIN_MANAGER`,
@@ -410,9 +411,11 @@ Kurallar:
 - onaylanan sonuç özgün işlemi silmez/değiştirmez;
 - özgün işlem, talep, karar ve sonuç işlemi birlikte izlenebilir kalır;
 - ret gerekçesinin zorunluluğu yalnızca `PROPOSED` kuraldır;
-- talep eden ile karar verenin aynı kişi olup olamayacağı **TBD**'dir;
+- talep eden kendi talebini approve veya reject edemez;
 - sonuç işlemi bağlantısının sahibi `CorrectionRequest`tır; inventory ledger downstream correction modülüne reverse FK taşımaz;
-- tek veya cumulative approval, partial correction, original-line linkage, over-correction, sonraki hareketler, correction-of-correction, requester=approver ve yetersiz current stock davranışı `DEC-HG-002` ile hard gate'tir. Bu kararlar verilmeden correction schema/service implementation başlayamaz.
+- `DEC-030` quantity first slice'ta partial/repeated correction canonical original line'a köklenir; correction-of-correction yoktur; upward cap yoktur; cumulative negative effect original quantity equivalent'ını sıfır altına indiremez;
+- approval current balance üzerinde lock/revalidate eder; later movement tek başına blocker değildir, yetersiz current stock atomik failure üretir ve request `PENDING` kalır;
+- supporting evidence/photo `DEC-031` ile ilk quantity diliminden deferred'dır; gelecekte correction-view-authorized visibility, authenticated retrieval, HEIC/device support ve retention gereksinimleri korunur.
 
 ## 12. Fiziksel Sayım ve Mutabakat Domaini
 
@@ -517,7 +520,7 @@ QR payload biçimi, semboloji, etiket ölçüsü, yazıcı entegrasyonu ve yenid
 
 ### Attachment
 
-`Attachment`, düzeltme kanıtı metadata'sını temsil eden entity'dir. Onaylı V1 kullanımı `CorrectionRequest` için güncel destekleyici fotoğraftır. Metadata sahipliği `Corrections` boundary'sindedir; binary storage teknik abstraction'ı shared `Core` tarafından sağlanır. V1'de ayrı bir Attachments module zorunlu değildir. Import kaynak dosyası kendi `ImportBatch` metadata'sında izlenir.
+`Attachment`, gelecekteki düzeltme kanıtı metadata'sını temsil eden entity'dir. `DEC-031` ile Phase 5.2 ilk quantity correction diliminde model/storage uygulanmaz. Gelecekte metadata sahipliği `Corrections` boundary'sinde, binary storage teknik abstraction'ı shared `Core` altında kalır; correction-view-authorized kullanıcılar authenticated/object-checked erişebilir. V1'de ayrı bir Attachments module zorunlu değildir. Import kaynak dosyası kendi `ImportBatch` metadata'sında izlenir.
 
 Kavramsal metadata:
 
@@ -725,8 +728,8 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 | OD-016 | Lokasyon hiyerarşisi/kodu ve stoklu lokasyonun pasifleştirilmesi `DEC-023` ile kararlı | `Location` ilişkileri ve yaşam döngüsü (inventory enforcement sonraki entegrasyon) |
 | OD-015 | Olağan değişiklik `DEC-013` ile yasak; exceptional migration istenirse iş kararı | `Material`, ledger ve kontrollü dönüşüm |
 | OD-011, OD-012 | Sayım onayı, tolerans, baseline onayı ve otorite kesim ölçütü | `PhysicalCountSession` ve `InventoryBaseline` yaşam döngüsü |
-| OD-017 | `DEC-HG-002`: düzeltme bounds, görev ayrılığı, partial/cumulative ve lineage | `CorrectionRequest` kardinalite ve durum geçişleri |
-| COR-011 / OD-017 | `DEC-HG-002`: kontrollü düzeltme mekanikleri | Workflow-owned result ilişkisi |
+| OD-017 | `DEC-030`: quantity düzeltme bounds, görev ayrılığı, partial/cumulative ve lineage | `CorrectionRequest` kardinalite ve durum geçişleri |
+| COR-011 / OD-017 | `DEC-030`: quantity controlled correction mekanikleri | Workflow-owned result ilişkisi |
 | Gate0-AUD-001 | `DEC-HG-001`: count stock-stability modeli | Count scope, expected timing, reconciliation |
 | Gate0-AUD-018 | `DEC-028`: unused linked QUANTITY RETURN kararlı; broader `DEC-HG-005` deferred | Return schema/service/UI |
 

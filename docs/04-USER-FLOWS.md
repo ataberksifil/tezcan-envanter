@@ -622,12 +622,12 @@ flowchart TD
 **Main Flow**
 1. Özgün işlem açılır.
 2. Kullanıcı açıklama girer.
-3. Güncel destekleyici fotoğraf yükler.
+3. Quantity effect veya doğru material/location/condition identity'sini belirtir.
 4. Talebi gönderir.
-5. Talep `PENDING` olur.
+5. Talep `PENDING` olur. İlk dilimde fotoğraf yoktur (`DEC-031`).
 
 **Validation Rules**
-- COR-003–COR-005: Talep eden, açıklama ve fotoğraf zorunlu.
+- Talep eden ve trim edilmiş 10..2000 karakter açıklama zorunlu; correction target canonical original line olmalıdır (`DEC-030`).
 - `PENDING` talep stok değiştirmez (COR-006).
 - Sensitive fotoğraf public media URL ile sunulmaz; correction object permission'ı kontrol edilen application path üzerinden erişilir.
 
@@ -635,7 +635,7 @@ flowchart TD
 - `correction_requests` kaydı oluşturulur; özgün işlem değişmez.
 
 **Failure / Alternate Flows**
-- Açıklama/fotoğraf eksik, yetki yok, geçersiz işlem.
+- Açıklama/effect eksik, yetki yok, geçersiz veya correction transaction hedefi.
 
 **Permissions**
 - COR-002, AUTH-004.
@@ -647,7 +647,7 @@ flowchart TD
 - Talep, talep eden, `requested_at` kaydedilir.
 
 **TBD / Open Decisions**
-- Fotoğraf formatı, boyut, güncellik ölçütü.
+- Evidence/photo ilk dilimde `DEC-031` ile deferred; format, HEIC/device support, retention ve authenticated visibility gelecekte karara bağlanır.
 
 ### UF-COR-002 — Düzeltme Onayı / Reddi
 
@@ -661,7 +661,7 @@ flowchart TD
 
 **Main Flow**
 1. Bekleyen talepler listelenir.
-2. Yönetici talebi açar; özgün işlem, açıklama ve fotoğraf incelenir.
+2. Yönetici talebi açar; özgün işlem/satır, açıklama ve correction effect incelenir.
 3. Onay veya ret kararı verilir.
 4. **Onay:** Kontrollü düzeltme ledger etkisi oluşturulur; özgün işlem korunur.
 5. **Ret:** Talep `REJECTED`; karar veren ve zaman kaydedilir.
@@ -679,7 +679,8 @@ flowchart TD
 
 **Validation Rules**
 - COR-007–COR-009: Yalnızca Yönetici/Müdür karar verir.
-- Aynı `PENDING` talep iki kez onaylanamaz (eşzamanlılık kilidi).
+- Aynı `PENDING` talep iki kez onaylanamaz (eşzamanlılık kilidi); requester kendi talebini approve/reject edemez.
+- Onay current affected balance'ları kilitler; required decrease yetersizse request `PENDING` kalır ve hiçbir kısmi etki oluşmaz.
 - Ret gerekçesi **PROPOSED** zorunluluktur; onaylı değil.
 
 **Success Result**
@@ -699,8 +700,8 @@ flowchart TD
 - Karar veren, `decided_at`, talep–sonuç bağlantısı.
 
 **TBD / Open Decisions**
-- `DEC-HG-002`: Tek/cumulative approval, partial correction, original-line reference, over-correction, correction after later movement, correction-of-correction, requester=approver ve yetersiz current stock. Bu kararlar correction schema/service başlamadan çözülmelidir.
-- Ret gerekçesi zorunluluğu yalnız `PROPOSED`dır.
+- `DEC-030` quantity first slice kararları uygulanır; serialized/non-stock correction ve count/baseline interaction deferred kalır.
+- Evidence `DEC-031` ile deferred; ret gerekçesi zorunluluğu yalnız `PROPOSED`dır.
 
 ### UF-HIS-001 — İşlem Geçmişi Görüntüleme
 
@@ -1397,7 +1398,7 @@ flowchart LR
 | Transaction History | Yetkili kullanıcılar | UF-HIS-001 |
 | Transaction Detail | Yetkili kullanıcılar | UF-HIS-001, UF-COR-001 |
 | Correction Request | TECHNICIAN, STOREKEEPER, ADMIN_MANAGER | UF-COR-001 |
-| Correction Approval Queue | `DEC-HG-002` çözülünce ADMIN_MANAGER | UF-COR-002 |
+| Correction Approval Queue | `corrections.decide_correctionrequest`; fresh ADMIN_MANAGER | UF-COR-002 |
 | Physical Count Sessions | `DEC-HG-001` çözülene kadar kapalı | UF-CNT-001 |
 | Physical Count Entry | `DEC-HG-001` çözülene kadar kapalı | UF-CNT-001 |
 | Reconciliation | `DEC-HG-001` çözülene kadar kapalı | UF-CNT-002 |
@@ -1446,7 +1447,7 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 | Decision | Bloke edilen alan |
 |---|---|
 | `DEC-HG-001` | Count/reconciliation schema, service ve UI; stock-stability modeli seçilmeden başlayamaz. |
-| `DEC-HG-002` | Correction schema/service; bounds ve lineage kararı olmadan başlayamaz. |
+| `DEC-030` | Quantity correction first slice kararlı; serialized/non-stock/evidence/count interaction deferred. |
 | `DEC-HG-003` | **DECIDED** (`DEC-025`). ProductionLine foundation ve quantity ISSUE Phase 4.2 COMPLETE. |
 | `DEC-HG-004` | **DECIDED** (`DEC-024`). Employee foundation ve quantity ISSUE Phase 4.2 COMPLETE. |
 | `DEC-HG-005` | `DEC-028` ile yalnız unused linked QUANTITY RETURN slice için kapandı; broader RETURN schema/service/UI hard-gated kalır. |
@@ -1472,7 +1473,7 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 |---|---|---|
 | UF-O-11 | Kondisyonun kullanılabilir stok ve iade uygunluğu | Stok hesabı, return validation |
 | UF-O-12 | `DEC-028`: exactly one original ISSUE line self-FK ve cumulative cap | Return service |
-| UF-O-13 | `DEC-HG-002` Controlled correction bounds ve lineage | Approval sonrası ledger |
+| UF-O-13 | `DEC-030` quantity controlled correction bounds ve lineage; broader scope deferred | Approval sonrası ledger |
 | UF-O-14 | Normal change `DEC-013` ile yasak; exceptional migration policy açık | Material edit |
 | UF-O-15 | Stoklu lokasyon pasifleştirme `DEC-023` ile kararlı | Location deactivate; inventory enforcement sonraki entegrasyon |
 | UF-O-16 | Employee/user nullable one-to-one (`DEC-024`); receiver foundation ve Phase 4.2C ISSUE UI COMPLETE | Receiver lookup |

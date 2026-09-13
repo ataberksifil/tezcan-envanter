@@ -88,6 +88,7 @@ class InventoryTransaction(models.Model):
         ISSUE = "ISSUE", "Stok çıkışı"
         RETURN = "RETURN", "Stok iadesi"
         TRANSFER = "TRANSFER", "Stok transferi"
+        CONTROLLED_CORRECTION = "CONTROLLED_CORRECTION", "Kontrollü düzeltme"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     operation_id = models.UUIDField()
@@ -130,7 +131,13 @@ class InventoryTransaction(models.Model):
             ),
             models.CheckConstraint(
                 condition=Q(
-                    transaction_type__in=["RECEIPT", "ISSUE", "RETURN", "TRANSFER"]
+                    transaction_type__in=[
+                        "RECEIPT",
+                        "ISSUE",
+                        "RETURN",
+                        "TRANSFER",
+                        "CONTROLLED_CORRECTION",
+                    ]
                 ),
                 name="inventory_tx_type_supported",
             ),
@@ -197,6 +204,13 @@ class InventoryTransactionLine(models.Model):
         blank=True,
         on_delete=models.RESTRICT,
         related_name="return_lines",
+    )
+    corrected_line = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.RESTRICT,
+        related_name="correction_lines",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
