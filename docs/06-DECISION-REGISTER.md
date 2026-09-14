@@ -424,6 +424,27 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
 - **Future contract:** Evidence eklendiğinde correction-view yetkili kullanıcılar evidence görebilir; erişim authenticated ve object/permission checked application path üzerinden olur, public media URL kullanılmaz. Format/size/currentness, HEIC/device support, visibility ayrıntıları ve retention `DEC-OPEN-013`/`DEC-OPEN-018` kapsamında sonuçlandırılmalıdır.
 - **Consequence:** Phase 5.2 evidence olmadan ilerleyebilir; ilerideki evidence fazı bu kaydı sessizce kalıcı muafiyet olarak yorumlayamaz.
 
+### DEC-032 — Serialized Inventory Foundation and Serialized RECEIVE First Slice
+
+- **Status:** `DECIDED`
+- **Required before:** Phase 5.3 serialized asset foundation/schema/service/UI
+- **Resolves:** `DEC-OPEN-004`; `OD-008`, `DM-B02`, `DM-B03`, `UF-O-08` için serialized identifier, uniqueness, ilk current-state vocabulary ve serialized RECEIVE ledger şekli
+- **Does not resolve:** `DEC-HG-001` physical count stability; serialized ISSUE, RETURN, TRANSFER veya controlled correction; custody/person; installed/repair/scrapped lifecycle; QR/barcode; baseline/import/evidence; condition-changing serialized movement
+- **Decision:**
+  1. **Teknik kimlik:** Her `SerializedAsset`, immutable/stable UUID primary key taşır. Gelecekteki QR arkasındaki canonical identity bu UUID olacaktır; QR ve neutral `identification` app Phase 5.3 kapsamı dışındadır.
+  2. **Operasyonel kimlik:** `internal_asset_code` zorunlu, outer-trim uygulanmış, case-preserved ve global olarak unique'tir. Arama, lookup, receipt, gelecek fiziksel sayım ve label/QR gösterimi için insan-facing temel koddur; teknik primary key değildir.
+  3. **Üretici seri numarası:** `serial_number` optional'dır; outer-trim sonrası boş değer `NULL` olur. Non-null değer aynı material içinde unique, farklı material'lar arasında tekrar kullanılabilir; global kimlik veya primary key değildir. PostgreSQL partial unique constraint nullable semantiğini korur.
+  4. **Tek fiziksel nesne:** Bir asset tam olarak bir fiziksel item'dır. Serialized stokta quantity math, `quantity=1`, serialized `StockBalance` veya serialized quantity aggregation yoktur.
+  5. **İlk projection vocabulary:** Yalnız `IN_STOCK` state'i vardır. `current_state`, `current_location` ve `current_condition` birbirinden ayrıdır; future custody/person state değildir. Condition sözlüğü `MaterialCondition`dır.
+  6. **İlk geçerlilik:** Asset material'ı `SERIALIZED`; current location `active=true AND can_hold_stock=true`; current condition active olmalıdır. Ledger authoritative, asset `current_*` alanları aynı DB transaction içinde güncellenen rebuildable projection'dır.
+  7. **Ledger line şekli:** Quantity line `serialized_asset=NULL`, `quantity>0`, `unit NOT NULL`; serialized line `serialized_asset NOT NULL`, `quantity=NULL`, `unit=NULL`. Serialized line material'ı asset material'ıyla aynı olmalıdır. Catastrophic cross-table invariant'lar service ve targeted PostgreSQL guard ile korunur.
+  8. **İlk movement:** Yalnız serialized `RECEIPT` authorize edilir: source null, explicit target, asset, active condition, tam bir line. Asset creation + immutable RECEIVE ledger + `IN_STOCK` projection tek atomik inventory command'dır; ordinary success generic `AuditEvent` duplicate etmez.
+  9. **Idempotency/locking:** Mevcut `operation_id` + server SHA-256 fingerprint/replay/conflict contract'ı kullanılır. Fingerprint actor, material, normalized internal code, normalized optional serial, target ve condition'ı kapsar. Lock order: operation reservation → Material → target Location → MaterialCondition → identifier uniqueness conflict point; database uniqueness collisionlarda son otoritedir.
+  10. **Permission/UI:** Serialized RECEIVE ayrı functional workflow kullanır ve mevcut `inventory.receive_stock` permission'ını yeniden kullanır. Fresh role semantics değişmez: TECHNICIAN almaz; STOREKEEPER ve ADMIN_MANAGER alır. Yeni serialized-specific permission yoktur.
+  11. **History/identity protection:** Ledger history taşıyan asset hard-delete edilemez; material, internal asset code ve manufacturer serial identity'si generic model/admin yollarından değiştirilemez. Current projection yalnız inventory service ile değişir; writable Django Admin yüzeyi yoktur.
+  12. **Projection verification:** `verify_inventory_projection` read-only capability'si serialized RECEIVE ledger-derived material/location/condition/`IN_STOCK` state ile persisted asset projection'ını karşılaştırır. Otomatik repair/rebuild yoktur; sonraki movements verifier'ı ayrıca genişletir.
+- **Consequence:** Phase 5.3 serialized foundation + serialized RECEIVE authorize edilir ve `DEC-OPEN-004` kapanır. Physical count dependency kabul edilir ancak `DEC-HG-001` çözülmeden count schema/service/UI başlamaz. Serialized ISSUE/RETURN/TRANSFER/correction, broader lifecycle/custody, QR, count/baseline/import/evidence ve UI polish deferred kalır.
+
 ## 3. Açık İş Kararları
 
 Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` alanında kanonik karar kaydına bağlanır.
@@ -438,7 +459,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | `DEC-OPEN-001` | Condition'ın available/minimum stock etkisi | `OPEN` | OD-001, OD-002, OD-003, OD-027, DM-B04, UF-O-11 | Issue availability, return, low-stock report | İş sahibi | Condition ile movement type ayrımı değişmez. |
 | `DEC-OPEN-002` | Quantity stock için çoklu lokasyondan seçim/dağıtım | `OPEN` | OD-005 | İlgili issue/picking feature | İş sahibi | Çoklu lokasyonda stok tutabilme modeli desteklenir. |
 | `DEC-OPEN-003` | Minimum stock aggregation | `OPEN` | OD-006, DM-B05, UF-O-03 | Low-stock/report implementation | İş sahibi | Global, location veya usable-condition semantics uydurulamaz. |
-| `DEC-OPEN-004` | Serialized identifier ve current-state vocabulary | `OPEN` | OD-008, DM-B02, DM-B03, UF-O-08 | Serialized receipt/issue | İş sahibi + mevcut etiket/veri örnekleri | Zorunlu identifier ve serial uniqueness scope belirlenmeli. |
+| `DEC-OPEN-004` | Serialized identifier ve current-state vocabulary | `DECIDED` | OD-008, DM-B02, DM-B03, UF-O-08 | Phase 5.3 serialized foundation + RECEIVE | — | `DEC-032` ile kapatıldı: UUID technical identity; global unique internal asset code; optional per-material unique manufacturer serial; `IN_STOCK`-only first slice. |
 | `DEC-OPEN-005` | Storekeeper operational permissions | `OPEN` | OD-009, AUTH-011 (operational scope), UF-O-09 | İlgili warehouse feature | İş sahibi | Confirmed receipt/issue yetkileri korunur; diğerleri uydurulmaz. Phase 2 access management `DEC-022` ile kararlıdır. |
 | `DEC-OPEN-006` | Correction rejection reason zorunluluğu | `PROPOSED` | OD-010, COR-010, DM-S07, UF-O-19 | Correction reject form | İş sahibi | Onaylanana kadar nullable kalır. |
 | `DEC-OPEN-007` | Count tolerance, performer ve reconciliation role | `OPEN` | OD-011, DM-B14, UF-O-06 | Counting implementation | İş sahibi | `DEC-HG-001` stability kararından ayrıdır, ikisi de gerekir. |
@@ -482,11 +503,12 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | First Django migration / Django bootstrap | `DEC-019`: project-owned `AUTH_USER_MODEL` (`accounts.User`, minimal `AbstractUser`) |
 | Employee foundation implementation (Phase 3.2) | **COMPLETE** (2026-09-12). `DEC-024`; Employee şekli, sicil, User link, lifecycle, permission ve audit politikası kararlıdır. |
 | ProductionLine foundation implementation (Phase 3.3) | **COMPLETE** (2026-09-12). `DEC-025`; şekil, hiyerarşi, code/name, lifecycle ve permission politikası kararlıdır. |
-| Catalog/import identity matching | `DEC-OPEN-004`, `DEC-OPEN-021` (Material code; Location code `DEC-023`; Employee number `DEC-024` ile kararlı); history sonrası tracking mode için `DEC-013` zaten kararlı |
+| Catalog/import identity matching | Serialized asset identity `DEC-032` ile kararlı; `DEC-OPEN-021` Material code için açık (Location code `DEC-023`; Employee number `DEC-024` ile kararlı); history sonrası tracking mode için `DEC-013` zaten kararlı |
 | Quantity ISSUE first slice (Phase 4.2A–4.2C) | **COMPLETE** (2026-09-12). `DEC-027`; receiver/ProductionLine snapshots, kernel/service/UI ve `inventory.issue_stock` rollout uygulanmıştır. |
 | Technician field intake request/approval workflow | `DEC-020` kararlıdır; talep/onay schema/service/UI ve hareket türü eşlemesi `DEC-028` ordinary direct RETURN slice'ından ayrıdır ve ayrıca kararlaştırılmalıdır. |
 | Quantity unused linked RETURN | **COMPLETE** (Phase 4.4, 2026-09-12). `DEC-028`; kernel/schema/DB guards, service/projection, UI ve permission rollout uygulanmıştır. Broader RETURN `DEC-HG-005` altında deferred kalır. |
 | Quantity controlled corrections (Phase 5.2) | **COMPLETE** (2026-09-13; 1242 test passed). `DEC-030`, `DEC-031`; `DEC-OPEN-006` rejection reason için yalnız PROPOSED kalır |
+| Serialized inventory foundation + serialized RECEIVE (Phase 5.3) | **AUTHORIZED** (`DEC-032`, 2026-09-13). Yalnız asset identity/current projection + serialized RECEIVE; count ve diğer serialized movements deferred. |
 | Counting/reconciliation | `DEC-HG-001` ve `DEC-OPEN-007`; stability modeli olmadan Phase 11/count implementation başlayamaz |
 | Baseline schema/cutover | `DEC-OPEN-008` approval + count-session cardinality; `DEC-002` ve `DEC-015` teknik contract'ları sabittir |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |
@@ -515,6 +537,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Quantity TRANSFER first slice | **COMPLETE** (Phase 4.5, 2026-09-12). `DEC-029`; kernel, service/projection, UI/history/material integration ve `inventory.transfer_stock` rollout uygulanmıştır. Broader TRANSFER senaryoları deferred kalır. |
 | Phase 5.1 current-stock visibility | **COMPLETE** at `44f1d30b7b8a72b768293de3ecbff32769e3f454`. |
 | Phase 5.2 quantity controlled correction | **COMPLETE** (`DEC-030`, `DEC-031`, 2026-09-13; 1242 test passed). Evidence bu ilk dilimde deferred. |
+| Phase 5.3 serialized inventory foundation + serialized RECEIVE | **AUTHORIZED** (`DEC-032`, 2026-09-13). `DEC-OPEN-004` kapandı; `DEC-HG-001` ve diğer serialized movement/lifecycle/QR kapsamları açık/deferred kaldı. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 | Gate 3 | Phase 3 + quantity-only RECEIPT (4.0A–4.1) — **Disposition: `PASS`** (2026-09-12). Bkz. §4.5. ISSUE/TRANSFER/RETURN/serialized/correction/count-baseline authorize edilmemiştir. |
@@ -756,7 +779,7 @@ Legacy kimlikler silinmez; toplu eşlemeler aşağıdaki kanonik kayıtlara yön
 | `OD-005` | `DEC-OPEN-002` |
 | `OD-006`, `DM-B05`, `UF-O-03` | `DEC-OPEN-003` |
 | `OD-007`, `DM-B07`, `UF-O-01` | `DEC-025` (`DEC-HG-003` DECIDED) |
-| `OD-008`, `DM-B02`, `DM-B03`, `UF-O-08` | `DEC-OPEN-004` |
+| `OD-008`, `DM-B02`, `DM-B03`, `UF-O-08` | `DEC-032` (`DEC-OPEN-004` DECIDED) |
 | `OD-009`, `UF-O-09` | `DEC-OPEN-005` |
 | `OD-010`, `UF-O-19` | `DEC-OPEN-006` |
 | `OD-011`, `DM-B14`, `UF-O-06` | `DEC-HG-001`, `DEC-OPEN-007` |
@@ -785,7 +808,7 @@ Legacy kimlikler silinmez; toplu eşlemeler aşağıdaki kanonik kayıtlara yön
 | Product IDs | Canonical decision |
 |---|---|
 | `TBD-001`, `TBD-002` | `DEC-OPEN-019` |
-| `TBD-003` | `DEC-OPEN-004`, `DEC-013`, `DEC-OPEN-011` |
+| `TBD-003` | `DEC-032`, `DEC-013`, `DEC-OPEN-011` |
 | `TBD-004` | `DEC-OPEN-001`; movement/condition ayrımı zaten onaylıdır |
 | `TBD-005` | `DEC-HG-002`, `DEC-HG-005` |
 | `TBD-006` | `DEC-OPEN-009` |

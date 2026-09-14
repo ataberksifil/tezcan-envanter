@@ -16,7 +16,7 @@
             id="id_q"
             name="q"
             value="{{ q }}"
-            placeholder="Malzeme, kullanıcı, alıcı, kullanım yeri"
+            placeholder="Malzeme, varlık kodu/seri, kullanıcı, alıcı, kullanım yeri"
         >
     </div>
     <div class="col-md-2">
@@ -85,7 +85,7 @@
                     <th scope="col">Tarih/saat</th>
                     <th scope="col">Tür</th>
                     <th scope="col">Malzeme</th>
-                    <th scope="col">Miktar</th>
+                    <th scope="col">Miktar / varlık</th>
                     <th scope="col">Kondisyon</th>
                     <th scope="col">Konum</th>
                     <th scope="col">İşlemi yapan</th>
@@ -101,7 +101,13 @@
                             <td>
                                 <span title="{{ line.material.id }}">{{ line.material.material_code }} — {{ line.material.name }}</span>
                             </td>
-                            <td class="text-nowrap">{{ line.quantity }} {{ line.unit.code }}</td>
+                            <td class="text-nowrap">
+                                {% if line.serialized_asset_id %}
+                                    {{ line.serialized_asset.internal_asset_code }}{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
+                                {% else %}
+                                    {{ line.quantity }} {{ line.unit.code }}
+                                {% endif %}
+                            </td>
                             <td>{{ line.condition.name }}</td>
                             <td>
                                 {% if transaction.transaction_type == "ISSUE" and line.source_location %}

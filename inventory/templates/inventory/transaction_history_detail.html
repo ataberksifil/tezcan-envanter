@@ -28,7 +28,11 @@
         <dt class="col-sm-3">Satır {{ rendered_line.line_number }}</dt>
         <dd class="col-sm-9">
             {{ rendered_line.material.material_code }} — {{ rendered_line.material.name }};
-            {{ rendered_line.quantity }} {{ rendered_line.unit.code }};
+            {% if rendered_line.serialized_asset_id %}
+                dahili varlık {{ rendered_line.serialized_asset.internal_asset_code }}{% if rendered_line.serialized_asset.serial_number %}; üretici seri {{ rendered_line.serialized_asset.serial_number }}{% endif %};
+            {% else %}
+                {{ rendered_line.quantity }} {{ rendered_line.unit.code }};
+            {% endif %}
             {{ rendered_line.condition.name }};
             {% if rendered_line.source_location %}{{ rendered_line.source_location.code }} kaynağından azalış{% endif %}
             {% if rendered_line.target_location %}{{ rendered_line.target_location.code }} hedefine artış{% endif %}
@@ -69,7 +73,7 @@
     {% endif %}
 </dl>
 
-{% if perms.corrections.add_correctionrequest and transaction.transaction_type != "CONTROLLED_CORRECTION" %}
+{% if perms.corrections.add_correctionrequest and transaction.transaction_type != "CONTROLLED_CORRECTION" and not line.serialized_asset_id %}
     <a class="btn btn-primary mt-3" href="{% url 'corrections:request-create' transaction.pk %}">Düzeltme talebi oluştur</a>
 {% endif %}
 

@@ -797,7 +797,7 @@ Bu legacy özet tüm projeyi bloke etmez. Güncel status, owner, source mapping 
 | Konu | İlgili feature/modül | Kaynak |
 |---|---|---|
 | Employee number ve material code uniqueness/reuse | accounts, catalog, imports | Employee number `DEC-024`; Location code `DEC-023`; Material code remainder `DEC-OPEN-021` |
-| Serialized zorunlu identifier ve state kodları | serialized receipt/issue/transfer | DM-B02, DM-B03 |
+| Serialized identifier ve ilk state kodu | Phase 5.3 foundation + RECEIVE | `DEC-032`: UUID, mandatory/global internal code, optional/per-material serial, `IN_STOCK`; broader movements/lifecycle deferred |
 | Kondisyonun available/minimum stok etkisi | inventory, low stock, return | DM-B04 |
 | Minimum stok aggregation | reports/low stock | DM-B05 |
 | Birim bazlı decimal precision/kısmi miktar | quantity mutation | DM-B06 |
@@ -903,7 +903,7 @@ Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs
 
 **Phase 4.1:** Quantity RECEIPT UI + permission rollout — COMPLETE (2026-09-12).
 
-Quantity RECEIPT, ISSUE, `DEC-028` unused linked RETURN ve `DEC-029` quantity TRANSFER uçtan uca implement edilmiştir. Phase 5.1 current-stock visibility `44f1d30b7b8a72b768293de3ecbff32769e3f454` commit'inde COMPLETE'tir. `DEC-030` Phase 5.2 quantity controlled correction COMPLETE'tir; son doğrulama 1242 test ile geçmiştir. Serialized inventory, broader RETURN, count/baseline ve correction evidence henüz implement edilmemiştir. **Gate 3 PASS** (2026-09-12; bkz. `06` §4.5) yalnız tarihsel audited scope'u doğrular.
+Quantity RECEIPT, ISSUE, `DEC-028` unused linked RETURN ve `DEC-029` quantity TRANSFER uçtan uca implement edilmiştir. Phase 5.1 current-stock visibility `44f1d30b7b8a72b768293de3ecbff32769e3f454` commit'inde COMPLETE'tir. `DEC-030` Phase 5.2 quantity controlled correction COMPLETE'tir; son doğrulama 1242 test ile geçmiştir. `DEC-032` Phase 5.3 serialized identity/current projection + serialized RECEIVE first slice'ını authorize eder; diğer serialized movements, broader RETURN, count/baseline ve correction evidence deferred kalır. **Gate 3 PASS** (2026-09-12; bkz. `06` §4.5) yalnız tarihsel audited scope'u doğrular.
 
 ## 37. Dynamic Configuration Architecture
 
@@ -1014,6 +1014,7 @@ Inventory Core preflight disposition kanonikleşmiştir (`DEC-026`; `PASS FOR NE
 | 4.2C | ISSUE UI + `inventory.issue_stock` permission rollout — **COMPLETE** (`077e9d5`) |
 | 4.4 | Quantity RETURN first slice: kernel + service + UI + permission rollout — **COMPLETE** (`DEC-028`, 2026-09-12) |
 | 4.5 | Quantity TRANSFER first slice: kernel + service + UI + permission rollout — **COMPLETE** (`DEC-029`, 2026-09-12) |
+| 5.3 | Serialized inventory foundation + serialized RECEIVE — **AUTHORIZED** (`DEC-032`, 2026-09-13) |
 
 **Onaylı ilk mutation:** quantity RECEIPT — uçtan uca implement edilmiştir (`DEC-026`).
 
@@ -1027,10 +1028,12 @@ Inventory Core preflight disposition kanonikleşmiştir (`DEC-026`; `PASS FOR NE
 
 **Quantity RECEIPT implementation (Phase 4.0C–4.1):** idempotent `receive_stock` service; PostgreSQL concurrency koruması; receipt create/detail UI; `inventory.receive_stock` managed permission rollout; `operation_id` double-submit koruması.
 
+**Serialized RECEIVE first slice (Phase 5.3, `DEC-032`):** asset UUID + mandatory global internal code + optional per-material manufacturer serial; `IN_STOCK`/location/condition projection; serialized ledger line asset FK with null quantity/unit; asset + RECEIVE + projection one atomic command; existing `inventory.receive_stock` permission.
+
 **Quantity ISSUE implementation (Phase 4.2A–4.2C, `DEC-027`):** tek material/source/condition/quantity/line; explicit condition bucket; mandatory IssueContext; `inventory.issue_stock`; DB-backed IssueContext guards.
 
 **Phase 5.2 başlangıç full-suite baseline:** 1206 passed (`44f1d30b7b8a72b768293de3ecbff32769e3f454`)
 
-**Managed permission count:** 23. `inventory.return_stock` ve `inventory.transfer_stock` fresh STOREKEEPER ve ADMIN_MANAGER şablonlarında bulunur; TECHNICIAN şablonunda bulunmaz.
+**Managed permission count:** 25. `inventory.return_stock` ve `inventory.transfer_stock` fresh STOREKEEPER ve ADMIN_MANAGER şablonlarında bulunur; TECHNICIAN şablonunda bulunmaz.
 
-**Gate 3:** **PASS** (2026-09-12; audited HEAD `4cf895250bea37e42da4af9fac8d68c28253048e`; fresh PostgreSQL migration-from-zero; fresh-schema full suite 823 passed / 0 skipped; bkz. `06` §4.5). Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-010`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. Gate 3 yalnız RECEIPT slice'ını doğrular; `DEC-027` quantity ISSUE authorization ayrıdır.
+**Gate 3:** **PASS** (2026-09-12; audited HEAD `4cf895250bea37e42da4af9fac8d68c28253048e`; fresh PostgreSQL migration-from-zero; fresh-schema full suite 823 passed / 0 skipped; bkz. `06` §4.5). `DEC-OPEN-004` daha sonra `DEC-032` ile Phase 5.3 first slice için kapatılmıştır. Diğer inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-010`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. Gate 3 yalnız tarihsel quantity RECEIPT slice'ını doğrular.

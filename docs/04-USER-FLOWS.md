@@ -272,7 +272,7 @@ Onaylı politika: `DEC-022`. Bu akışlar generic IAM değildir; küçük uygula
 4. Kondisyon seçilir.
 5. Hedef depolama lokasyonu seçilir.
 6. **QUANTITY:** Geçerli birimde miktar girilir.
-7. **SERIALIZED:** Tekil varlık tanımlanır veya seçilir (zorunlu tanımlayıcılar **TBD**).
+7. **SERIALIZED:** Ayrı functional workflow'da zorunlu `internal_asset_code` ve optional manufacturer `serial_number` girilir; asset UUID + RECEIVE ledger + `IN_STOCK` projection atomik oluşturulur (`DEC-032`).
 8. Özet ekranı gösterilir.
 9. Kullanıcı onaylar.
 10. Sistem `operation_id` ile ledger kaydı oluşturur.
@@ -301,6 +301,7 @@ flowchart TD
 - Miktar > 0 ve malzeme birimine uygun.
 - Pasif malzeme/lokasyon veya stok tutma yeteneği olmayan hedef reddedilir.
 - Duplicate `operation_id` ikinci stok etkisi oluşturmaz.
+- Serialized line asset taşır; quantity/unit null'dır ve `StockBalance` yazılmaz.
 
 **Success Result**
 - `RECEIPT` transaction kaydedilir; stok artar veya tekil varlık lokasyona yerleşir.
@@ -318,8 +319,8 @@ flowchart TD
 **Audit Effect**
 - Acting user, `occurred_at`, işlem detayı ledger'da.
 
-**TBD / Open Decisions**
-- Serialized zorunlu tanımlayıcılar; yeni asset oluşturma alanları.
+**Scope Boundary**
+- `DEC-032` yalnız serialized RECEIVE'i authorize eder. Serialized ISSUE/RETURN/TRANSFER/correction, QR, count/baseline ve broader lifecycle deferred kalır.
 
 ### UF-INT-001 — Saha / Atölye Malzeme Alım Talebi
 
@@ -1463,7 +1464,7 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 | UF-O-05 | Transfer yetkileri | Transfer menü görünürlüğü |
 | UF-O-06 | `DEC-HG-001` stability + fiziksel sayım/mutabakat rolleri | Count/Reconciliation ekranları |
 | UF-O-07 | Baseline cutover onaylayan rol | Go-live ekranı |
-| UF-O-08 | Serialized asset oluşturma/giriş zorunlu alanları | Receipt serialized adımı |
+| UF-O-08 | `DEC-032` ile kararlı ve Phase 5.3'e authorize: UUID, mandatory internal code, optional per-material serial, `IN_STOCK` RECEIVE | Receipt serialized adımı |
 | UF-O-09 | Depo Görevlisi master data yetkisi | Material/Location management erişimi |
 | UF-O-10 | Rapor dönem sınırları ve hafta tanımı | Reports filtreleri |
 

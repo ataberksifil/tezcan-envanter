@@ -143,7 +143,7 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 | `category_id` | UUID | Hayır | FK | Malzeme kategorisi. |
 | `brand` | VARCHAR | Evet | — | Marka. |
 | `model` | VARCHAR | Evet | — | Model. |
-| `unit_id` | UUID | Evet | FK; QUANTITY için zorunlu | Temel ölçü birimi; serialized material zorunluluğu TBD. |
+| `unit_id` | UUID | Evet | FK; QUANTITY için zorunlu | Temel ölçü birimi; Phase 5.3 serialized slice'ında varsa yalnız katalog metadata'sıdır (`DEC-032`). |
 | `tracking_mode` | VARCHAR | Hayır | CHECK | `QUANTITY` veya `SERIALIZED`. |
 | `minimum_stock_value` | NUMERIC(18,3) | Evet | `>= 0` | Basit malzeme geneli eşik; kapsam TBD. |
 | `technical_specs` | JSONB | Hayır | Default empty object | Esnek teknik nitelikler; unrestricted raw JSON editor olarak expose edilmez (`DEC-021`). |
@@ -220,23 +220,21 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 |---|---|---:|---|---|
 | `id` | UUID | Hayır | PK | Tekil varlık sistem kimliği. |
 | `material_id` | UUID | Hayır | FK | Ait olduğu material. |
-| `internal_asset_code` | VARCHAR | Evet | UNIQUE öneri | İç varlık kodu. |
-| `serial_number` | VARCHAR | Evet | Scope TBD | Üretici seri numarası. |
-| `current_location_id` | UUID | Evet | FK | Ledger'dan türetilen mevcut fiziksel lokasyon. |
-| `current_condition_id` | UUID | Evet | FK | Ledger'dan türetilen mevcut kondisyon. |
-| `current_state_code` | VARCHAR | Hayır | Değer seti TBD | Stokta/çıkarılmış vb. projection durumu. |
-| `state_version` | BIGINT | Hayır | `>= 0` | Atomik state güncelleme/optimistic kontrol sürümü. |
-| `active` | BOOLEAN | Hayır | Default true | Master kayıt yaşam durumu. |
+| `internal_asset_code` | VARCHAR(64) | Hayır | UNIQUE, nonblank | Zorunlu insan-facing operasyonel varlık kodu. |
+| `serial_number` | VARCHAR(255) | Evet | `(material_id, serial_number)` partial UNIQUE | Optional üretici seri numarası; boş input `NULL`. |
+| `current_location_id` | UUID | Hayır | FK + DB guard | Ledger'dan türetilen active stock-holding fiziksel lokasyon. |
+| `current_condition_id` | UUID | Hayır | FK + DB guard | Ledger'dan türetilen active kondisyon. |
+| `current_state` | VARCHAR(16) | Hayır | `IN_STOCK` | İlk dilimin tek projection state'i. |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Oluşturma zamanı. |
 | `updated_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Projection/master son değişiklik zamanı. |
 
 - **Primary Key:** `id`
 - **Foreign Keys:** `material_id → materials.id`; `current_location_id → locations.id`; `current_condition_id → material_conditions.id`; delete restricted.
-- **Unique Constraints:** `internal_asset_code` global unique önerilir. `serial_number` benzersizlik scope'u TBD'dir.
-- **Check Constraints:** `state_version >= 0`; en az bir iş tanımlayıcısının zorunlu olup olmadığı TBD olduğu için şimdilik check önerilmez.
+- **Unique Constraints:** `internal_asset_code` global unique; non-null `serial_number` aynı material içinde unique, farklı material'larda tekrar kullanılabilir.
+- **Check Constraints / Guards:** `internal_asset_code` nonblank; `serial_number` null veya nonblank; `current_state = IN_STOCK`; material `SERIALIZED`; current location active + stock-holding; current condition active.
 - **Recommended Indexes:** `material_id`, unique `internal_asset_code`, `serial_number`, `current_location_id`, `current_condition_id`.
-- **Delete Policy:** Ledger history sonrası `IMMUTABLE IDENTITY / NO HARD DELETE`; yalnızca pasifleştirme.
-- **Notes / TBD:** **B seçeneği önerilir:** güncel lokasyon/kondisyon projection olarak persisted tutulur ve ledger işlemiyle aynı DB transaction içinde atomik güncellenir. Ledger her zaman yetkilidir; projection yeniden üretilebilir. Material'ın `SERIALIZED` olması servis katmanında zorunlu doğrulanır ve kritik cross-table corruption'a karşı targeted PostgreSQL DB integrity guard/constraint trigger ile korunur; exact migration mekanizması implementation review konusudur. `current_state_code` sözlüğü BLOCKS IMPLEMENTATION kararıdır.
+- **Delete Policy:** Ledger history sonrası `IMMUTABLE IDENTITY / NO HARD DELETE`; Phase 5.3 generic rename/material/serial mutation workflow'u yoktur.
+- **Notes:** `DEC-032`: güncel state/lokasyon/kondisyon projection olarak persisted tutulur ve serialized RECEIVE ledger işlemiyle aynı DB transaction içinde atomik oluşturulur. Ledger her zaman yetkilidir; projection read-only verifier ile doğrulanır. State, condition, location ve future custody ayrı kavramlardır.
 
 ## 8. Inventory Ledger Tabloları
 
@@ -287,11 +285,11 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 
 - **Primary Key:** `id`
 - **Foreign Keys:** Başlık, material, asset, unit, condition, source/target location, nullable `original_issue_line_id` ve `corrected_line_id → inventory_transaction_lines.id`; tamamı historical delete restricted.
-- **Unique Constraints:** `(transaction_id, line_number)`. Gerekirse aynı işlemde aynı serialized asset tekrarını engelleyen `(transaction_id, serialized_asset_id)` koşullu unique.
+- **Unique Constraints:** `(transaction_id, line_number)`; non-null asset için `(transaction_id, serialized_asset_id)` koşullu unique.
 - **Check Constraints:** Ya `(serialized_asset_id IS NULL AND quantity > 0 AND unit_id IS NOT NULL)` ya da `(serialized_asset_id IS NOT NULL AND quantity IS NULL AND unit_id IS NULL)`; ikisi birlikte olamaz. `(source_location_id IS NULL OR target_location_id IS NULL OR source_location_id <> target_location_id)`.
 - **Recommended Indexes:** `transaction_id`, `material_id`, `serialized_asset_id`, `source_location_id`, `target_location_id`, `condition_id`, `original_issue_line_id`, `corrected_line_id`.
 - **Delete Policy:** `IMMUTABLE / NO DELETE`.
-- **Notes / TBD:** Serialized satırda `quantity` **NULL** önerilir; `1` saklamak anonim quantity anlamını davet eder. Asset'ın `material_id` ile line material eşleşmesi ve tracking mode uyumu serviste zorunlu doğrulanır; catastrophic cross-table corruption için targeted PostgreSQL constraint trigger/guard gerekir. Sırf composite FK için redundant tracking-mode kolonu eklenmez; exact DB mekanizması implementation review konusudur. İşlem türüne göre source/target matrisi Bölüm 19'da sınıflandırılır.
+- **Notes:** `DEC-032`: serialized satırda `quantity` ve `unit` kesin olarak `NULL`, asset zorunludur; `1 adet` saklanmaz. Phase 5.3 yalnız source-null/target-required serialized RECEIVE ve asset başına exactly one establishing RECEIVE kabul eder. Line material = asset material ve tracking mode kuralları targeted PostgreSQL guard ile korunur. Diğer serialized movement'lar deferred'dır.
 
 ## 9. Stock Balance Projection
 
@@ -653,7 +651,7 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `production_lines` | child `production_lines` | 1 : 0..N | `parent_id`; Location'dan bağımsız (`DEC-025`). |
 | `categories` | child `categories` | 1 : 0..N | `parent_id`. |
 | `categories` | `materials` | 1 : 0..N | Her material bir category'ye bağlı. |
-| `units_of_measure` | `materials` | 1 : 0..N | QUANTITY material için temel unit zorunlu; serialized material unit zorunluluğu TBD. |
+| `units_of_measure` | `materials` | 1 : 0..N | QUANTITY material için temel unit zorunlu; Phase 5.3 serialized material için varsa yalnız katalog metadata'sıdır (`DEC-032`). |
 | `materials` | `serialized_assets` | 1 : 0..N | Asset yalnızca serialized material için. |
 | `locations` | child `locations` | 1 : 0..N | `parent_id`. |
 | `inventory_transactions` | `inventory_transaction_lines` | 1 : 1..N | Tamamlanmış başlık en az bir satır içerir. |
@@ -968,8 +966,8 @@ Bu legacy tablo güncel karar statüsünün kanonik kaydı değildir. `docs/06-D
 | ID | Decision | Etkilenen model |
 |---|---|---|
 | DM-B01 | `employee_number` global unique, editable, eski numara ayrı registry ile rezerve edilmez (`DEC-024`); `material_code` remainder açık | Unique constraints, import duplicate yönetimi |
-| DM-B02 | Serialized asset için hangi iş tanımlayıcısı zorunlu ve seri numarası hangi scope'ta unique? | `serialized_assets` |
-| DM-B03 | `current_state_code` sözlüğü ve issued/stockta/unknown state'leri nedir? | Serialized projection |
+| DM-B02 | `DEC-032`: `internal_asset_code` zorunlu/global unique; `serial_number` optional/material içinde unique; UUID technical identity | `serialized_assets` |
+| DM-B03 | `DEC-032`: Phase 5.3 yalnız `IN_STOCK`; broader lifecycle vocabulary deferred | Serialized projection |
 | DM-B04 | Bozuk/çıkma kondisyon kullanılabilir ve minimum stoğa dahil mi? | `stock_balances`, reporting, service |
 | DM-B05 | Minimum stok toplam, depo, lokasyon veya kondisyon bazında mı? | Material column veya policy table |
 | DM-B06 | Ondalık hassasiyet, kısmi miktar ve unit conversion davranışı nedir? | `NUMERIC` doğrulaması, UoM |
@@ -992,7 +990,7 @@ Bu legacy tablo güncel karar statüsünün kanonik kaydı değildir. `docs/06-D
 | DM-S02 | `NUMERIC(18,3)` kullan; unit'e göre daha dar validation sonradan ekle. | Kesin decimal policy DM-B06. |
 | DM-S03 | Master kayıtlarda deactivation, ledger'da no-delete kullan. | Retention süreleri ayrı karar. |
 | DM-S04 | `technical_specs JSONB` kullan, GIN ekleme. | Teknik nitelik şeması Excel sonrası. |
-| DM-S05 | Serialized current state'i ledger ile atomik projection olarak persist et. | State vocabulary DM-B03. |
+| DM-S05 | Serialized current state'i ledger ile atomik projection olarak persist et. | İlk vocabulary `DEC-032` ile yalnız `IN_STOCK`. |
 | DM-S06 | Generic content-type yerine barcode için üç nullable FK + exactly-one check kullan. | Payload/type sözlüğü açık. |
 | DM-S07 | Rejection reason nullable kalsın. | Zorunluluk hâlâ PROPOSED. |
 | DM-S08 | Material/location ad-kod snapshot'ı alma; FK + deactivation + audit kullan. | Eski görünen değerle rapor ihtiyacı doğrulanırsa eklenir. |

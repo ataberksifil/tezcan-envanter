@@ -14,9 +14,11 @@ from inventory.forms import (
     QuantityReceiptForm,
     QuantityReturnForm,
     QuantityTransferForm,
+    SerializedReceiptForm,
     attach_issue_validation_error,
     attach_receipt_validation_error,
     attach_return_validation_error,
+    attach_serialized_receipt_validation_error,
     attach_transfer_validation_error,
 )
 from inventory.models import (
@@ -46,7 +48,7 @@ from inventory.services.production_lines import (
     set_production_line_active,
     update_production_line,
 )
-from inventory.services.receipts import receive_quantity
+from inventory.services.receipts import receive_quantity, receive_serialized
 from inventory.services.returns import return_quantity
 from inventory.services.transfers import transfer_quantity
 
@@ -288,6 +290,52 @@ class ReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
         return redirect("inventory:receipt-detail", pk=result.transaction.pk)
 
 
+class SerializedReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "inventory.receive_stock"
+    template_name = "inventory/serialized_receipt_form.html"
+
+    def _render(self, request, form):
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": form,
+                "form_title": "Tekil varlık stok girişi",
+                "submit_label": "Kaydet",
+            },
+        )
+
+    def get(self, request):
+        return self._render(request, SerializedReceiptForm())
+
+    def post(self, request):
+        form = SerializedReceiptForm(request.POST)
+        if not form.is_valid():
+            return self._render(request, form)
+
+        try:
+            result = receive_serialized(
+                actor=request.user,
+                operation_id=form.cleaned_data["operation_id"],
+                material_id=form.cleaned_data["material"].pk,
+                internal_asset_code=form.cleaned_data["internal_asset_code"],
+                serial_number=form.cleaned_data["serial_number"],
+                condition_id=form.cleaned_data["condition"].pk,
+                target_location_id=form.cleaned_data["target_location"].pk,
+            )
+        except PermissionDenied:
+            raise
+        except ValidationError as exc:
+            attach_serialized_receipt_validation_error(form, exc)
+            return self._render(request, form)
+
+        if result.replayed:
+            messages.info(request, "Bu tekil varlık stok girişi daha önce kaydedilmişti.")
+        else:
+            messages.success(request, "Tekil varlık stok girişi kaydedildi.")
+        return redirect("inventory:receipt-detail", pk=result.transaction.pk)
+
+
 class IssueCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
     permission_required = "inventory.issue_stock"
     template_name = "inventory/issue_form.html"
@@ -366,6 +414,7 @@ class IssueDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
             .select_related("acting_user", "issue_context")
             .prefetch_related(
                 "lines__material__unit",
+                "lines__serialized_asset",
                 "lines__condition",
                 "lines__source_location",
             )

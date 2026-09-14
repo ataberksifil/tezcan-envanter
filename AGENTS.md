@@ -170,11 +170,14 @@ Projection doğrulaması teorik olamaz. Pilot öncesinde ledger'dan expected qua
 ## 10. Serialized Assets, Tracking Mode ve Condition
 
 - `SerializedAsset` tam bir fiziksel item'ı temsil eder.
+- `DEC-032`: UUID stable technical identity; `internal_asset_code` zorunlu/global unique; optional `serial_number` non-null olduğunda material içinde unique ve boş input `NULL`dır.
 - Asset'ın `Material.tracking_mode` değeri `SERIALIZED` olmalıdır.
 - Tek asset aynı anda iki current physical location'da bulunamaz.
-- Current state persisted projection/cache olabilir; ledger authoritative kalır.
+- Phase 5.3 current state yalnız `IN_STOCK`tır; state, location, condition ve future custody ayrı kavramlardır.
+- Current state persisted projection/cache olabilir; ledger authoritative kalır. Serialized line asset FK taşır; quantity/unit `NULL`dır ve `StockBalance` kullanılmaz.
 - Movement sırasında asset row concurrency-safe kilitlenir.
 - Quantity ve serialized transaction şekilleri karıştırılamaz.
+- Phase 5.3 yalnız serialized RECEIVE'i authorize eder; ISSUE/RETURN/TRANSFER/correction, QR ve physical count deferred kalır.
 
 Geçerli tracking mode'lar:
 

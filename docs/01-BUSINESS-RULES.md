@@ -44,7 +44,7 @@ Kural kimlikleri kalıcı referans olarak kullanılmalıdır. Bir kural değişi
 | SER-001 | CONFIRMED | Sistem tekil olarak izlenen fiziksel varlıkları desteklemelidir. | Tekil takip modundaki varlık miktar bakiyesiyle kimliksiz biçimde birleştirilemez. |
 | SER-002 | CONFIRMED | Her tekil fiziksel varlık sistem içinde benzersiz bir kimliğe sahip olmalıdır. | Aynı sistem kimliği iki fiziksel varlığı temsil edemez. |
 | SER-003 | CONFIRMED | Tek bir fiziksel tekil varlık aynı anda iki farklı fiziksel konumda mevcut gösterilemez. | İkinci konuma yerleştirme, önceki konumla tutarlı izlenebilir bir hareket gerektirir. |
-| SER-004 | TBD DEPENDENCY | Tekil varlık için seri numarası, iç varlık kodu veya başka hangi tanımlayıcıların zorunlu olacağı belirlenmemiştir. | Zorunlu tanımlayıcılar Faz 0.3 öncesi veya sırasında iş kararıyla netleşmelidir. |
+| SER-004 | DECIDED | `DEC-032`: Her tekil varlık stable UUID teknik kimlik, zorunlu/global unique `internal_asset_code` ve optional/material içinde unique `serial_number` taşır. | Boş seri numarası `NULL` olur; farklı material'lar aynı üretici seri numarasını kullanabilir. |
 | SER-005 | TBD DEPENDENCY | Aktif stoku veya hareket geçmişi bulunan bir malzemenin takip modunun değiştirilme koşulları belirlenmemiştir. | Takip modu değişikliği geçmiş kimlik veya miktar bütünlüğünü bozamamalıdır. |
 
 ## 5. Kondisyon Kuralları
@@ -270,7 +270,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | OD-005 | Eksik karar | Miktar bazlı malzemenin çoklu lokasyona dağıtım, toplama ve seçim kuralları bilinmiyor. | Çoklu lokasyon kapasitesi korunur; dağıtım kuralı konmaz. |
 | OD-006 | Eksik karar | Minimum stok toplam stokla mı, lokasyonla mı ve hangi kondisyonlarla mı karşılaştırılacak bilinmiyor. | Düşük stok hesabı kesinleştirilemez. |
 | OD-007 | Eksik karar | Üretim hattı ile fiili kullanım yeri arasındaki hiyerarşi ve veri kaynağı bilinmiyor. | İki alan da zorunlu kalır. |
-| OD-008 | Eksik karar | Tekil varlığın zorunlu kimlik alanları bilinmiyor. | Yalnızca sistem içi benzersiz kimlik zorunludur. |
+| OD-008 | Kararlı | `DEC-032`: UUID teknik kimlik; zorunlu/global unique dahili varlık kodu; optional/material içinde unique üretici seri numarası. | Phase 5.3 serialized foundation + RECEIVE authorize edilmiştir; diğer serialized movement'lar deferred kalır. |
 | OD-009 | Eksik karar | Depo Görevlisinin “operasyonel depo işleri” ayrıntılı izin listesi bilinmiyor. | Yetki genişletilerek yorumlanamaz. |
 | OD-010 | Öneri bekliyor | Ret gerekçesinin zorunluluğu ürün belgesinde onaylanmamıştır. | COR-010 PROPOSED olarak kalır. |
 | OD-011 | Eksik karar | Fiziksel sayım farkı için tolerans, onay seviyesi ve sorumlular bilinmiyor. | Yetkili düzeltme gereği korunur; akış kesinleşmez. |

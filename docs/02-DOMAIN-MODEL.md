@@ -283,12 +283,13 @@ Her `SerializedAsset`:
 
 - tam olarak bir `Material`a aittir;
 - sistem içinde benzersiz kimliğe sahiptir;
-- seri numarası veya iç varlık kodu gibi iş tanımlayıcıları taşıyabilir;
+- zorunlu, global unique ve case-preserved `internal_asset_code` taşır;
+- optional, outer-trim sonrası boşsa `NULL` olan ve aynı material içinde unique `serial_number` taşıyabilir;
 - konum ve kondisyon değişse de aynı fiziksel kimliği korur;
 - aynı anda iki fiziksel lokasyonda bulunamaz;
 - güncel konum ve kondisyonunu geçerli işlem geçmişinden türetir.
 
-Seri numarası veya iç varlık kodundan hangisinin zorunlu ve benzersiz olacağı **TBD**'dir.
+UUID stable teknik kimliktir; `internal_asset_code` insan-facing operasyonel kimliktir; üretici `serial_number` teknik primary key değildir (`DEC-032`). Phase 5.3 current state vocabulary yalnız `IN_STOCK`tır; state, location, condition ve future custody birbirinden ayrıdır.
 
 Tekil varlık bir anonim sayısal bakiye olarak temsil edilmez. `SerializedAssetState`, varlığın son geçerli ledger etkilerinden türetilen mevcut/konum/kondisyon görünümüdür.
 
@@ -316,7 +317,7 @@ Ledger'dan beklenen quantity ve serialized current state'i temporary/in-memory o
 
 ### SerializedAssetState
 
-Tekil stok için anonim `StockBalance(quantity=1)` kullanılmaz. Her fiziksel örnek kendi `SerializedAsset` kimliğiyle ve geçmişten türetilen `SerializedAssetState` ile izlenir. Bu görünüm mevcut fiziksel lokasyon, kondisyon ve stokta bulunma durumunu ifade edebilir; kesin durum değerleri ilgili serialized feature gate'inde doğrulanmalıdır.
+Tekil stok için anonim `StockBalance(quantity=1)` kullanılmaz. Her fiziksel örnek kendi `SerializedAsset` kimliğiyle ve geçmişten türetilen `SerializedAssetState` ile izlenir. Phase 5.3 ilk diliminde persisted projection `current_state=IN_STOCK`, zorunlu current stock-holding location ve active `MaterialCondition` taşır; ledger authoritative kalır (`DEC-032`).
 
 ## 10. Giriş / Çıkış / İade / Transfer Domaini
 
@@ -574,7 +575,7 @@ Bu seçeneklerden hiçbiri seçilmiş değildir. `MinimumStockStatus`, ledger ve
 | `Category` | sınıflandırır | `Material` | Bir kategori `0..N` malzeme; her malzemenin kategori zorunluluğu ilişkisel modelde korunur. |
 | `Material` | tanımlar | `SerializedAsset` | Bir malzeme `0..N` tekil varlık; her tekil varlık tam `1` malzemeye aittir. |
 | `Material` | kullanır | `TrackingMode` | Her malzeme tam `1` takip moduna sahip olmalıdır. |
-| `Material` | kullanır | `UnitOfMeasure` | Miktar işlemleri için tam `1`; serialized malzemede zorunluluk **TBD**. |
+| `Material` | kullanır | `UnitOfMeasure` | Miktar işlemleri için tam `1`; Phase 5.3 serialized slice'ında varsa yalnız katalog metadata'sıdır (`DEC-032`). |
 | `Material` | sahip olur | `MinimumStockPolicy` | `0..1` veya ileride kapsam kararıyla `0..N`; kardinalite **TBD**. |
 | `Location` | üstüdür | `Location` | Üst `0..1`, alt `0..N`. |
 | `InventoryTransaction` | içerir | `InventoryTransactionLine` | Tamamlanmış işlem `1..N` satır içerir. |
@@ -721,7 +722,7 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 |---|---|---|
 | OD-001, OD-002, OD-003, OD-027 | Bozuk/çıkma kondisyonlarının kesin anlamı ve kondisyon değişikliğinin iş olayı | `MaterialCondition`, kullanılabilirlik ve işlem satırı semantiği |
 | OD-006 | Minimum stok toplam, lokasyon, depo veya kondisyon kapsamı | `MinimumStockPolicy` kardinalitesi ve değerlendirme boyutları |
-| OD-008 | Serialized varlığın zorunlu ve benzersiz iş tanımlayıcıları | `SerializedAsset` kimlik kuralları |
+| OD-008 | `DEC-032` ile kararlı: UUID + zorunlu/global unique internal code + optional/per-material unique serial | `SerializedAsset` kimlik kuralları |
 | OD-014 | Ondalık hassasiyet, kısmi miktar ve birim dönüşümü | Miktar ve `UnitOfMeasure` kısıtları |
 | OD-007 | Üretim hattı `DEC-025` ile kararlı; exact usage place ayrı free text | `ProductionLine`, `IssueContext` referansları ve snapshot |
 | OD-026 | `ApplicationUser`–`Employee` ilişkisi `DEC-024` ile kararlı; rol atama `DEC-022` ile kararlı | Kimlik kardinaliteleri kararlı |

@@ -401,6 +401,11 @@ def test_transfer_kernel_migration_reverses_without_transfer_data_and_forwards_a
         transaction_type=InventoryTransaction.TransactionType.TRANSFER
     ).exists()
 
+    # Phase 5.3 adds FKs from SerializedAsset to catalog/location masters.
+    # Flush this test transaction's deferred FK events before schema rollback.
+    with connection.cursor() as cursor:
+        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+
     call_command("migrate", "inventory", RETURN_KERNEL_MIGRATION, verbosity=0)
     try:
         assert not recorder.migration_qs.filter(
@@ -411,10 +416,16 @@ def test_transfer_kernel_migration_reverses_without_transfer_data_and_forwards_a
                 _header(transfer_objects, "TRANSFER")
         call_command("migrate", "inventory", TRANSFER_KERNEL_MIGRATION, verbosity=0)
     finally:
-        # Restore the complete migration graph. Phase 5.2 adds inventory 0008 and
-        # a dependent corrections migration, so stopping at 0007 would leave the
-        # shared --reuse-db schema behind the current model state.
+        # Restore the complete migration graph. Phase 5.2/5.3 add inventory 0008,
+        # 0009 and a dependent corrections migration, so stopping at 0007 would
+        # leave the shared --reuse-db schema behind the current model state.
         call_command("migrate", verbosity=0)
+
+    # Restore the transaction's normal deferred-check mode after the schema
+    # operation. SET CONSTRAINTS above otherwise remains IMMEDIATE until pytest
+    # closes its outer test transaction.
+    with connection.cursor() as cursor:
+        cursor.execute("SET CONSTRAINTS ALL DEFERRED")
 
     assert recorder.migration_qs.filter(
         app="inventory", name=TRANSFER_KERNEL_MIGRATION

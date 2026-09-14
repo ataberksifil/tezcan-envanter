@@ -440,9 +440,17 @@ class MaterialDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
                 self.object.pk
             )
         if self.request.user.has_perm(STOCK_LIST_PERMISSION):
-            context["current_stock_balances"] = current_stock_balances_for_material(
-                self.object.pk
-            )
+            if self.object.tracking_mode == Material.TrackingMode.QUANTITY:
+                context["current_stock_balances"] = current_stock_balances_for_material(
+                    self.object.pk
+                )
+            else:
+                context["current_serialized_assets"] = (
+                    self.object.serialized_assets.select_related(
+                        "current_location",
+                        "current_condition",
+                    ).order_by("internal_asset_code", "id")
+                )
         return context
 
 

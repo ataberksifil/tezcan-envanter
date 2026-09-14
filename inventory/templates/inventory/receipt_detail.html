@@ -6,7 +6,11 @@
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
     <h1 class="h3 mb-0">Stok girişi kaydı</h1>
     <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-outline-primary" href="{% url 'inventory:receipt-create' %}">Yeni stok girişi</a>
+        {% if line.serialized_asset_id %}
+            <a class="btn btn-outline-primary" href="{% url 'inventory:serialized-receipt-create' %}">Yeni tekil varlık girişi</a>
+        {% else %}
+            <a class="btn btn-outline-primary" href="{% url 'inventory:receipt-create' %}">Yeni stok girişi</a>
+        {% endif %}
         <a class="btn btn-outline-secondary" href="{% url 'home' %}">Ana sayfa</a>
     </div>
 </div>
@@ -27,11 +31,22 @@
     <dt class="col-sm-3">Malzeme adı</dt>
     <dd class="col-sm-9">{{ line.material.name }}</dd>
 
-    <dt class="col-sm-3">Miktar</dt>
-    <dd class="col-sm-9">{{ line.quantity }}</dd>
+    {% if line.serialized_asset_id %}
+        <dt class="col-sm-3">Dahili varlık kodu</dt>
+        <dd class="col-sm-9">{{ line.serialized_asset.internal_asset_code }}</dd>
 
-    <dt class="col-sm-3">Birim</dt>
-    <dd class="col-sm-9">{{ line.unit.code }} ({{ line.unit.name }})</dd>
+        <dt class="col-sm-3">Üretici seri numarası</dt>
+        <dd class="col-sm-9">{% if line.serialized_asset.serial_number %}{{ line.serialized_asset.serial_number }}{% else %}—{% endif %}</dd>
+
+        <dt class="col-sm-3">Varlık durumu</dt>
+        <dd class="col-sm-9">{{ line.serialized_asset.get_current_state_display }}</dd>
+    {% else %}
+        <dt class="col-sm-3">Miktar</dt>
+        <dd class="col-sm-9">{{ line.quantity }}</dd>
+
+        <dt class="col-sm-3">Birim</dt>
+        <dd class="col-sm-9">{{ line.unit.code }} ({{ line.unit.name }})</dd>
+    {% endif %}
 
     <dt class="col-sm-3">Kondisyon</dt>
     <dd class="col-sm-9">{{ line.condition.name }}</dd>

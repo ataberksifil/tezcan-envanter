@@ -31,6 +31,7 @@ LINE_PREFETCH = Prefetch(
     queryset=InventoryTransactionLine.objects.select_related(
         "material",
         "unit",
+        "serialized_asset",
         "condition",
         "source_location",
         "target_location",
@@ -163,6 +164,8 @@ def apply_transaction_history_filters(
         queryset = queryset.filter(
             Q(lines__material__material_code__icontains=q)
             | Q(lines__material__name__icontains=q)
+            | Q(lines__serialized_asset__internal_asset_code__icontains=q)
+            | Q(lines__serialized_asset__serial_number__icontains=q)
             | Q(acting_user__username__icontains=q)
             | Q(acting_user__first_name__icontains=q)
             | Q(acting_user__last_name__icontains=q)

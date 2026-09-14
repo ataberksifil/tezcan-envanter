@@ -15,6 +15,7 @@ from inventory.models import (
     InventoryTransaction,
     InventoryTransactionLine,
     ProductionLine,
+    SerializedAsset,
     StockBalance,
 )
 from locations.models import Location
@@ -151,6 +152,137 @@ RECEIPT_ERROR_FIELD_MAP = {
     "inventory.invalid_destination": "target_location",
     "inventory.invalid_operation_id": "operation_id",
 }
+
+
+class SerializedReceiptForm(forms.Form):
+    operation_id = forms.UUIDField(widget=forms.HiddenInput())
+    material = ServiceValidatedModelChoiceField(
+        label="Malzeme",
+        queryset=Material.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    internal_asset_code = forms.CharField(
+        label="Dahili varlık kodu",
+        max_length=64,
+        strip=True,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    serial_number = forms.CharField(
+        label="Üretici seri numarası",
+        max_length=255,
+        strip=True,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    condition = ServiceValidatedModelChoiceField(
+        label="Kondisyon",
+        queryset=MaterialCondition.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    target_location = ServiceValidatedModelChoiceField(
+        label="Hedef konum",
+        queryset=Location.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.fields["operation_id"].initial = uuid.uuid4()
+
+        materials = (
+            Material.objects.filter(
+                active=True,
+                tracking_mode=Material.TrackingMode.SERIALIZED,
+            )
+            .select_related("unit")
+            .order_by("material_code", "name", "id")
+        )
+        self.fields["material"].queryset = materials
+        self.fields["material"].label_from_instance = material_choice_label
+
+        conditions = MaterialCondition.objects.filter(active=True).order_by(
+            "sort_order", "name", "id"
+        )
+        self.fields["condition"].queryset = conditions
+        self.fields["condition"].label_from_instance = condition_choice_label
+
+        locations = Location.objects.filter(
+            active=True,
+            can_hold_stock=True,
+        ).order_by("code", "name", "id")
+        self.fields["target_location"].queryset = locations
+        self.fields["target_location"].label_from_instance = stock_location_choice_label
+
+    def clean_serial_number(self):
+        value = self.cleaned_data["serial_number"].strip()
+        return value or None
+
+    def clean(self):
+        cleaned = super().clean()
+        internal_asset_code = cleaned.get("internal_asset_code")
+        material = cleaned.get("material")
+        serial_number = cleaned.get("serial_number")
+
+        if internal_asset_code and SerializedAsset.objects.filter(
+            internal_asset_code=internal_asset_code
+        ).exists():
+            self.add_error(
+                "internal_asset_code",
+                "Bu dahili varlık kodu zaten kullanılıyor.",
+            )
+        if material is not None and serial_number and SerializedAsset.objects.filter(
+            material=material,
+            serial_number=serial_number,
+        ).exists():
+            self.add_error(
+                "serial_number",
+                "Bu üretici seri numarası seçilen malzeme için zaten kullanılıyor.",
+            )
+        return cleaned
+
+
+SERIALIZED_RECEIPT_ERROR_FIELD_MAP = {
+    "inventory.invalid_internal_asset_code": "internal_asset_code",
+    "inventory.internal_asset_code_conflict": "internal_asset_code",
+    "inventory.invalid_serial_number": "serial_number",
+    "inventory.serial_number_conflict": "serial_number",
+    "inventory.inactive_material": "material",
+    "inventory.tracking_mode_mismatch": "material",
+    "inventory.inactive_condition": "condition",
+    "inventory.invalid_destination": "target_location",
+    "inventory.invalid_operation_id": "operation_id",
+}
+
+
+def attach_serialized_receipt_validation_error(
+    form: SerializedReceiptForm,
+    exc: ValidationError,
+) -> None:
+    if hasattr(exc, "error_list"):
+        for error in exc.error_list:
+            field = SERIALIZED_RECEIPT_ERROR_FIELD_MAP.get(
+                getattr(error, "code", None)
+            )
+            if field is not None and field in form.fields:
+                form.add_error(field, error)
+            else:
+                form.add_error(None, error)
+        return
+    _attach_errors_to_form(form, exc)
+
+
+def _attach_errors_to_form(form, exc: ValidationError) -> None:
+    if hasattr(exc, "error_dict"):
+        for field, errors in exc.error_dict.items():
+            target = None if field == "__all__" else field
+            for error in errors:
+                if target is not None and target in form.fields:
+                    form.add_error(target, error)
+                else:
+                    form.add_error(None, error)
+    else:
+        form.add_error(None, exc)
 
 
 def employee_choice_label(employee: Employee) -> str:

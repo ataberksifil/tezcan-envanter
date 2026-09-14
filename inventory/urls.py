@@ -41,6 +41,11 @@ urlpatterns = [
         name="receipt-create",
     ),
     path(
+        "inventory/serialized-receipts/new/",
+        views.SerializedReceiptCreateView.as_view(),
+        name="serialized-receipt-create",
+    ),
+    path(
         "inventory/receipts/<uuid:pk>/",
         views.ReceiptDetailView.as_view(),
         name="receipt-detail",

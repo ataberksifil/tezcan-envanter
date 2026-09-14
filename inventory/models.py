@@ -154,6 +154,139 @@ class InventoryTransaction(models.Model):
         raise ValidationError("Tamamlanmış envanter işlemi silinemez.")
 
 
+class SerializedAsset(models.Model):
+    class CurrentState(models.TextChoices):
+        IN_STOCK = "IN_STOCK", "Stokta"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    material = models.ForeignKey(
+        "catalog.Material",
+        on_delete=models.RESTRICT,
+        related_name="serialized_assets",
+        db_index=False,
+    )
+    internal_asset_code = models.CharField(max_length=64)
+    serial_number = models.CharField(max_length=255, null=True, blank=True)
+    current_location = models.ForeignKey(
+        "locations.Location",
+        on_delete=models.RESTRICT,
+        related_name="current_serialized_assets",
+        db_index=False,
+    )
+    current_condition = models.ForeignKey(
+        "catalog.MaterialCondition",
+        on_delete=models.RESTRICT,
+        related_name="current_serialized_assets",
+        db_index=False,
+    )
+    current_state = models.CharField(
+        max_length=16,
+        choices=CurrentState.choices,
+        default=CurrentState.IN_STOCK,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["material"], name="inventory_asset_material_idx"),
+            models.Index(
+                fields=["current_location"],
+                name="inventory_asset_location_idx",
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["internal_asset_code"],
+                name="inventory_asset_internal_code_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["material", "serial_number"],
+                condition=Q(serial_number__isnull=False),
+                name="inventory_asset_material_serial_uniq",
+            ),
+            models.CheckConstraint(
+                condition=~Q(internal_asset_code__regex=r"^\s*$"),
+                name="inventory_asset_internal_code_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=Q(serial_number__isnull=True)
+                | ~Q(serial_number__regex=r"^\s*$"),
+                name="inventory_asset_serial_nonblank_or_null",
+            ),
+            models.CheckConstraint(
+                condition=Q(current_state="IN_STOCK"),
+                name="inventory_asset_state_in_stock",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.internal_asset_code
+
+    def clean(self) -> None:
+        super().clean()
+
+        if self.internal_asset_code is not None:
+            self.internal_asset_code = self.internal_asset_code.strip()
+            if not self.internal_asset_code:
+                raise ValidationError(
+                    {"internal_asset_code": "Dahili varlık kodu boş olamaz."}
+                )
+
+        if self.serial_number is not None:
+            normalized_serial = self.serial_number.strip()
+            self.serial_number = normalized_serial or None
+
+        if self.material_id is not None:
+            from catalog.models import Material
+
+            if self.material.tracking_mode != Material.TrackingMode.SERIALIZED:
+                raise ValidationError(
+                    {"material": "Tekil varlık için SERIALIZED malzeme zorunludur."}
+                )
+        if self.current_location_id is not None and (
+            not self.current_location.active
+            or not self.current_location.can_hold_stock
+        ):
+            raise ValidationError(
+                {"current_location": "Mevcut konum aktif ve stok tutabilir olmalıdır."}
+            )
+        if (
+            self.current_condition_id is not None
+            and not self.current_condition.active
+        ):
+            raise ValidationError(
+                {"current_condition": "Mevcut kondisyon aktif olmalıdır."}
+            )
+        if self.current_state != self.CurrentState.IN_STOCK:
+            raise ValidationError(
+                {"current_state": "Bu dilimde yalnız IN_STOCK durumu geçerlidir."}
+            )
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            persisted = type(self).objects.using(self._state.db).get(pk=self.pk)
+            identity_changed = any(
+                (
+                    persisted.material_id != self.material_id,
+                    persisted.internal_asset_code != self.internal_asset_code,
+                    persisted.serial_number != self.serial_number,
+                )
+            )
+            if identity_changed and persisted.inventory_transaction_lines.exists():
+                raise ValidationError(
+                    "Envanter geçmişi olan tekil varlığın kimliği değiştirilemez."
+                )
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.inventory_transaction_lines.exists():
+            raise ValidationError(
+                "Envanter geçmişi olan tekil varlık silinemez."
+            )
+        return super().delete(*args, **kwargs)
+
+
 class InventoryTransactionLine(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     transaction = models.ForeignKey(
@@ -169,9 +302,24 @@ class InventoryTransactionLine(models.Model):
         related_name="inventory_transaction_lines",
         db_index=False,
     )
-    quantity = models.DecimalField(max_digits=18, decimal_places=3)
+    serialized_asset = models.ForeignKey(
+        SerializedAsset,
+        null=True,
+        blank=True,
+        on_delete=models.RESTRICT,
+        related_name="inventory_transaction_lines",
+        db_index=False,
+    )
+    quantity = models.DecimalField(
+        max_digits=18,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
     unit = models.ForeignKey(
         "catalog.UnitOfMeasure",
+        null=True,
+        blank=True,
         on_delete=models.RESTRICT,
         related_name="inventory_transaction_lines",
         db_index=False,
@@ -220,13 +368,33 @@ class InventoryTransactionLine(models.Model):
                 fields=["transaction", "line_number"],
                 name="inventory_line_tx_num_uniq",
             ),
+            models.UniqueConstraint(
+                fields=["transaction", "serialized_asset"],
+                condition=Q(serialized_asset__isnull=False),
+                name="inventory_line_tx_asset_uniq",
+            ),
             models.CheckConstraint(
                 condition=Q(line_number__gt=0),
                 name="inventory_line_num_positive",
             ),
             models.CheckConstraint(
-                condition=Q(quantity__gt=Decimal("0")),
+                condition=Q(quantity__isnull=True) | Q(quantity__gt=Decimal("0")),
                 name="inventory_line_qty_positive",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        serialized_asset__isnull=True,
+                        quantity__isnull=False,
+                        unit__isnull=False,
+                    )
+                    | Q(
+                        serialized_asset__isnull=False,
+                        quantity__isnull=True,
+                        unit__isnull=True,
+                    )
+                ),
+                name="inventory_line_tracking_shape",
             ),
             models.CheckConstraint(
                 condition=(
