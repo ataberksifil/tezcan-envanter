@@ -128,6 +128,19 @@ class PhysicalCountSession(models.Model):
                 ),
                 name="counting_session_completed_shape",
             ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        status__in=["DRAFT", "STARTED"],
+                        reconciliation_status="NOT_STARTED",
+                    )
+                    | Q(
+                        status="COMPLETED",
+                        reconciliation_status__in=["PENDING", "COMPLETED"],
+                    )
+                ),
+                name="counting_session_recon_status_match",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -171,6 +184,18 @@ class PhysicalCountSession(models.Model):
         ):
             raise ValidationError(
                 "Tamamlanmamış sayım oturumunda tamamlama aktörü ve zamanı bulunamaz."
+            )
+        if self.status in {self.Status.DRAFT, self.Status.STARTED}:
+            if self.reconciliation_status != self.ReconciliationStatus.NOT_STARTED:
+                raise ValidationError(
+                    "Tamamlanmamış sayım oturumunda mutabakat başlatılamaz."
+                )
+        elif self.reconciliation_status not in {
+            self.ReconciliationStatus.PENDING,
+            self.ReconciliationStatus.COMPLETED,
+        }:
+            raise ValidationError(
+                "Tamamlanmış sayım oturumunun mutabakat durumu geçersiz."
             )
 
 
@@ -242,7 +267,15 @@ class PhysicalCountQuantityLine(models.Model):
         related_name="approved_physical_count_quantity_lines",
         db_index=False,
     )
+    approved_at = models.DateTimeField(null=True, blank=True)
     approval_explanation = models.TextField(null=True, blank=True)
+    reconciliation_transaction = models.OneToOneField(
+        "inventory.InventoryTransaction",
+        null=True,
+        blank=True,
+        on_delete=models.RESTRICT,
+        related_name="physical_count_quantity_result",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -314,6 +347,35 @@ class PhysicalCountQuantityLine(models.Model):
                 ),
                 name="counting_qline_count_state_match",
             ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        resolution_status="APPROVED",
+                        approved_by_user__isnull=False,
+                        approved_at__isnull=False,
+                        approval_explanation__isnull=False,
+                        reconciliation_transaction__isnull=False,
+                    )
+                    | Q(
+                        ~Q(resolution_status="APPROVED"),
+                        approved_by_user__isnull=True,
+                        approved_at__isnull=True,
+                        approval_explanation__isnull=True,
+                        reconciliation_transaction__isnull=True,
+                    )
+                ),
+                name="counting_qline_approval_shape",
+            ),
+            models.CheckConstraint(
+                condition=~Q(
+                    resolution_status="APPROVED",
+                    approved_by_user=models.F("counted_by_user"),
+                ),
+                name="counting_qline_no_self_approval",
+            ),
+        ]
+        permissions = [
+            ("decide_discrepancy", "Can approve or reject count discrepancy"),
         ]
 
     def clean(self) -> None:
@@ -354,3 +416,62 @@ class PhysicalCountQuantityLine(models.Model):
             raise ValidationError(
                 "Sayılmış satırda fiziksel miktar, sayaç ve sayım zamanı zorunludur."
             )
+
+        if self.resolution_status == self.ResolutionStatus.APPROVED:
+            explanation = (self.approval_explanation or "").strip()
+            if not 10 <= len(explanation) <= 2000:
+                raise ValidationError(
+                    {"approval_explanation": "Onay açıklaması 10 ile 2000 karakter arasında olmalıdır."}
+                )
+            self.approval_explanation = explanation
+            if (
+                self.approved_by_user_id is None
+                or self.approved_at is None
+                or self.reconciliation_transaction_id is None
+            ):
+                raise ValidationError("Onay aktörü, zamanı ve mutabakat işlemi zorunludur.")
+        elif any(
+            value is not None
+            for value in (
+                self.approved_by_user_id,
+                self.approved_at,
+                self.approval_explanation,
+                self.reconciliation_transaction_id,
+            )
+        ):
+            raise ValidationError("Onay metadata'sı yalnız APPROVED satırda bulunabilir.")
+
+
+class PhysicalCountQuantityRejection(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    line = models.ForeignKey(
+        PhysicalCountQuantityLine,
+        on_delete=models.RESTRICT,
+        related_name="rejections",
+    )
+    rejected_by_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.RESTRICT,
+        related_name="rejected_physical_count_quantity_lines",
+    )
+    rejected_at = models.DateTimeField()
+    reason = models.TextField(null=True, blank=True)
+    counted_quantity = models.DecimalField(max_digits=18, decimal_places=3)
+    counted_by_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.RESTRICT,
+        related_name="rejected_count_quantity_snapshots",
+    )
+    counted_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(counted_quantity__gte=Decimal("0")),
+                name="counting_qreject_counted_nonneg",
+            ),
+            models.CheckConstraint(
+                condition=Q(reason__isnull=True) | ~Q(reason__regex=r"^\s*$"),
+                name="counting_qreject_reason_nonblank",
+            ),
+        ]

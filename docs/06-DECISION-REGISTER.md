@@ -533,7 +533,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Quantity unused linked RETURN | **COMPLETE** (Phase 4.4, 2026-09-12). `DEC-028`; kernel/schema/DB guards, service/projection, UI ve permission rollout uygulanmıştır. Broader RETURN `DEC-HG-005` altında deferred kalır. |
 | Quantity controlled corrections (Phase 5.2) | **COMPLETE** (2026-09-13; 1242 test passed). `DEC-030`, `DEC-031`; `DEC-OPEN-006` rejection reason için yalnız PROPOSED kalır |
 | Serialized inventory foundation + serialized RECEIVE (Phase 5.3) | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; asset identity/current projection + serialized RECEIVE tamamlandı. |
-| Counting/reconciliation | **DECIDED, IMPLEMENTATION NOT STARTED** (`DEC-033`, 2026-09-14). `DEC-HG-001` ve `DEC-OPEN-007` kapandı; Phase 5.4A otomatik başlamaz. |
+| Counting/reconciliation | **PARTIALLY IMPLEMENTED** (`DEC-033`, 2026-09-14). Phase 5.4A schema/guards, 5.4B physical-count services ve 5.4C routine QUANTITY approval/rejection + `COUNT_RECONCILIATION` kernel uygulanmıştır; serialized count, UI ve permission rollout sonraki ayrı görevlerdir. |
 | Baseline schema/cutover | **DECIDED, IMPLEMENTATION NOT STARTED** (`DEC-033`, 2026-09-14). `DEC-OPEN-008` kapandı; `DEC-002` ve `DEC-015` teknik contract'ları korunur. |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |
 | QR | `DEC-OPEN-016`, `DEC-IT-006`; neutral ownership `DEC-011` ile sabittir |
@@ -562,7 +562,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 5.1 current-stock visibility | **COMPLETE** at `44f1d30b7b8a72b768293de3ecbff32769e3f454`. |
 | Phase 5.2 quantity controlled correction | **COMPLETE** (`DEC-030`, `DEC-031`, 2026-09-13; 1242 test passed). Evidence bu ilk dilimde deferred. |
 | Phase 5.3 serialized inventory foundation + serialized RECEIVE | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; `DEC-OPEN-004` kapandı. |
-| Phase 5.4 decision pack | **DECIDED** (`DEC-033`, 2026-09-14). `DEC-HG-001`, `DEC-OPEN-007`, `DEC-OPEN-008` kapandı; `DEC-OPEN-010` OPEN. Documentation-only; Phase 5.4A NOT STARTED. |
+| Phase 5.4 decision pack | **DECIDED / IMPLEMENTATION IN PROGRESS** (`DEC-033`, 2026-09-14). 5.4A, 5.4B ve routine QUANTITY 5.4C uygulanmıştır; baseline/`INITIAL_BALANCE`, serialized count/reconciliation, UI ve permission rollout uygulanmamıştır. `DEC-OPEN-010` OPEN kalır. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 | Gate 3 | Phase 3 + quantity-only RECEIPT (4.0A–4.1) — **Disposition: `PASS`** (2026-09-12). Bkz. §4.5. ISSUE/TRANSFER/RETURN/serialized/correction/count-baseline authorize edilmemiştir. |

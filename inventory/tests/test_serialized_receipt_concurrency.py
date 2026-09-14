@@ -63,6 +63,9 @@ class SerializedReceiptConcurrencyTests(TransactionTestCase):
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    counting_physicalcountquantityrejection,
+                    counting_physicalcountquantityline,
+                    counting_physicalcountsession,
                     corrections_correctionrequest,
                     inventory_issuecontext,
                     inventory_inventorytransactionline,
@@ -185,4 +188,3 @@ class SerializedReceiptConcurrencyTests(TransactionTestCase):
         self.assertEqual(SerializedAsset.objects.count(), 2)
         self.assertEqual(InventoryTransaction.objects.count(), 2)
         self.assertEqual(InventoryTransactionLine.objects.count(), 2)
-

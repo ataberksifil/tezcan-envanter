@@ -11,13 +11,21 @@ from django.db import IntegrityError, connections, transaction
 from django.utils import timezone
 
 from catalog.models import Material, MaterialCondition
-from counting.models import PhysicalCountQuantityLine, PhysicalCountSession
+from counting.models import (
+    PhysicalCountQuantityLine,
+    PhysicalCountQuantityRejection,
+    PhysicalCountSession,
+)
+from inventory.models import InventoryTransaction, StockBalance
+from inventory.services.reconciliations import (
+    DECIDE_COUNT_PERMISSION,
+    reconcile_quantity_count,
+)
 from counting.queries import (
     load_location_parent_map,
     resolve_location_subtree_ids,
     subtrees_overlap,
 )
-from inventory.models import StockBalance
 from locations.models import Location
 
 
@@ -35,6 +43,9 @@ INVALID_QUANTITY = "counting.invalid_quantity"
 COUNT_CONFLICT = "counting.count_conflict"
 DUPLICATE_BUCKET = "counting.duplicate_bucket"
 INCOMPLETE_COUNT = "counting.incomplete_count"
+INVALID_RECONCILIATION = "counting.invalid_reconciliation"
+SELF_APPROVAL = "counting.self_approval"
+INVALID_APPROVAL_EXPLANATION = "counting.invalid_approval_explanation"
 
 QUANTITY_QUANTUM = Decimal("0.001")
 MAX_QUANTITY = Decimal("999999999999999.999")
@@ -44,6 +55,13 @@ MAX_QUANTITY = Decimal("999999999999999.999")
 class CountSessionStartResult:
     session: PhysicalCountSession
     quantity_lines: tuple[PhysicalCountQuantityLine, ...]
+
+
+@dataclass(frozen=True)
+class QuantityDiscrepancyApprovalResult:
+    line: PhysicalCountQuantityLine
+    transaction: InventoryTransaction
+    replayed: bool
 
 
 def create_physical_count_session(
@@ -201,11 +219,10 @@ def record_quantity_count(
     with transaction.atomic(using=using):
         session = _locked_session(normalized_session_id, using)
         _require_started(session)
-        identity = _line_identity(normalized_line_id, normalized_session_id, using)
-        _lock_material(identity[0], using)
-        _lock_location(identity[1], using)
-        _lock_condition(identity[2], using)
         line = _locked_line(normalized_line_id, normalized_session_id, using)
+        _lock_material(line.material_id, using)
+        _lock_location(line.location_id, using)
+        _lock_condition(line.condition_id, using)
 
         if line.resolution_status in {
             PhysicalCountQuantityLine.ResolutionStatus.APPROVED,
@@ -260,11 +277,10 @@ def mark_quantity_line_not_counted(
     with transaction.atomic(using=using):
         session = _locked_session(normalized_session_id, using)
         _require_started(session)
-        identity = _line_identity(normalized_line_id, normalized_session_id, using)
-        _lock_material(identity[0], using)
-        _lock_location(identity[1], using)
-        _lock_condition(identity[2], using)
         line = _locked_line(normalized_line_id, normalized_session_id, using)
+        _lock_material(line.material_id, using)
+        _lock_location(line.location_id, using)
+        _lock_condition(line.condition_id, using)
 
         if line.expected_quantity == 0:
             raise ValidationError(
@@ -429,12 +445,21 @@ def complete_physical_count(
 
         completed_at = timezone.now()
         session.status = PhysicalCountSession.Status.COMPLETED
+        session.reconciliation_status = (
+            PhysicalCountSession.ReconciliationStatus.PENDING
+            if session.baseline_candidate
+            or session.quantity_lines.using(using).filter(
+                resolution_status=PhysicalCountQuantityLine.ResolutionStatus.PENDING_APPROVAL
+            ).exists()
+            else PhysicalCountSession.ReconciliationStatus.COMPLETED
+        )
         session.completed_by_user = current_actor
         session.completed_at = completed_at
         session.save(
             using=using,
             update_fields=[
                 "status",
+                "reconciliation_status",
                 "completed_by_user",
                 "completed_at",
                 "updated_at",
@@ -443,9 +468,196 @@ def complete_physical_count(
         return session
 
 
+def approve_quantity_discrepancy(
+    *,
+    actor,
+    session_id,
+    line_id,
+    operation_id,
+    explanation,
+    using: str = "default",
+) -> QuantityDiscrepancyApprovalResult:
+    """Approve and atomically apply one routine QUANTITY discrepancy."""
+    current_actor = _decision_actor(actor, using)
+    normalized_session_id = _normalize_uuid(session_id, code=INVALID_SESSION)
+    normalized_line_id = _normalize_uuid(line_id, code=INVALID_LINE)
+    normalized_operation_id = _normalize_uuid(
+        operation_id, code="inventory.invalid_operation_id"
+    )
+    normalized_explanation = _normalize_approval_explanation(explanation)
+
+    with transaction.atomic(using=using):
+        session = _locked_session(normalized_session_id, using)
+        line = _locked_line(normalized_line_id, normalized_session_id, using)
+
+        if line.resolution_status == PhysicalCountQuantityLine.ResolutionStatus.APPROVED:
+            result_tx = line.reconciliation_transaction
+            if result_tx.operation_id != normalized_operation_id:
+                raise ValidationError(
+                    "Sayım farkı daha önce başka bir işlemle onaylandı.",
+                    code=INVALID_RECONCILIATION,
+                )
+            if line.approved_by_user_id != current_actor.pk:
+                raise ValidationError(
+                    "Aynı operation_id farklı onay aktörüyle tekrar kullanılamaz.",
+                    code="inventory.operation_conflict",
+                )
+            return QuantityDiscrepancyApprovalResult(
+                line=line,
+                transaction=result_tx,
+                replayed=True,
+            )
+
+        _require_reconciliation_eligible(session=session, line=line)
+        if line.counted_by_user_id == current_actor.pk:
+            raise ValidationError(
+                "Sayımı yapan kullanıcı kendi farkını onaylayamaz.",
+                code=SELF_APPROVAL,
+            )
+
+        # Total order: session -> count line -> operation-id reservation ->
+        # Material -> Location -> MaterialCondition -> StockBalance.
+        mutation = reconcile_quantity_count(
+            actor=current_actor,
+            operation_id=normalized_operation_id,
+            count_session_id=session.pk,
+            count_line_id=line.pk,
+            material_id=line.material_id,
+            location_id=line.location_id,
+            condition_id=line.condition_id,
+            expected_quantity=line.expected_quantity,
+            counted_quantity=line.counted_quantity,
+            using=using,
+        )
+
+        line.resolution_status = PhysicalCountQuantityLine.ResolutionStatus.APPROVED
+        line.approved_by_user = current_actor
+        line.approved_at = timezone.now()
+        line.approval_explanation = normalized_explanation
+        line.reconciliation_transaction = mutation.transaction
+        line.full_clean(validate_constraints=False)
+        line.save(
+            using=using,
+            update_fields=[
+                "resolution_status",
+                "approved_by_user",
+                "approved_at",
+                "approval_explanation",
+                "reconciliation_transaction",
+            ],
+        )
+
+        if not session.quantity_lines.using(using).filter(
+            resolution_status=PhysicalCountQuantityLine.ResolutionStatus.PENDING_APPROVAL
+        ).exists():
+            session.reconciliation_status = PhysicalCountSession.ReconciliationStatus.COMPLETED
+            session.save(
+                using=using,
+                update_fields=["reconciliation_status", "updated_at"],
+            )
+        return QuantityDiscrepancyApprovalResult(
+            line=line,
+            transaction=mutation.transaction,
+            replayed=mutation.replayed,
+        )
+
+
+def reject_quantity_discrepancy(
+    *, actor, session_id, line_id, reason=None, using: str = "default"
+) -> PhysicalCountQuantityLine:
+    """Reject without stock effect and reopen the session for an explicit recount."""
+    current_actor = _decision_actor(actor, using)
+    normalized_session_id = _normalize_uuid(session_id, code=INVALID_SESSION)
+    normalized_line_id = _normalize_uuid(line_id, code=INVALID_LINE)
+    normalized_reason = _normalize_optional_reason(reason)
+
+    with transaction.atomic(using=using):
+        session = _locked_session(normalized_session_id, using)
+        line = _locked_line(normalized_line_id, normalized_session_id, using)
+        _require_reconciliation_eligible(session=session, line=line)
+        PhysicalCountQuantityRejection.objects.using(using).create(
+            line=line,
+            rejected_by_user=current_actor,
+            rejected_at=timezone.now(),
+            reason=normalized_reason,
+            counted_quantity=line.counted_quantity,
+            counted_by_user_id=line.counted_by_user_id,
+            counted_at=line.counted_at,
+        )
+        session.status = PhysicalCountSession.Status.STARTED
+        session.reconciliation_status = PhysicalCountSession.ReconciliationStatus.NOT_STARTED
+        session.completed_by_user = None
+        session.completed_at = None
+        session.save(
+            using=using,
+            update_fields=[
+                "status",
+                "reconciliation_status",
+                "completed_by_user",
+                "completed_at",
+                "updated_at",
+            ],
+        )
+        return line
+
+
+def _decision_actor(actor, using):
+    current_actor = _current_actor(actor, using)
+    if not current_actor.has_perm(DECIDE_COUNT_PERMISSION):
+        raise PermissionDenied
+    return current_actor
+
+
+def _require_reconciliation_eligible(*, session, line):
+    if session.status != PhysicalCountSession.Status.COMPLETED:
+        raise ValidationError(
+            "Mutabakat yalnız tamamlanmış sayım oturumunda yapılabilir.",
+            code=INVALID_RECONCILIATION,
+        )
+    if session.baseline_candidate:
+        raise ValidationError(
+            "Baseline adayı oturum COUNT_RECONCILIATION oluşturamaz.",
+            code=INVALID_RECONCILIATION,
+        )
+    if session.reconciliation_status != PhysicalCountSession.ReconciliationStatus.PENDING:
+        raise ValidationError("Mutabakat bekleyen oturum zorunludur.", code=INVALID_RECONCILIATION)
+    if (
+        line.resolution_status
+        != PhysicalCountQuantityLine.ResolutionStatus.PENDING_APPROVAL
+        or line.counted_quantity is None
+        or line.counted_quantity == line.expected_quantity
+    ):
+        raise ValidationError("Satır onaylanabilir bir fark içermiyor.", code=INVALID_RECONCILIATION)
+
+
+def _normalize_approval_explanation(value):
+    if not isinstance(value, str):
+        raise ValidationError("Onay açıklaması zorunludur.", code=INVALID_APPROVAL_EXPLANATION)
+    normalized = value.strip()
+    if not 10 <= len(normalized) <= 2000:
+        raise ValidationError(
+            "Onay açıklaması 10 ile 2000 karakter arasında olmalıdır.",
+            code=INVALID_APPROVAL_EXPLANATION,
+        )
+    return normalized
+
+
+def _normalize_optional_reason(value):
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValidationError("Ret nedeni metin olmalıdır.", code=INVALID_RECONCILIATION)
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if len(normalized) > 2000:
+        raise ValidationError("Ret nedeni 2000 karakteri aşamaz.", code=INVALID_RECONCILIATION)
+    return normalized
+
+
 def _current_actor(actor, using: str):
-    # Phase 5.4B intentionally does not create/roll out count permissions (5.4E).
-    # We still require a saved, active, same-database application actor.
+    # Count-entry actors stay permission-light; Phase 5.4E still owns role rollout.
+    # Decision paths use `_decision_actor`, which requires counting.decide_discrepancy.
     if actor is None or getattr(actor, "pk", None) is None or actor._state.db != using:
         raise PermissionDenied
     user_model = get_user_model()
@@ -526,18 +738,6 @@ def _require_started(session: PhysicalCountSession) -> None:
             "Sayım girişi yalnız STARTED oturumda yapılabilir.",
             code=INVALID_SESSION,
         )
-
-
-def _line_identity(line_id, session_id, using) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
-    try:
-        return (
-            PhysicalCountQuantityLine.objects.using(using)
-            .filter(pk=line_id, session_id=session_id)
-            .values_list("material_id", "location_id", "condition_id")
-            .get()
-        )
-    except PhysicalCountQuantityLine.DoesNotExist as exc:
-        raise ValidationError("Sayım satırı bulunamadı.", code=INVALID_LINE) from exc
 
 
 def _locked_line(line_id, session_id, using) -> PhysicalCountQuantityLine:

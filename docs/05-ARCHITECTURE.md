@@ -520,6 +520,8 @@ Physical count birinci sınıf workflow'dur:
 
 Phase 5.4B counting service kilit sırası `PhysicalCountSession → Material → Location → MaterialCondition → StockBalance`dır. Open-scope kararları counting'e özel PostgreSQL transaction advisory lock ile serialize edilir. Snapshot transaction'ı bütün QUANTITY Material satırlarını deterministic sırada kilitler; ardından Location tablosunu `SHARE` mode ile hiyerarşi parent değişikliklerine karşı kısa süreli sabitler, subtree Location ve MaterialCondition satırlarını deterministic sırada kilitler ve pozitif in-scope `StockBalance` satırlarını tek statement ile yeniden okuyup expected satırlarını oluşturur. Bu kilitler session ömrü boyunca tutulmaz; transaction commit'i sonrasında inventory hareketleri devam eder.
 
+Phase 5.4C routine QUANTITY approval toplam sırası `PhysicalCountSession → PhysicalCountQuantityLine → operation_id reservation → Material → Location → MaterialCondition → StockBalance`dır. Inventory public boundary counting modeli import etmez; semantic count/session/line kimliklerini fingerprint'e alır. Counting modülü sonucu one-to-one link ile sahiplenir. Deferred PostgreSQL constraint trigger, her `COUNT_RECONCILIATION` header'ının tam bir approved count owner'a ve count basis ile aynı tek ledger line'ına sahip olmasını commit'te doğrular. Approved basis ve link DB trigger ile immutable'dır. `counting.decide_discrepancy` model-level custom permission olarak tanımlanmıştır; safe allowlist, `setup_roles` şablonları ve Group ataması Phase 5.4E'ye bırakılmıştır.
+
 ## 21. Reporting Architecture
 
 V1 raporları ilişkisel sorgularla şu kaynaklardan üretilir:
@@ -914,7 +916,7 @@ Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs
 
 **Phase 4.1:** Quantity RECEIPT UI + permission rollout — COMPLETE (2026-09-12).
 
-Quantity RECEIPT, ISSUE, `DEC-028` unused linked RETURN ve `DEC-029` quantity TRANSFER uçtan uca implement edilmiştir. Phase 5.1 current-stock visibility `44f1d30b7b8a72b768293de3ecbff32769e3f454` commit'inde COMPLETE'tir. `DEC-030` Phase 5.2 quantity controlled correction COMPLETE'tir; son doğrulama 1242 test ile geçmiştir. Phase 5.3 serialized identity/current projection + serialized RECEIVE `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec` üzerinde COMPLETE'tir. `DEC-033` Phase 5.4 decisions'ı kararlaştırır; Phase 5.4A implementation başlamamıştır. **Gate 3 PASS** (2026-09-12; bkz. `06` §4.5) yalnız tarihsel audited scope'u doğrular.
+Quantity RECEIPT, ISSUE, `DEC-028` unused linked RETURN ve `DEC-029` quantity TRANSFER uçtan uca implement edilmiştir. Phase 5.1 current-stock visibility `44f1d30b7b8a72b768293de3ecbff32769e3f454` commit'inde COMPLETE'tir. `DEC-030` Phase 5.2 quantity controlled correction COMPLETE'tir; son doğrulama 1242 test ile geçmiştir. Phase 5.3 serialized identity/current projection + serialized RECEIVE `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec` üzerinde COMPLETE'tir. `DEC-033` kapsamında Phase 5.4A schema/guard ve Phase 5.4B physical-count workflow foundation tamamlanmış; Phase 5.4C routine QUANTITY discrepancy approval/rejection ve `COUNT_RECONCILIATION` kernel'i uygulanmıştır (review için uncommitted). Baseline/`INITIAL_BALANCE`, serialized count/reconciliation, UI ve permission rollout uygulanmamıştır. **Gate 3 PASS** (2026-09-12; bkz. `06` §4.5) yalnız tarihsel audited scope'u doğrular.
 
 ## 37. Dynamic Configuration Architecture
 

@@ -912,6 +912,8 @@ flowchart TD
 7. Cutover session `COUNT_RECONCILIATION` oluşturmaz; sayılan inventory yalnız baseline'a beslenir.
 8. Oturum mutabakat durumu güncellenir.
 
+**Phase 5.4C implementation note:** Routine QUANTITY fark için `approve_quantity_discrepancy` ve `reject_quantity_discrepancy` application service'leri uygulanmıştır. Ret stok/ledger yazmaz; immutable ret snapshot kaydı oluşturur ve oturumu explicit recount/review için `STARTED/NOT_STARTED` durumuna döndürür. Onay atomik olarak tek `COUNT_RECONCILIATION` line'ı, projection update'i, approval metadata'sını ve counting-owned result link'ini yazar. UI ve permission rollout Phase 5.4C kapsamında değildir.
+
 ```mermaid
 flowchart TD
     Review["Farkları incele"] --> Investigate["Araştır"]

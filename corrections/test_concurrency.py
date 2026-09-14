@@ -92,6 +92,9 @@ class ControlledCorrectionConcurrencyTests(TransactionTestCase):
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    counting_physicalcountquantityrejection,
+                    counting_physicalcountquantityline,
+                    counting_physicalcountsession,
                     audit_auditevent,
                     corrections_correctionrequest,
                     inventory_issuecontext,

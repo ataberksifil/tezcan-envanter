@@ -258,7 +258,7 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 - **Primary Key:** `id`
 - **Foreign Keys:** `acting_user_id → auth user`; `source_transaction_id → inventory_transactions.id`. Correction ve baseline sonuç ilişkileri downstream workflow tabloları/linkleri tarafından sahiplenilir; inventory downstream app'lere reverse FK taşımaz.
 - **Unique Constraints:** `operation_id`; opsiyonel `transaction_number`.
-- **Current Phase 5.3 Check Constraint:** `transaction_type IN (RECEIPT, ISSUE, RETURN, TRANSFER, CONTROLLED_CORRECTION)`. `DEC-033` Phase 5.4 için `COUNT_RECONCILIATION` ve baseline-only `INITIAL_BALANCE` vocabulary'sini onaylar; current DB constraint ancak ayrı Phase 5.4 implementation/migration göreviyle genişletilebilir.
+- **Current Phase 5.4C Check Constraint:** `transaction_type IN (RECEIPT, ISSUE, RETURN, TRANSFER, CONTROLLED_CORRECTION, COUNT_RECONCILIATION)`. `DEC-033` baseline-only `INITIAL_BALANCE` vocabulary'sini onaylar; o type bu dilimde schema'ya eklenmez.
 - **Recommended Indexes:** `occurred_at`, `transaction_type, occurred_at`, `acting_user_id, occurred_at`, `source_transaction_id`; unique `operation_id`. Fingerprint tek başına lookup anahtarı değildir.
 - **Delete Policy:** `IMMUTABLE / NO DELETE`; PostgreSQL DB-level immutability guard zorunludur.
 - **Notes / TBD:** Ledger yalnızca tamamlanmış işlemleri içerdiği için mutable `status` alanı önerilmez. Taslak/validasyon import veya istek bağlamında tutulur. Committed header/line `UPDATE` ve `DELETE`, daha sonra Django migration ile yönetilecek PostgreSQL trigger-class guard tarafından reddedilmelidir; application/admin/ORM/raw application SQL bypass edemez. Exceptional repair/migration privileged, documented ve audited'dir. `INITIAL_BALANCE`, yalnızca onaylı `InventoryBaseline` üzerinden reconciled başlangıç stoğunu ledger'a alan kontrollü olaydır; serbest doğrudan stok yazımı değildir.
@@ -428,7 +428,7 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 - **Primary Key:** `id`
 - **Foreign Keys:** Scope location ve auth user FK'leri; delete restricted.
 - **Unique Constraints:** `reference_number`.
-- **Check Constraints:** `DRAFT` için start/complete metadata null; `STARTED` için start actor/time dolu ve complete metadata null; `COMPLETED` için start/complete actor/time dolu; status ve reconciliation status controlled vocabulary içinde.
+- **Check Constraints:** `DRAFT` için start/complete metadata null; `STARTED` için start actor/time dolu ve complete metadata null; `COMPLETED` için start/complete actor/time dolu; status ve reconciliation status controlled vocabulary içinde; `DRAFT`/`STARTED` yalnız `NOT_STARTED` reconciliation, `COMPLETED` yalnız `PENDING`/`COMPLETED`.
 - **Recommended Indexes:** `status`, `reconciliation_status`, `scope_location_id`, `started_at`.
 - **Delete Policy:** Başlatıldıktan sonra `RETAIN / NO HARD DELETE`.
 - **Notes:** `DEC-033` stock-stability kararını kapatır: freeze yoktur; Phase 5.4B'deki atomik start adımı session'ı `DRAFT`tan `STARTED`a geçirirken tek Location subtree için immutable expected snapshot oluşturur. Çakışan subtree'lerde çakışan açık session yasaktır. Reconciliation idempotent/double-apply korumalıdır ve `lock → re-read → drift check → revalidate → write` sırasını izler; drift varsa reddedilip recount/reconfirmation istenir. `baseline_candidate=false` routine, `true` cutover session'dır. `STARTED` sonrasında scope, baseline sınıflandırması, start metadata ve expected snapshot ordinary write yollarında immutable'dır.
@@ -450,6 +450,7 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `counted_at` | TIMESTAMPTZ | Evet | — | Sayım zamanı. |
 | `resolution_status` | VARCHAR | Hayır | Controlled value | Pending-count / explicit-not-counted / no-discrepancy / pending-approval / approved / dispositioned durumunu ayırır. |
 | `approved_by_user_id` | Auth user PK tipi | Evet | FK | Sıfır olmayan routine discrepancy'yi onaylayan kullanıcı. |
+| `approved_at` | TIMESTAMPTZ | Evet | APPROVED iken zorunlu | Onay zamanı. |
 | `approval_explanation` | TEXT | Evet | Trim 10..2000 when approved | Explicit approval gerekçesi. |
 | `reconciliation_transaction_id` | UUID | Evet | FK | Counting-owned dedicated `COUNT_RECONCILIATION` sonucu; cutover session'da null. |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Satır oluşturma zamanı. |
@@ -457,10 +458,30 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 - **Primary Key:** `id`
 - **Foreign Keys:** Session, material, location, condition, counted/approved user ve optional result inventory transaction FK'leri.
 - **Unique Constraints:** `(session_id, material_id, location_id, condition_id)`.
-- **Check Constraints:** Beklenen miktar negatif değil; sayılmışsa miktar negatif değil ve counted user/time birlikte dolu.
+- **Check Constraints:** Beklenen miktar negatif değil; sayılmışsa miktar negatif değil ve counted user/time birlikte dolu; APPROVED metadata/shape ve self-approval yasağı.
 - **Recommended Indexes:** Composite unique anahtar; `material_id`, `location_id`, `resolution_status`, optional result transaction.
 - **Delete Policy:** `DRAFT` session satırları başlangıç öncesi kaldırılabilir; `STARTED`/`COMPLETED` session snapshot geçmişi `RETAIN / NO HARD DELETE`tir.
-- **Notes:** `PENDING_COUNT`, actor/time olmadan henüz işlenmemiş satırdır. Explicit `NOT_COUNTED`, `counted_quantity=NULL` bırakır ancak kullanıcı eylemini `counted_by_user` ve `counted_at` ile saklar; fiziksel explicit zero ise NULL değildir ve normal counted state'tir. Routine session yalnız bütün required expected satırlar fiziksel sayılmış veya explicit `NOT_COUNTED` disposition almışsa fiziksel sayımı tamamlayabilir. `baseline_candidate=true` session'da required satırlar fiziksel sayılmalıdır; hem `PENDING_COUNT` hem explicit `NOT_COUNTED` completion'ı engeller. Fark `counted_quantity - expected_quantity` olarak türetilir; ayrıca mutable kolon önerilmez. Expected değer session-start immutable snapshot'ıdır; zero-quantity `StockBalance` row'ları snapshot'a alınmaz. Existing QUANTITY Material + condition için unexpected physical stock `expected_quantity=0` satırı eklenebilir. Missing row zero değildir. Phase 5.4B start transaction'ı `PhysicalCountSession → Material → Location → MaterialCondition → StockBalance` kilit sırasını izler; bütün QUANTITY Material satırlarını ve Location ağacını kısa süreli sabitleyip projection satırlarını tek authoritative snapshot statement'ında okur. Routine approved positive effect target-only, negative effect source-only `COUNT_RECONCILIATION` line'ıdır. `CorrectionRequest` FK'si yoktur.
+- **Notes:** `PENDING_COUNT`, actor/time olmadan henüz işlenmemiş satırdır. Explicit `NOT_COUNTED`, `counted_quantity=NULL` bırakır ancak kullanıcı eylemini `counted_by_user` ve `counted_at` ile saklar; fiziksel explicit zero ise NULL değildir ve normal counted state'tir. Routine session yalnız bütün required expected satırlar fiziksel sayılmış veya explicit `NOT_COUNTED` disposition almışsa fiziksel sayımı tamamlayabilir. `baseline_candidate=true` session'da required satırlar fiziksel sayılmalıdır; hem `PENDING_COUNT` hem explicit `NOT_COUNTED` completion'ı engeller. Fark `counted_quantity - expected_quantity` olarak türetilir; ayrıca mutable kolon önerilmez. Expected değer session-start immutable snapshot'ıdır; zero-quantity `StockBalance` row'ları snapshot'a alınmaz. Existing QUANTITY Material + condition için unexpected physical stock `expected_quantity=0` satırı eklenebilir. Missing row zero değildir. Phase 5.4B start transaction'ı `PhysicalCountSession → Material → Location → MaterialCondition → StockBalance` kilit sırasını izler; bütün QUANTITY Material satırlarını ve Location ağacını kısa süreli sabitleyip projection satırlarını tek authoritative snapshot statement'ında okur. Routine approved positive effect target-only, negative effect source-only `COUNT_RECONCILIATION` line'ıdır. `CorrectionRequest` FK'si yoktur. APPROVED satırın expected/counted temel, bucket kimliği ve result link'i ordinary UPDATE/DELETE ile değiştirilemez.
+
+### 13.2.1 `physical_count_quantity_rejections`
+
+**Purpose:** Routine QUANTITY discrepancy ret kaydını stok etkisi olmadan saklar ve recount için oturumu yeniden açar.
+
+| Column | Conceptual Type | Null | Constraint | Description |
+|---|---|---:|---|---|
+| `id` | UUID | Hayır | PK | Ret kaydı kimliği. |
+| `line_id` | UUID | Hayır | FK | Reddedilen sayım satırı. |
+| `rejected_by_user_id` | Auth user PK tipi | Hayır | FK | Karar aktörü. |
+| `rejected_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Ret zamanı. |
+| `reason` | TEXT | Evet | Trim; boş string NULL | İsteğe bağlı ret nedeni; zorunlu değildir. |
+| `counted_quantity` | NUMERIC(18,3) | Hayır | `>= 0` | Reddedilen fiziksel sayım snapshot'ı. |
+| `counted_by_user_id` | Auth user PK tipi | Hayır | FK | Reddedilen sayım aktörü. |
+| `counted_at` | TIMESTAMPTZ | Hayır | — | Reddedilen sayım zamanı. |
+
+- **Primary Key:** `id`
+- **Foreign Keys:** Line ve auth user FK'leri; delete restricted.
+- **Delete Policy:** `IMMUTABLE / NO DELETE`; PostgreSQL trigger guard.
+- **Notes:** Ret ledger veya `StockBalance` yazmaz; expected snapshot'ı rewrite etmez. Oturum `STARTED` + `NOT_STARTED` durumuna döner ve explicit recount CAS token'ı mevcut `counted_at` ile devam eder. Phase 5.4C UI/permission rollout'u yoktur.
 
 ### 13.3 `physical_count_asset_lines`
 
@@ -741,6 +762,7 @@ Her transaction line için `source_location_id` o lokasyondaki stok/state'i **az
 | `RETURN` | Null | Zorunlu explicit target | `DEC-028` quantity first slice; original ISSUE line FK zorunlu, same material/unit/condition, cumulative cap. Target runtime `active && can_hold_stock` validation service fazındadır. |
 | `TRANSFER` | Zorunlu stock-holding source | Zorunlu, farklı stock-holding target | Source!=target DB row check + service |
 | `CONTROLLED_CORRECTION` | Azalış line'ında zorunlu | Artış line'ında zorunlu | `DEC-030`: one-line signed quantity veya two-line identity restatement; `corrected_line` zorunlu |
+| `COUNT_RECONCILIATION` | Negatif farkta zorunlu | Pozitif farkta zorunlu | Yalnız tamamlanmış routine count discrepancy; tam bir QUANTITY line ve counting-owned immutable sonuç bağı |
 | `INITIAL_BALANCE` | Null | Zorunlu stock-holding target | Yalnız baseline-owned scoped link ve inventory service |
 
 Broader RETURN ve controlled correction semantics kesinleşmeden DB'ye ek zorunluluk gömülmez; yalnız `DEC-028` quantity first-slice guards current schema'ya aittir.
@@ -822,6 +844,8 @@ Lock öncesi validation yalnız erken kullanıcı feedback'idir; current-state c
 - **Correction approval:** `PENDING` talep satırı kilitlenmeli; iki kararın eş zamanlı verilmesi engellenmelidir.
 - **Import commit:** Batch kilitlenmeli; yalnızca doğrulanmış batch bir kez commit edilmelidir.
 - **Physical reconciliation/baseline:** Count session ve baseline adayı kilitlenmeli; duplicate cutover engellenmelidir.
+
+Phase 5.4C routine QUANTITY mutabakatında toplam kilit sırası `PhysicalCountSession → PhysicalCountQuantityLine → operation_id reservation → Material → Location → MaterialCondition → StockBalance`dır. Kilitli bakiye snapshot `expected_quantity` ile bire bir eşleşmezse typed drift conflict ile atomik rollback yapılır. Eksik bakiye current zero olarak karşılaştırılır; persisted zero satırı zorunlu değildir.
 
 Birden fazla quantity balance satırı `material_id → location_id → condition_id → primary key` sırasıyla kilitlenir. Serialized operation ilgili `SerializedAsset` satırını kilitler ve current location/condition/state'i lock sonrasında yeniden doğrular. Correction, import, reconciliation ve baseline kendi lifecycle/guard satırlarını lock altında yeniden doğrular.
 

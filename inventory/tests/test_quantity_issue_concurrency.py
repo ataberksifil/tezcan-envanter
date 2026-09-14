@@ -78,6 +78,9 @@ class QuantityIssueConcurrencyTests(TransactionTestCase):
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    counting_physicalcountquantityrejection,
+                    counting_physicalcountquantityline,
+                    counting_physicalcountsession,
                     corrections_correctionrequest,
                     inventory_issuecontext,
                     inventory_inventorytransactionline,

@@ -89,6 +89,7 @@ class InventoryTransaction(models.Model):
         RETURN = "RETURN", "Stok iadesi"
         TRANSFER = "TRANSFER", "Stok transferi"
         CONTROLLED_CORRECTION = "CONTROLLED_CORRECTION", "Kontrollü düzeltme"
+        COUNT_RECONCILIATION = "COUNT_RECONCILIATION", "Sayım mutabakatı"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     operation_id = models.UUIDField()
@@ -137,6 +138,7 @@ class InventoryTransaction(models.Model):
                         "RETURN",
                         "TRANSFER",
                         "CONTROLLED_CORRECTION",
+                        "COUNT_RECONCILIATION",
                     ]
                 ),
                 name="inventory_tx_type_supported",

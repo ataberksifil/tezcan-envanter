@@ -20,14 +20,17 @@ from counting.services import (
     INVALID_SESSION,
     OVERLAPPING_SCOPE,
     add_unexpected_quantity_count,
+    approve_quantity_discrepancy,
     complete_physical_count,
     create_physical_count_session,
     mark_quantity_line_not_counted,
     record_quantity_count,
+    reject_quantity_discrepancy,
     start_physical_count_session,
 )
-from inventory.models import StockBalance
+from inventory.models import InventoryTransaction, StockBalance
 from inventory.services.receipts import receive_quantity
+from inventory.services.transfers import transfer_quantity
 from locations.models import Location
 
 
@@ -45,7 +48,26 @@ class PhysicalCountConcurrencyTests(TransactionTestCase):
             codename="receive_stock",
         )
         self.actor.user_permissions.add(receipt_permission)
+        self.actor.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="inventory",
+                content_type__model="inventorytransaction",
+                codename="transfer_stock",
+            )
+        )
         self.actor = get_user_model().objects.get(pk=self.actor.pk)
+        self.approver = get_user_model().objects.create_user(
+            username=f"cc-approver-{suffix}"
+        )
+        self.approver.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="counting",
+                content_type__model="physicalcountquantityline",
+                codename="decide_discrepancy",
+            ),
+            receipt_permission,
+        )
+        self.approver = get_user_model().objects.get(pk=self.approver.pk)
         self.category = Category.objects.create(code=f"CC-CAT-{suffix}", name="Kat")
         self.unit = UnitOfMeasure.objects.create(code=f"CC-U-{suffix}", name="Adet")
         self.material = Material.objects.create(
@@ -83,6 +105,7 @@ class PhysicalCountConcurrencyTests(TransactionTestCase):
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    counting_physicalcountquantityrejection,
                     counting_physicalcountquantityline,
                     counting_physicalcountsession,
                     corrections_correctionrequest,
@@ -100,7 +123,7 @@ class PhysicalCountConcurrencyTests(TransactionTestCase):
         MaterialCondition.objects.filter(pk=self.condition.pk).delete()
         UnitOfMeasure.objects.filter(pk=self.unit.pk).delete()
         Category.objects.filter(pk=self.category.pk).delete()
-        get_user_model().objects.filter(pk=self.actor.pk).delete()
+        get_user_model().objects.filter(pk__in=[self.actor.pk, self.approver.pk]).delete()
 
     @staticmethod
     def _run_concurrently(*calls):
@@ -147,6 +170,214 @@ class PhysicalCountConcurrencyTests(TransactionTestCase):
         session = self._draft()
         start_physical_count_session(actor=self.actor, session_id=session.pk)
         return session, session.quantity_lines.get()
+
+    def _completed_discrepancy(self, *, expected=Decimal("5.000"), counted=Decimal("7.000")):
+        receive_quantity(
+            actor=self.actor,
+            operation_id=uuid.uuid4(),
+            material_id=self.material.pk,
+            unit_id=self.unit.pk,
+            condition_id=self.condition.pk,
+            target_location_id=self.location.pk,
+            quantity=expected,
+        )
+        session = self._draft()
+        start_physical_count_session(actor=self.actor, session_id=session.pk)
+        line = session.quantity_lines.get()
+        record_quantity_count(
+            actor=self.actor,
+            session_id=session.pk,
+            line_id=line.pk,
+            counted_quantity=counted,
+        )
+        complete_physical_count(actor=self.actor, session_id=session.pk)
+        return session, line
+
+    def test_two_approvals_same_discrepancy_create_one_effect(self):
+        session, line = self._completed_discrepancy()
+        results = self._run_concurrently(
+            lambda: approve_quantity_discrepancy(
+                actor=self.approver, session_id=session.pk, line_id=line.pk,
+                operation_id=uuid.uuid4(), explanation="Birinci eşzamanlı onay açıklaması.",
+            ),
+            lambda: approve_quantity_discrepancy(
+                actor=self.approver, session_id=session.pk, line_id=line.pk,
+                operation_id=uuid.uuid4(), explanation="İkinci eşzamanlı onay açıklaması.",
+            ),
+        )
+        self.assertEqual(sum(not isinstance(result, Exception) for result in results), 1)
+        self.assertEqual(
+            InventoryTransaction.objects.filter(transaction_type="COUNT_RECONCILIATION").count(), 1
+        )
+        self.assertEqual(StockBalance.objects.get().quantity, Decimal("7.000"))
+
+    def test_same_operation_approval_race_replays_one_effect(self):
+        session, line = self._completed_discrepancy()
+        operation_id = uuid.uuid4()
+        results = self._run_concurrently(
+            *[
+                lambda: approve_quantity_discrepancy(
+                    actor=self.approver, session_id=session.pk, line_id=line.pk,
+                    operation_id=operation_id, explanation="Aynı semantik payload tekrarı.",
+                )
+                for _ in range(2)
+            ]
+        )
+        self.assertTrue(all(not isinstance(result, Exception) for result in results))
+        self.assertEqual({result.transaction.pk for result in results}, {results[0].transaction.pk})
+        self.assertEqual(sum(result.replayed for result in results), 1)
+        self.assertEqual(
+            InventoryTransaction.objects.filter(transaction_type="COUNT_RECONCILIATION").count(), 1
+        )
+
+    def test_approval_and_rejection_race_has_one_decision(self):
+        session, line = self._completed_discrepancy()
+        results = self._run_concurrently(
+            lambda: approve_quantity_discrepancy(
+                actor=self.approver, session_id=session.pk, line_id=line.pk,
+                operation_id=uuid.uuid4(), explanation="Onay ve ret yarışı açıklaması.",
+            ),
+            lambda: reject_quantity_discrepancy(
+                actor=self.approver, session_id=session.pk, line_id=line.pk,
+                reason="Yeniden sayım istendi.",
+            ),
+        )
+        self.assertEqual(sum(not isinstance(result, Exception) for result in results), 1)
+        session.refresh_from_db(); line.refresh_from_db()
+        if line.resolution_status == "APPROVED":
+            self.assertEqual(session.status, "COMPLETED")
+            self.assertEqual(StockBalance.objects.get().quantity, Decimal("7.000"))
+        else:
+            self.assertEqual(session.status, "STARTED")
+            self.assertEqual(StockBalance.objects.get().quantity, Decimal("5.000"))
+
+    def test_inventory_movement_racing_approval_is_serializable_by_bucket_locks(self):
+        session, line = self._completed_discrepancy()
+        results = self._run_concurrently(
+            lambda: approve_quantity_discrepancy(
+                actor=self.approver, session_id=session.pk, line_id=line.pk,
+                operation_id=uuid.uuid4(), explanation="Hareket yarışı drift kontrolü.",
+            ),
+            lambda: receive_quantity(
+                actor=self.actor, operation_id=uuid.uuid4(), material_id=self.material.pk,
+                unit_id=self.unit.pk, condition_id=self.condition.pk,
+                target_location_id=self.location.pk, quantity=Decimal("1.000"),
+            ),
+        )
+        movement = results[1]
+        self.assertFalse(isinstance(movement, Exception))
+        approval = results[0]
+        final_quantity = StockBalance.objects.get().quantity
+        if isinstance(approval, Exception):
+            self.assertIsInstance(approval, ValidationError)
+            self.assertEqual(approval.code, "inventory.count_reconciliation_drift")
+            self.assertEqual(final_quantity, Decimal("6.000"))
+        else:
+            self.assertEqual(final_quantity, Decimal("8.000"))
+
+    def test_unexpected_zero_snapshot_racing_receipt_never_double_counts(self):
+        session = self._draft()
+        start_physical_count_session(actor=self.actor, session_id=session.pk)
+        line = add_unexpected_quantity_count(
+            actor=self.actor, session_id=session.pk, material_id=self.material.pk,
+            location_id=self.location.pk, condition_id=self.condition.pk,
+            counted_quantity=Decimal("4.000"),
+        )
+        complete_physical_count(actor=self.actor, session_id=session.pk)
+        results = self._run_concurrently(
+            lambda: approve_quantity_discrepancy(
+                actor=self.approver, session_id=session.pk, line_id=line.pk,
+                operation_id=uuid.uuid4(), explanation="Beklenmeyen stok yarış kontrolü.",
+            ),
+            lambda: receive_quantity(
+                actor=self.actor, operation_id=uuid.uuid4(), material_id=self.material.pk,
+                unit_id=self.unit.pk, condition_id=self.condition.pk,
+                target_location_id=self.location.pk, quantity=Decimal("1.000"),
+            ),
+        )
+        self.assertFalse(isinstance(results[1], Exception))
+        final_quantity = StockBalance.objects.get().quantity
+        if isinstance(results[0], Exception):
+            self.assertEqual(results[0].code, "inventory.count_reconciliation_drift")
+            self.assertEqual(final_quantity, Decimal("1.000"))
+        else:
+            self.assertEqual(final_quantity, Decimal("5.000"))
+
+    def test_recount_racing_approval_cannot_rewrite_approved_basis(self):
+        session, line = self._completed_discrepancy()
+        results = self._run_concurrently(
+            lambda: approve_quantity_discrepancy(
+                actor=self.approver, session_id=session.pk, line_id=line.pk,
+                operation_id=uuid.uuid4(), explanation="Onay sırasında tarihsel temel korunur.",
+            ),
+            lambda: record_quantity_count(
+                actor=self.actor, session_id=session.pk, line_id=line.pk,
+                counted_quantity=Decimal("9.000"), expected_counted_at=line.counted_at,
+            ),
+        )
+        self.assertFalse(isinstance(results[0], Exception))
+        self.assertIsInstance(results[1], ValidationError)
+        self.assertEqual(results[1].code, INVALID_SESSION)
+        line.refresh_from_db()
+        self.assertEqual(line.counted_quantity, Decimal("7.000"))
+        self.assertEqual(line.resolution_status, "APPROVED")
+
+    def test_negative_reconciliation_racing_subtraction_never_goes_negative(self):
+        session, line = self._completed_discrepancy(
+            expected=Decimal("5.000"), counted=Decimal("3.000")
+        )
+        results = self._run_concurrently(
+            lambda: approve_quantity_discrepancy(
+                actor=self.approver, session_id=session.pk, line_id=line.pk,
+                operation_id=uuid.uuid4(), explanation="Negatif fark yarış kontrolü.",
+            ),
+            lambda: transfer_quantity(
+                actor=self.actor, operation_id=uuid.uuid4(), material_id=self.material.pk,
+                unit_id=self.unit.pk, condition_id=self.condition.pk,
+                source_location_id=self.location.pk,
+                target_location_id=self.other_location.pk,
+                quantity=Decimal("4.000"),
+            ),
+        )
+        source = StockBalance.objects.get(
+            material=self.material, location=self.location, condition=self.condition
+        ).quantity
+        self.assertGreaterEqual(source, Decimal("0.000"))
+        self.assertEqual(sum(not isinstance(result, Exception) for result in results), 1)
+        if isinstance(results[0], Exception):
+            self.assertEqual(results[0].code, "inventory.count_reconciliation_drift")
+
+    def test_same_operation_changed_count_payload_race_conflicts(self):
+        receive_quantity(
+            actor=self.actor, operation_id=uuid.uuid4(), material_id=self.material.pk,
+            unit_id=self.unit.pk, condition_id=self.condition.pk,
+            target_location_id=self.location.pk, quantity=Decimal("5.000"),
+        )
+        sessions_and_lines = []
+        for counted in (Decimal("6.000"), Decimal("7.000")):
+            session = self._draft()
+            start_physical_count_session(actor=self.actor, session_id=session.pk)
+            line = session.quantity_lines.get()
+            record_quantity_count(
+                actor=self.actor, session_id=session.pk, line_id=line.pk,
+                counted_quantity=counted,
+            )
+            complete_physical_count(actor=self.actor, session_id=session.pk)
+            sessions_and_lines.append((session, line))
+        operation_id = uuid.uuid4()
+        results = self._run_concurrently(
+            *[
+                lambda pair=pair: approve_quantity_discrepancy(
+                    actor=self.approver, session_id=pair[0].pk, line_id=pair[1].pk,
+                    operation_id=operation_id, explanation="Farklı semantik payload çakışması.",
+                )
+                for pair in sessions_and_lines
+            ]
+        )
+        self.assertEqual(sum(not isinstance(result, Exception) for result in results), 1)
+        failures = [result for result in results if isinstance(result, ValidationError)]
+        self.assertEqual(len(failures), 1)
+        self.assertEqual(failures[0].code, "inventory.operation_conflict")
 
     def test_two_overlapping_workflows_start_at_most_one_session(self):
         results = self._run_concurrently(

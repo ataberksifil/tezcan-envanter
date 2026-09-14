@@ -771,7 +771,7 @@ def test_completion_sets_only_completion_metadata_and_state(service_objects):
     assert completed.status == PhysicalCountSession.Status.COMPLETED
     assert completed.completed_by_user_id == service_objects["user"].pk
     assert completed.completed_at is not None
-    assert completed.reconciliation_status == "NOT_STARTED"
+    assert completed.reconciliation_status == "PENDING"
     assert (InventoryTransaction.objects.count(), StockBalance.objects.get().quantity) == before
 
 
@@ -807,6 +807,7 @@ def test_illegal_session_transitions_are_rejected_by_database(
     if old_status == "COMPLETED":
         PhysicalCountSession.objects.filter(pk=session.pk).update(
             status="COMPLETED",
+            reconciliation_status="COMPLETED",
             completed_by_user=service_objects["user"],
             completed_at=timezone.now(),
         )
@@ -816,7 +817,7 @@ def test_illegal_session_transitions_are_rejected_by_database(
         update.update(
             completed_by_user=service_objects["user"], completed_at=timezone.now()
         )
-    with pytest.raises(DatabaseError, match="must be started|cannot return|cannot be reopened"):
+    with pytest.raises(DatabaseError, match="must be started|cannot return|cannot be reopened|reopen only"):
         with transaction.atomic():
             PhysicalCountSession.objects.filter(pk=session.pk).update(**update)
 
