@@ -176,6 +176,7 @@ class PhysicalCountSession(models.Model):
 
 class PhysicalCountQuantityLine(models.Model):
     class ResolutionStatus(models.TextChoices):
+        PENDING_COUNT = "PENDING_COUNT", "Sayım bekliyor"
         NOT_COUNTED = "NOT_COUNTED", "Sayılmadı"
         NO_DISCREPANCY = "NO_DISCREPANCY", "Fark yok"
         PENDING_APPROVAL = "PENDING_APPROVAL", "Onay bekliyor"
@@ -231,7 +232,7 @@ class PhysicalCountQuantityLine(models.Model):
     resolution_status = models.CharField(
         max_length=20,
         choices=ResolutionStatus.choices,
-        default=ResolutionStatus.NOT_COUNTED,
+        default=ResolutionStatus.PENDING_COUNT,
     )
     approved_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -278,6 +279,7 @@ class PhysicalCountQuantityLine(models.Model):
             models.CheckConstraint(
                 condition=Q(
                     resolution_status__in=[
+                        "PENDING_COUNT",
                         "NOT_COUNTED",
                         "NO_DISCREPANCY",
                         "PENDING_APPROVAL",
@@ -293,6 +295,12 @@ class PhysicalCountQuantityLine(models.Model):
                         counted_quantity__isnull=True,
                         counted_by_user__isnull=True,
                         counted_at__isnull=True,
+                        resolution_status="PENDING_COUNT",
+                    )
+                    | Q(
+                        counted_quantity__isnull=True,
+                        counted_by_user__isnull=False,
+                        counted_at__isnull=False,
                         resolution_status="NOT_COUNTED",
                     )
                     | Q(
@@ -300,7 +308,9 @@ class PhysicalCountQuantityLine(models.Model):
                         counted_by_user__isnull=False,
                         counted_at__isnull=False,
                     )
-                    & ~Q(resolution_status="NOT_COUNTED")
+                    & ~Q(
+                        resolution_status__in=["PENDING_COUNT", "NOT_COUNTED"]
+                    )
                 ),
                 name="counting_qline_count_state_match",
             ),
@@ -322,14 +332,23 @@ class PhysicalCountQuantityLine(models.Model):
             and self.counted_by_user_id is not None
             and self.counted_at is not None
         )
-        if self.resolution_status == self.ResolutionStatus.NOT_COUNTED:
+        if self.resolution_status == self.ResolutionStatus.PENDING_COUNT:
             if (
                 self.counted_quantity is not None
                 or self.counted_by_user_id is not None
                 or self.counted_at is not None
             ):
                 raise ValidationError(
-                    "Sayılmamış satırda fiziksel miktar, sayaç veya sayım zamanı bulunamaz."
+                    "İşlenmemiş satırda fiziksel miktar, sayaç veya sayım zamanı bulunamaz."
+                )
+        elif self.resolution_status == self.ResolutionStatus.NOT_COUNTED:
+            if self.counted_quantity is not None:
+                raise ValidationError(
+                    "Açıkça sayılmadı işaretlenen satırda fiziksel miktar bulunamaz."
+                )
+            if self.counted_by_user_id is None or self.counted_at is None:
+                raise ValidationError(
+                    "Açıkça sayılmadı işaretlenen satırda aktör ve zaman zorunludur."
                 )
         elif not count_metadata_present:
             raise ValidationError(

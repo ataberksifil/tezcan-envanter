@@ -849,8 +849,9 @@ flowchart TD
 4. **QUANTITY:** Fiziksel miktar girilir. Existing Material + condition için unexpected stock `expected_quantity=0` olarak eklenebilir.
 5. **SERIALIZED:** Phase 5.3 asset identity/current-state modeliyle expected/observed presence ve condition kaydedilir; yeni lifecycle state eklenmez.
 6. Unknown catalog item stock oluşturmaz; resolved veya explicitly abandoned olana kadar unresolved kalır.
-7. Oturum tamamlanır; reviewer/approver expected ve discrepancies'i görür.
-8. Stok projection doğrudan değiştirilmez; missing row zero sayılmaz.
+7. Her required expected satır fiziksel sayım veya explicit `NOT_COUNTED` kullanıcı disposition'ı alır; untouched satır `PENDING_COUNT` olarak kalır ve completion'ı engeller. Routine session explicit `NOT_COUNTED` ile tamamlanabilir; `baseline_candidate=true` session'da required satırların tamamı fiziksel sayılmış olmalıdır.
+8. Oturum tamamlanır; reviewer/approver expected ve discrepancies'i görür.
+9. Stok projection doğrudan değiştirilmez; missing row zero sayılmaz.
 
 ```mermaid
 flowchart TD
@@ -871,7 +872,7 @@ flowchart TD
 - Count scope tek Location subtree ve expected value session-start snapshot'ıdır.
 - Çakışan açık count session scope'ları yasaktır.
 - Counter expected/discrepancy değerlerini göremez; reviewer/approver görebilir.
-- Missing/not-counted row zero değildir.
+- Untouched `PENDING_COUNT`, explicit `NOT_COUNTED` ve fiziksel explicit zero birbirinden ayrıdır; hiçbiri diğerine örtülü dönüştürülmez.
 
 **Success Result**
 - `physical_count_sessions` ve satırlar kayıtlı; farklar görünür.

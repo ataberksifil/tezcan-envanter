@@ -511,11 +511,14 @@ Physical count birinci sınıf workflow'dur:
 - Count session ve adjustment/baseline commit eşzamanlı double commit'e karşı kilitlenir.
 - Her session tek Location subtree'sidir; overlapping subtree'lerde overlapping open session yoktur.
 - Counter kör sayım yapar; expected/discrepancy reviewer/approver'a görünür. Missing row zero değildir ve tolerance sıfırdır.
+- Untouched expected satır `PENDING_COUNT` olarak actor/time olmadan saklanır; explicit `NOT_COUNTED` NULL quantity ile actor/time taşır; fiziksel explicit zero gerçek counted değerdir. Routine physical-count completion fiziksel sayım veya explicit `NOT_COUNTED` disposition kabul eder. Baseline-candidate completion required satırlarda yalnız fiziksel sayımı kabul eder.
 - Counter/performer kendi discrepancy'sini onaylayamaz; açıklama trim edilmiş 10–2000 karakterdir.
 - Routine positive effect target-only, negative effect source-only'dur. Cutover session `COUNT_RECONCILIATION` oluşturmaz.
 - One authoritative pilot cutover QUANTITY ve SERIALIZED inventory'yi birlikte kapsar; serialized count Phase 5.3 state modelini genişletmez.
 
 **DECIDED — `DEC-033`:** Stock freeze yoktur; session-start expected snapshot immutable'dır. Approval sırasında current state kilitlenip yeniden okunur; snapshot'tan drift varsa write yapılmaz ve recount/reconfirmation gerekir. Zero-balance rows snapshot dışıdır. Existing QUANTITY Material + condition unexpected stock'u `expected_quantity=0` ile sayılabilir; unknown catalog item resolved veya explicitly abandoned olana kadar stock yaratamaz. `DEC-OPEN-010` OPEN kalır; yeni unit conversion/rounding semantiği yoktur.
+
+Phase 5.4B counting service kilit sırası `PhysicalCountSession → Material → Location → MaterialCondition → StockBalance`dır. Open-scope kararları counting'e özel PostgreSQL transaction advisory lock ile serialize edilir. Snapshot transaction'ı bütün QUANTITY Material satırlarını deterministic sırada kilitler; ardından Location tablosunu `SHARE` mode ile hiyerarşi parent değişikliklerine karşı kısa süreli sabitler, subtree Location ve MaterialCondition satırlarını deterministic sırada kilitler ve pozitif in-scope `StockBalance` satırlarını tek statement ile yeniden okuyup expected satırlarını oluşturur. Bu kilitler session ömrü boyunca tutulmaz; transaction commit'i sonrasında inventory hareketleri devam eder.
 
 ## 21. Reporting Architecture
 

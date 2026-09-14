@@ -162,13 +162,16 @@ def test_negative_expected_quantity_is_rejected(count_objects):
             create_line(count_objects, expected_quantity=Decimal("-0.001"))
 
 
-def test_counted_quantity_null_means_not_counted(count_objects):
+def test_counted_quantity_null_without_action_means_pending_count(count_objects):
     line = create_line(count_objects)
 
     assert line.counted_quantity is None
     assert line.counted_by_user is None
     assert line.counted_at is None
-    assert line.resolution_status == PhysicalCountQuantityLine.ResolutionStatus.NOT_COUNTED
+    assert (
+        line.resolution_status
+        == PhysicalCountQuantityLine.ResolutionStatus.PENDING_COUNT
+    )
 
 
 @pytest.mark.parametrize("counted", [Decimal("0"), Decimal("4.250")])
@@ -210,7 +213,7 @@ def test_missing_count_cannot_be_silently_represented_as_zero(count_objects):
                 count_objects,
                 counted_quantity=Decimal("0"),
                 resolution_status=(
-                    PhysicalCountQuantityLine.ResolutionStatus.NOT_COUNTED
+                    PhysicalCountQuantityLine.ResolutionStatus.PENDING_COUNT
                 ),
             )
 
@@ -271,7 +274,7 @@ def test_serialized_material_is_rejected_by_raw_database_guard(count_objects):
                 [
                     uuid.uuid4(),
                     Decimal("1"),
-                    PhysicalCountQuantityLine.ResolutionStatus.NOT_COUNTED,
+                    PhysicalCountQuantityLine.ResolutionStatus.PENDING_COUNT,
                     timezone.now(),
                     count_objects["condition"].pk,
                     count_objects["location"].pk,

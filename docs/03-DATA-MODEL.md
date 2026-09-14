@@ -448,7 +448,7 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `counted_quantity` | NUMERIC(18,3) | Evet | `>= 0` | Fiziksel sonuç; sayılana kadar null. |
 | `counted_by_user_id` | Auth user PK tipi | Evet | FK | Sayımı yapan. |
 | `counted_at` | TIMESTAMPTZ | Evet | — | Sayım zamanı. |
-| `resolution_status` | VARCHAR | Hayır | Controlled value | Not-counted / no-discrepancy / pending-approval / approved / dispositioned durumunu ayırır. |
+| `resolution_status` | VARCHAR | Hayır | Controlled value | Pending-count / explicit-not-counted / no-discrepancy / pending-approval / approved / dispositioned durumunu ayırır. |
 | `approved_by_user_id` | Auth user PK tipi | Evet | FK | Sıfır olmayan routine discrepancy'yi onaylayan kullanıcı. |
 | `approval_explanation` | TEXT | Evet | Trim 10..2000 when approved | Explicit approval gerekçesi. |
 | `reconciliation_transaction_id` | UUID | Evet | FK | Counting-owned dedicated `COUNT_RECONCILIATION` sonucu; cutover session'da null. |
@@ -459,8 +459,8 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 - **Unique Constraints:** `(session_id, material_id, location_id, condition_id)`.
 - **Check Constraints:** Beklenen miktar negatif değil; sayılmışsa miktar negatif değil ve counted user/time birlikte dolu.
 - **Recommended Indexes:** Composite unique anahtar; `material_id`, `location_id`, `resolution_status`, optional result transaction.
-- **Delete Policy:** `RETAIN / NO HARD DELETE`.
-- **Notes:** Fark `counted_quantity - expected_quantity` olarak türetilir; ayrıca mutable kolon önerilmez. Expected değer session-start immutable snapshot'ıdır; zero-quantity `StockBalance` row'ları snapshot'a alınmaz. Existing QUANTITY Material + condition için unexpected physical stock `expected_quantity=0` satırı eklenebilir. Missing row zero değildir. Routine approved positive effect target-only, negative effect source-only `COUNT_RECONCILIATION` line'ıdır. `CorrectionRequest` FK'si yoktur.
+- **Delete Policy:** `DRAFT` session satırları başlangıç öncesi kaldırılabilir; `STARTED`/`COMPLETED` session snapshot geçmişi `RETAIN / NO HARD DELETE`tir.
+- **Notes:** `PENDING_COUNT`, actor/time olmadan henüz işlenmemiş satırdır. Explicit `NOT_COUNTED`, `counted_quantity=NULL` bırakır ancak kullanıcı eylemini `counted_by_user` ve `counted_at` ile saklar; fiziksel explicit zero ise NULL değildir ve normal counted state'tir. Routine session yalnız bütün required expected satırlar fiziksel sayılmış veya explicit `NOT_COUNTED` disposition almışsa fiziksel sayımı tamamlayabilir. `baseline_candidate=true` session'da required satırlar fiziksel sayılmalıdır; hem `PENDING_COUNT` hem explicit `NOT_COUNTED` completion'ı engeller. Fark `counted_quantity - expected_quantity` olarak türetilir; ayrıca mutable kolon önerilmez. Expected değer session-start immutable snapshot'ıdır; zero-quantity `StockBalance` row'ları snapshot'a alınmaz. Existing QUANTITY Material + condition için unexpected physical stock `expected_quantity=0` satırı eklenebilir. Missing row zero değildir. Phase 5.4B start transaction'ı `PhysicalCountSession → Material → Location → MaterialCondition → StockBalance` kilit sırasını izler; bütün QUANTITY Material satırlarını ve Location ağacını kısa süreli sabitleyip projection satırlarını tek authoritative snapshot statement'ında okur. Routine approved positive effect target-only, negative effect source-only `COUNT_RECONCILIATION` line'ıdır. `CorrectionRequest` FK'si yoktur.
 
 ### 13.3 `physical_count_asset_lines`
 
