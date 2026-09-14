@@ -415,10 +415,10 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `id` | UUID | Hayır | PK | Oturum kimliği. |
 | `reference_number` | VARCHAR | Hayır | UNIQUE | İnsan okunur sayım referansı. |
 | `scope_location_id` | UUID | Hayır | FK | Sayım kapsamındaki tek `Location` subtree'sinin kökü. |
-| `status` | VARCHAR | Hayır | Tasarım değeri | Önerilen yaşam döngüsü. |
-| `reconciliation_status` | VARCHAR | Hayır | Tasarım değeri | Fark çözüm durumu. |
-| `started_by_user_id` | Auth user PK tipi | Hayır | FK | Başlatan kullanıcı. |
-| `started_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Başlangıç. |
+| `status` | VARCHAR | Hayır | `DRAFT`, `STARTED`, `COMPLETED` | Oturum yaşam döngüsü. |
+| `reconciliation_status` | VARCHAR | Hayır | `NOT_STARTED`, `PENDING`, `COMPLETED` | Fark çözüm durumu. |
+| `started_by_user_id` | Auth user PK tipi | Evet | FK; `STARTED`/`COMPLETED` için zorunlu | Başlatan kullanıcı. |
+| `started_at` | TIMESTAMPTZ | Evet | `STARTED`/`COMPLETED` için sistem zamanı | Başlangıç. |
 | `completed_by_user_id` | Auth user PK tipi | Evet | FK | Tamamlayan kullanıcı. |
 | `completed_at` | TIMESTAMPTZ | Evet | — | Tamamlama zamanı. |
 | `baseline_candidate` | BOOLEAN | Hayır | Default false | Cutover adayı olup olmadığı. |
@@ -428,10 +428,10 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 - **Primary Key:** `id`
 - **Foreign Keys:** Scope location ve auth user FK'leri; delete restricted.
 - **Unique Constraints:** `reference_number`.
-- **Check Constraints:** Tamamlanmış state için completed user/time birlikteliği; kesin status sözlüğü onaydan sonra.
+- **Check Constraints:** `DRAFT` için start/complete metadata null; `STARTED` için start actor/time dolu ve complete metadata null; `COMPLETED` için start/complete actor/time dolu; status ve reconciliation status controlled vocabulary içinde.
 - **Recommended Indexes:** `status`, `reconciliation_status`, `scope_location_id`, `started_at`.
 - **Delete Policy:** Başlatıldıktan sonra `RETAIN / NO HARD DELETE`.
-- **Notes:** `DEC-033` stock-stability kararını kapatır: freeze yoktur; session creation tek Location subtree için immutable expected snapshot oluşturur. Çakışan subtree'lerde çakışan açık session yasaktır. Reconciliation idempotent/double-apply korumalıdır ve `lock → re-read → drift check → revalidate → write` sırasını izler; drift varsa reddedilip recount/reconfirmation istenir. `baseline_candidate=false` routine, `true` cutover session'dır. Exact lifecycle state names Phase 5.4 implementation tasarımında bu semantiği değiştirmeden kesinleştirilir.
+- **Notes:** `DEC-033` stock-stability kararını kapatır: freeze yoktur; Phase 5.4B'deki atomik start adımı session'ı `DRAFT`tan `STARTED`a geçirirken tek Location subtree için immutable expected snapshot oluşturur. Çakışan subtree'lerde çakışan açık session yasaktır. Reconciliation idempotent/double-apply korumalıdır ve `lock → re-read → drift check → revalidate → write` sırasını izler; drift varsa reddedilip recount/reconfirmation istenir. `baseline_candidate=false` routine, `true` cutover session'dır. `STARTED` sonrasında scope, baseline sınıflandırması, start metadata ve expected snapshot ordinary write yollarında immutable'dır.
 
 ### 13.2 `physical_count_quantity_lines`
 
