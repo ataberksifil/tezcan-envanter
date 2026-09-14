@@ -152,7 +152,7 @@ Bilinen depolama/atölye alanları (örnek / gerçek dünya girdisi; seed satır
 - **LOC-004:** Bir malzemenin mevcut olduğu fiziksel konum, gerekli depolama ayrıntı seviyesinde bilinebilmelidir.
 - **LOC-005:** Konumlar QR/barkod ile tanımlanabilmelidir.
 
-Konum hiyerarşisi dinamik recursive parent ile arbitrary depth'tir; katmanlar hard-coded değildir (`DEC-023`). Konum kod politikası `DEC-023` ile kararlıdır. Bir malzemenin birden fazla konumda tutulma/dağıtım kuralları (`DEC-OPEN-002`) ve sayım alanlarının sınırları (`DEC-HG-001`) **TBD** kalır.
+Konum hiyerarşisi dinamik recursive parent ile arbitrary depth'tir; katmanlar hard-coded değildir (`DEC-023`). Konum kod politikası `DEC-023` ile kararlıdır. Bir malzemenin birden fazla konumda tutulma/dağıtım kuralları (`DEC-OPEN-002`) **TBD** kalır. Sayım kapsamı `DEC-033` ile oturum başına tek `Location` subtree'sidir; çakışan subtree'lerde çakışan açık oturumlara izin verilmez.
 
 ## 10. Inventory Movement Requirements
 
@@ -242,7 +242,7 @@ Dekoratif veya ileri düzey gösterge paneli çalışmaları V1 taahhüdü deği
 - **MIG-006:** Excel kayıtları, fiziksel sayım ve sisteme alınacak başlangıç bakiyeleri arasında mutabakat yapılmalıdır.
 - **MIG-007:** Mutabakat sonucu onaylanmadan sistem stoğu yetkili kabul edilmemelidir.
 
-Excel dosyalarının yapısı, veri sahipleri, temizleme kuralları, aktarım şablonu, başlangıç bakiyesi onay yetkilisi, fiziksel sayım yöntemi ve kabul edilebilir sapma yaklaşımı **TBD**'dir.
+Excel dosyalarının yapısı, veri sahipleri, temizleme kuralları ve aktarım şablonu **TBD**'dir. Phase 5.4 fiziksel sayım, sıfır tolerans, onay ve başlangıç bakiyesi/cutover yaklaşımı `DEC-033` ile kararlıdır; sayım sıklığı ayrıca açık kalır.
 
 ## 15. Infrastructure Assumptions
 
@@ -358,10 +358,10 @@ Onaylanmış V1 taahhüdü oluşturmayan gelecek değerlendirmeleri:
 | TBD-002 | Esnek nitelik ve kategori ayrıntı modeli | Sonraki veri modeli fazında tasarlanacak. |
 | TBD-003 | Tekil/seri takibin ayrıntıları | Zorunlu tanımlayıcılar, seri kuralları ve takip biçimi değişiklik koşulları belirlenecek. |
 | TBD-004 | Hareket türü ve malzeme durumu ayrımı | Bilinen kavramların işlem türü, durum veya ikisi olarak sınıflandırılması resmi iş kurallarında netleştirilecek. |
-| TBD-005 | İade, söküm, arıza ve düzeltme mekanikleri | `DEC-028` unused linked QUANTITY RETURN; `DEC-030` quantity controlled correction first slice'ını kararlaştırır. Broader RETURN, söküm/arıza, serialized/non-stock correction ve count interaction açık kalır. |
+| TBD-005 | İade, söküm, arıza ve düzeltme mekanikleri | `DEC-028` unused linked QUANTITY RETURN; `DEC-030` quantity controlled correction first slice'ını kararlaştırır. `DEC-033` physical-count discrepancy'yi correction workflow'undan ayırır. Broader RETURN, söküm/arıza ve serialized/non-stock correction açık kalır. |
 | TBD-006 | Transfer gereksinimi | Hangi operasyonlarda transferin zorunlu olduğu ve kaynak/hedef kuralları doğrulanacak. |
 | TBD-007 | Ölçü birimleri ve kısmi miktarlar | Kablo gibi malzemeler dahil birim ve dönüşüm kuralları belirlenmedi. |
-| TBD-008 | Konum hiyerarşisi | Hiyerarşi, kod, `can_hold_stock` ve yaşam döngüsü `DEC-023` ile kararlıdır. Çoklu konum dağıtımı (`DEC-OPEN-002`) ve sayım alanı sınırları (`DEC-HG-001`) açık kalır. |
+| TBD-008 | Konum hiyerarşisi | Hiyerarşi, kod, `can_hold_stock` ve yaşam döngüsü `DEC-023` ile kararlıdır. Çoklu konum dağıtımı `DEC-OPEN-002` altında açık kalır; sayım alanı `DEC-033` ile oturum başına tek Location subtree'sidir. |
 | TBD-009 | Üretim hattı ve fiili kullanım yeri | Sözlükler, aralarındaki ilişki ve doğrulama biçimi belirlenecek. |
 | TBD-010 | Teslim alan kişi ve kullanıcı ilişkisi | Teslim alan kişinin sistem kullanıcısı olma zorunluluğu ve çalışan kaynağı netleştirilecek. |
 | TBD-011 | Rol ve yetki matrisi | Operasyonel depo görevleri, yönetici yetkileri, rol atama ve onay sınırları ayrıntılandırılacak. |
@@ -373,7 +373,7 @@ Onaylanmış V1 taahhüdü oluşturmayan gelecek değerlendirmeleri:
 | TBD-017 | Rapor ayrıntıları | Filtreler, dönem sınırları, kullanım tanımı, erişim ve azalış sıralaması hesap yöntemi belirlenecek. |
 | TBD-018 | Minimum stok uyarı yöntemi | Görünürlük ve olası bildirim kanalları ile yetkiler belirlenecek. |
 | TBD-019 | Excel kaynak yapısı ve kalitesi | Dosyalar, alanlar, sahiplik, mükerrerler ve veri temizleme gereksinimleri analiz edilecek. |
-| TBD-020 | Fiziksel sayım ve başlangıç mutabakatı | Sayım yöntemi, sorumlular, onay yetkilisi ve sapma yaklaşımı belirlenecek. |
+| TBD-020 | Fiziksel sayım ve başlangıç mutabakatı | `DEC-033` ile Phase 5.4 kapsamı, snapshot/drift yaklaşımı, kör sayım, sıfır tolerans, görev ayrılığı, yetki ve baseline tamamlanma ölçütleri kararlıdır. Yalnız sayım sıklığı açık kalır. |
 | TBD-021 | Nicel başarı/kabul eşikleri | Stok doğruluğu hedefi ve izin verilebilecek sapma dahil ölçütler belirlenmedi. |
 | TBD-022 | Üretim sunucusu işletim sistemi | Altyapı sahibi tarafından doğrulanacak. |
 | TBD-023 | Sunucu CPU, RAM ve disk | Kapasite ve büyüme beklentisine göre doğrulanacak. |

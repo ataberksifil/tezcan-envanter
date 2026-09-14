@@ -100,7 +100,7 @@ Pragmatik V1 yapısı dokuz başlangıç Django app'i ve bir teknik `core` paket
 | `locations` | Location hiyerarşisi ve pasifleştirme | `audit` write API | Transfer veya stok düzeltmesi yapmak |
 | `inventory` | SerializedAsset, InventoryTransaction/Line, IssueContext, StockBalance; tüm stok mutation servisleri | `accounts`, `catalog`, `locations`, `audit` | Import UI, correction kararı veya rapor sahipliği |
 | `corrections` | CorrectionRequest, correction Attachment; talep/karar orkestrasyonu | `accounts`, `inventory`, `core.storage`, `audit` | Ledger'ı doğrudan yazmak; inventory service çağırır |
-| `counting` | PhysicalCountSession ve quantity/asset count lines | `accounts`, `catalog`, `locations`, `inventory`, `corrections`, `audit` | Farkı doğrudan StockBalance'a yazmak |
+| `counting` | PhysicalCountSession, quantity/asset count lines, discrepancy approval/disposition ve baseline session links | `accounts`, `catalog`, `locations`, `inventory`, `audit` | Farkı doğrudan StockBalance'a yazmak veya routine discrepancy'yi `CorrectionRequest`a yönlendirmek |
 | `imports` | ImportBatch/Row, Excel parse/validate/preview, InventoryBaseline orkestrasyonu | `accounts`, `catalog`, `locations`, `inventory`, `counting`, `audit`, `core.storage` | Upload sonrası doğrudan yetkili bakiye yazmak |
 | `reports` | Salt okunur rapor query/use-case'leri ve Excel export | `catalog`, `locations`, `inventory` | Kaynak kayıtları değiştirmek |
 | `audit` | AuditEvent ve küçük append-only kayıt API'si | `accounts` kimliğine yalnız FK düzeyi | Ledger'ı kopyalamak veya iş akışı yönetmek |
@@ -119,7 +119,7 @@ flowchart TD
     Corrections["corrections"] -->|"uses"| Inventory
     Corrections -->|"uses"| Accounts
     Counting["counting"] -->|"uses"| Inventory
-    Counting -->|"uses"| Corrections
+    Counting -->|"ledger effects via"| Inventory
     Imports["imports"] -->|"uses"| Inventory
     Imports -->|"uses"| Counting
     Imports -->|"uses"| Catalog
@@ -302,7 +302,7 @@ flowchart LR
 | Transfer | Source ve target balance kararlı sırada veya asset | TRANSFER ledger + iki balance/asset state |
 | Return | `DEC-028` quantity slice: original ISSUE line row ve target balance | RETURN ledger + target projection aynı transaction içinde |
 | Correction approval | Pending CorrectionRequest + etkilenen balance/asset | Karar + CONTROLLED_CORRECTION ledger + projection + audit |
-| Reconciliation adjustment | Count session/line + etkilenen balance/asset | Yetkili correction/adjustment ledger + projection + reconciliation state |
+| Routine reconciliation | Count session/line + immutable expected snapshot + etkilenen balance/asset | Explicit approval + dedicated `COUNT_RECONCILIATION` ledger + projection + reconciliation state |
 | Baseline establishment | Count session, import batch, baseline guard ve scoped balance/asset | InventoryBaseline + `1..N` scoped INITIAL_BALANCE ledger + downstream links + projection + audit |
 | Import commit | ImportBatch ve commit guard | Validated master-data outcomes + staging/count reference + audit; stock ledger ve balance yok |
 
@@ -319,9 +319,10 @@ Her line için source **azalış**, target **artış** anlamına gelir. Bu anlam
 | `RETURN` | Null | Zorunlu explicit `active && can_hold_stock` target | `DEC-028` unused linked quantity slice; original ISSUE line required, same material/unit/condition, cumulative cap. Runtime target lifecycle validation service fazındadır. |
 | `TRANSFER` | Zorunlu stock-holding | Zorunlu, source'dan farklı stock-holding | İki projection etkisi tek transaction'dır. |
 | `CONTROLLED_CORRECTION` | Azalış line'ında zorunlu | Artış line'ında zorunlu | `DEC-030`: pure quantity 1 line; identity restatement 2 line; canonical corrected-line lineage. |
+| `COUNT_RECONCILIATION` | Negatif farkta zorunlu | Pozitif farkta zorunlu | Yalnız `baseline_candidate=false` routine session; `CorrectionRequest`/`CONTROLLED_CORRECTION` değildir. |
 | `INITIAL_BALANCE` | Null | Zorunlu stock-holding | Yalnız baseline-owned scoped link üzerinden. |
 
-Bir `InventoryBaseline`, downstream-owned association üzerinden `1..N` scoped `INITIAL_BALANCE` transaction'a bağlanır. Her link yalnız `INITIAL_BALANCE` type kabul eder ve her scope ayrı idempotency guard taşır. Baseline ancak bütün gerekli scope'lar commit edilip projection verify başarılı olduktan sonra `ESTABLISHED` olur. Aynı cutover context için en fazla bir authoritative established baseline bulunur. Inventory ledger baseline/workflow modülüne reverse FK taşımaz.
+Bir `InventoryBaseline`, downstream-owned association üzerinden `1..N PhysicalCountSession` ve `1..N` scoped `INITIAL_BALANCE` transaction'a bağlanır. Her transaction link yalnız `INITIAL_BALANCE` type kabul eder ve her scope ayrı idempotency guard taşır. Bütün required scopes complete, required not-counted rows bitmiş, gerekli unresolved items resolved/dispositioned, bütün opening effects committed ve projection verify clean olmadan baseline `ESTABLISHED` olmaz. Aynı cutover context için en fazla bir authoritative established baseline bulunur. Inventory ledger baseline/workflow modülüne reverse FK taşımaz.
 
 ## 13. Concurrency Control
 
@@ -347,7 +348,7 @@ Korunan yarışlar:
 
 5. İki valid receipt ilk kez aynı balance key'i oluşturur: composite unique + insert/on-conflict sonucu tek canonical row oluşur; her receipt bu row'u lock edip birer kez katkı yapar.
 
-Quantity balance lock'ları `material_id → location_id → condition_id → primary key` sırasıyla alınır. Serialized operation `SerializedAsset` row'unu kilitler ve current state'i lock sonrasında yeniden kontrol eder. Correction approval `PENDING`, import `VALIDATED`, reconciliation uygulanmamış session/line ve baseline incomplete state'leri lock altında tekrar doğrulanır.
+Quantity balance lock'ları `material_id → location_id → condition_id → primary key` sırasıyla alınır. Serialized operation `SerializedAsset` row'unu kilitler ve current state'i lock sonrasında yeniden kontrol eder. Correction approval `PENDING`, import `VALIDATED`, reconciliation uygulanmamış session/line ve baseline incomplete state'leri lock altında tekrar doğrulanır. Count reconciliation özel sırası `lock → re-read → immutable snapshot'a göre drift check → invariant revalidation → write`tır; drift reconciliation'ı reddeder ve recount/reconfirmation gerektirir.
 
 DB non-negative/unique check'leri son savunmadır; anlaşılır conflict mesajı service layer'da üretilir. Deterministic order deadlock'u azaltır; beklenmeyen deadlock/transaction hatası tam rollback üretir. Kısmi ledger/projection etkisi yoktur.
 
@@ -383,7 +384,9 @@ Django Auth, Groups ve Permissions kullanılır. `TECHNICIAN`, `STOREKEEPER`, `A
 | Import | ADMIN_MANAGER |
 | Return | `DEC-028` direct quantity slice: fresh STOREKEEPER ve ADMIN_MANAGER; TECHNICIAN değil. Runtime authorization permission tabanlıdır. |
 | Transfer | `DEC-029` quantity first slice: fresh STOREKEEPER ve ADMIN_MANAGER; TECHNICIAN değil. Runtime authorization permission tabanlıdır. Broader TRANSFER TBD. |
-| Count/reconciliation | TBD |
+| Count entry/review | Permission-based; exact codenames Phase 5.4A implementation review'unda |
+| Discrepancy approval | Sensitive ADMIN_MANAGER capability; safe dynamic allowlist dışı (`DEC-033`) |
+| Baseline establishment | Sensitive ADMIN_MANAGER capability; safe dynamic allowlist dışı (`DEC-033`) |
 | Reports/export | TBD |
 
 Phase 2 dinamik rol yönetimi yalnızca açıkça onaylı managed permission'ları expose eder (`DEC-021`). Phase 4.1 ile `inventory.receive_stock`, Phase 4.2C ile `inventory.issue_stock`, Phase 4.4 ile `inventory.return_stock`, Phase 4.5 ile `inventory.transfer_stock` managed allowlist'e eklenmiştir. Correction/count approval izinleri ilgili rollout/gate tamamlanana kadar expose edilmez. `setup_roles` varsayılan davranışı non-destructive'tir: eksik varsayılan rol oluşturulur ve şablon izinleri atanır; mevcut rol permission'ları korunur (`DEC-021`).
@@ -413,6 +416,7 @@ Template/HTMX response içinde buton görünürlüğü kullanıcı deneyimidir; 
 
 ### Feature hard gates
 
+- **`DEC-033` Physical Count / Reconciliation / Pilot Baseline:** `DEC-HG-001`, `DEC-OPEN-007` ve `DEC-OPEN-008` kapalıdır. No-freeze immutable session-start snapshot, drift refusal, one-subtree scope, blind count, zero tolerance, separation of duties, dedicated `COUNT_RECONCILIATION`, `1..N` count-session baseline ve QUANTITY+SERIALIZED pilot cutover kararlıdır. Phase 5.4A ayrıca başlatılmalıdır; bu dokümantasyon kararı implementation değildir.
 - **`DEC-030` Quantity Corrections:** First slice partial/repeated signed effect, canonical original-line lineage, no correction-of-correction, requester≠decider ve current-stock lock/revalidation ile kararlıdır. Serialized/non-stock correction, evidence ve count/baseline interaction deferred kalır (`DEC-031`).
 - **`DEC-HG-003` ProductionLine foundation:** **DECIDED** (`DEC-025`). `ProductionLine` dynamic master-data entity (`inventory` app); recursive hierarchy; exact usage place ayrı free text. Quantity ISSUE Phase 4.2A–4.2C COMPLETE.
 - **`DEC-HG-004` Employee foundation:** **DECIDED** (`DEC-024`). `accounts.Employee` ayrı entity; sicil/User link/lifecycle kararlı. Phase 3.2 implementation COMPLETE. Retention pilot öncesi kararları açık kalır; receiver snapshot korunur.
@@ -503,11 +507,15 @@ Physical count birinci sınıf workflow'dur:
 - Quantity count, material + location + condition için numeric expected/counted değer taşır.
 - Serialized count, asset identity ve expected/actual presence taşır.
 - Count entry yalnız count tablolarını değiştirir; StockBalance'ı overwrite etmez.
-- Reconciliation farkı yetkili inventory/correction service üzerinden ledger etkisine dönüşür.
+- Routine reconciliation farkı public inventory service üzerinden dedicated `COUNT_RECONCILIATION` ledger etkisine dönüşür; `CorrectionRequest`/`CONTROLLED_CORRECTION` kullanılmaz.
 - Count session ve adjustment/baseline commit eşzamanlı double commit'e karşı kilitlenir.
-- Count performer, tolerans, onay seviyesi ve tamamlanma ölçütleri **TBD**'dir.
+- Her session tek Location subtree'sidir; overlapping subtree'lerde overlapping open session yoktur.
+- Counter kör sayım yapar; expected/discrepancy reviewer/approver'a görünür. Missing row zero değildir ve tolerance sıfırdır.
+- Counter/performer kendi discrepancy'sini onaylayamaz; açıklama trim edilmiş 10–2000 karakterdir.
+- Routine positive effect target-only, negative effect source-only'dur. Cutover session `COUNT_RECONCILIATION` oluşturmaz.
+- One authoritative pilot cutover QUANTITY ve SERIALIZED inventory'yi birlikte kapsar; serialized count Phase 5.3 state modelini genişletmez.
 
-**HARD GATE — `DEC-HG-001`:** Herhangi bir count/reconciliation schema, service veya UI implementation öncesinde stock-stability strategy seçilmelidir. Kabul edilebilir değerlendirme seçenekleri scoped temporary freeze, as-of snapshot + post-snapshot ledger replay veya concurrent movement altında güvenliği kanıtlanmış revalidation/reconfirmation'dır. Seçimden bağımsız olarak scope explicit, expected timing tanımlı, reconciliation idempotent/double-apply korumalı, expected state ledger etkisinden önce lock altında doğrulanmış ve serialized missing/unexpected asset çözümü izlenebilir olmalıdır.
+**DECIDED — `DEC-033`:** Stock freeze yoktur; session-start expected snapshot immutable'dır. Approval sırasında current state kilitlenip yeniden okunur; snapshot'tan drift varsa write yapılmaz ve recount/reconfirmation gerekir. Zero-balance rows snapshot dışıdır. Existing QUANTITY Material + condition unexpected stock'u `expected_quantity=0` ile sayılabilir; unknown catalog item resolved veya explicitly abandoned olana kadar stock yaratamaz. `DEC-OPEN-010` OPEN kalır; yeni unit conversion/rounding semantiği yoktur.
 
 ## 21. Reporting Architecture
 
@@ -808,7 +816,7 @@ Bu legacy özet tüm projeyi bloke etmez. Güncel status, owner, source mapping 
 | `DEC-HG-005` Return semantics ve permission | return | DM-B11 |
 | Transfer senaryosu ve permission | transfer | DM-B12 |
 | `DEC-030` quantity correction semantics; broader/serialized correction deferred | corrections | DM-B13 |
-| `DEC-HG-001` Count stability; ayrıca tolerance/approver | counting/cutover | DM-B14, DM-B15 |
+| `DEC-033` Count stability, tolerance/approver ve baseline cardinality/completion | counting/cutover | DM-B14, DM-B15 |
 | StockBalance first-row standardı `DEC-006`–`DEC-008` ile kapatıldı | inventory concurrency | DM-B16 |
 | Storekeeper operasyonel yetki ayrıntıları | ilgili warehouse feature'ları | OD-009 |
 
@@ -903,7 +911,7 @@ Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs
 
 **Phase 4.1:** Quantity RECEIPT UI + permission rollout — COMPLETE (2026-09-12).
 
-Quantity RECEIPT, ISSUE, `DEC-028` unused linked RETURN ve `DEC-029` quantity TRANSFER uçtan uca implement edilmiştir. Phase 5.1 current-stock visibility `44f1d30b7b8a72b768293de3ecbff32769e3f454` commit'inde COMPLETE'tir. `DEC-030` Phase 5.2 quantity controlled correction COMPLETE'tir; son doğrulama 1242 test ile geçmiştir. `DEC-032` Phase 5.3 serialized identity/current projection + serialized RECEIVE first slice'ını authorize eder; diğer serialized movements, broader RETURN, count/baseline ve correction evidence deferred kalır. **Gate 3 PASS** (2026-09-12; bkz. `06` §4.5) yalnız tarihsel audited scope'u doğrular.
+Quantity RECEIPT, ISSUE, `DEC-028` unused linked RETURN ve `DEC-029` quantity TRANSFER uçtan uca implement edilmiştir. Phase 5.1 current-stock visibility `44f1d30b7b8a72b768293de3ecbff32769e3f454` commit'inde COMPLETE'tir. `DEC-030` Phase 5.2 quantity controlled correction COMPLETE'tir; son doğrulama 1242 test ile geçmiştir. Phase 5.3 serialized identity/current projection + serialized RECEIVE `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec` üzerinde COMPLETE'tir. `DEC-033` Phase 5.4 decisions'ı kararlaştırır; Phase 5.4A implementation başlamamıştır. **Gate 3 PASS** (2026-09-12; bkz. `06` §4.5) yalnız tarihsel audited scope'u doğrular.
 
 ## 37. Dynamic Configuration Architecture
 

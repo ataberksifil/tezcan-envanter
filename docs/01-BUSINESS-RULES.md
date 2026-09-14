@@ -73,7 +73,7 @@ Bilinen başlangıç alanları Elektrik Deposu, Alkali Elektrik alanındaki kabl
 | LOC-005 | CONFIRMED | Geçmiş işlemde referans verilen lokasyon bilgisi denetim geçmişinden kaybolmamalıdır. | Lokasyon sonradan kullanımdan kalksa bile eski hareket anlaşılabilir kalmalıdır. |
 | LOC-006 | CONFIRMED | Kullanımdan kaldırılmış bir lokasyon yeni stok hareketleri için seçilememelidir. | Aktif olmayan lokasyona yeni giriş veya transfer engellenmelidir. |
 | LOC-007 | CONFIRMED | Yetkili envanter varken non-zero stock'lu lokasyon pasifleştirilemez ve `can_hold_stock` True→False yapılamaz; stok önce taşınmalı veya mutabakatla sıfırlanmalıdır (`DEC-023`). Hard delete iş operasyonu yoktur. | Mevcut stok sahipsiz bırakılamaz. Inventory entegrasyonu aynı invariant'ı otoritatif uygular; Phase 3.1 CRUD stok satırı yokken güvenle uygulanabilir. |
-| LOC-008 | PARTIALLY CONFIRMED | Lokasyon kodu, dinamik hiyerarşi ve `can_hold_stock` `DEC-023` ile kararlıdır. Sayım alanları (`DEC-HG-001`) ve çoklu lokasyon dağıtımı (`DEC-OPEN-002`) açık kalır. | Phase 3.1 Location foundation bu açık konulara bağlı değildir. |
+| LOC-008 | PARTIALLY CONFIRMED | Lokasyon kodu, dinamik hiyerarşi ve `can_hold_stock` `DEC-023` ile kararlıdır. Sayım alanı `DEC-033` ile oturum başına tek Location subtree'sidir; çoklu lokasyon dağıtımı (`DEC-OPEN-002`) açık kalır. | Phase 3.1 Location foundation bu açık konuya bağlı değildir. |
 
 ## 7. Stok Giriş Kuralları
 
@@ -176,7 +176,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | AUTH-008 | CONFIRMED | Depo Görevlisi ayrıca açıkça yetkilendirilmedikçe düzeltme talebi onaylayamaz veya reddedemez. | Mevcut onay yetkisi Yönetici/Müdür rolündedir. |
 | AUTH-009 | CONFIRMED | Yönetici/Müdür uygulama içinde tam yönetim yetkisine, ana veri yönetimine ve kontrollü düzeltme yönetimine sahiptir. | Bu rol giriş, çıkış ve düzeltme kararlarını gerçekleştirebilmelidir. |
 | AUTH-010 | CONFIRMED | Yönetici/Müdür düzeltme taleplerini onaylayabilir veya reddedebilir. | Karar kullanıcı ve zamanla kaydedilmelidir. |
-| AUTH-011 | PARTIALLY CONFIRMED | Phase 2 erişim yönetimi (`DEC-022`): Django Group rol modeli; `accounts.manage_access` delegation capability; explicit safe allowlist; write/view invariant; rol lifecycle; yalnız `User.groups` yönetimi; anti-escalation kuralları; audited mutation. Phase 3 Location ve Employee/ProductionLine izinleri; Phase 4 inventory receipt/issue/return/transfer izinleri eklenmiştir. `DEC-030` correction `view/add` izinlerini safe-managed yapar, `decide_correctionrequest` safe allowlist dışında kalır (managed permission count: 25). Fresh correction policy: TECHNICIAN/STOREKEEPER view+add, ADMIN_MANAGER view+add+decide; mevcut Group'lar non-destructive kalır. **Açık kalan:** count/reporting ve diğer operasyonel izinler (`DEC-OPEN-005`). | Decision permission dinamik safe management ile verilemez. Employee–User linkage `DEC-024` ile kararlıdır. |
+| AUTH-011 | PARTIALLY CONFIRMED | Phase 2 erişim yönetimi (`DEC-022`): Django Group rol modeli; `accounts.manage_access` delegation capability; explicit safe allowlist; write/view invariant; rol lifecycle; yalnız `User.groups` yönetimi; anti-escalation kuralları; audited mutation. Phase 3 Location ve Employee/ProductionLine izinleri; Phase 4 inventory receipt/issue/return/transfer izinleri eklenmiştir. `DEC-030` correction `view/add` izinlerini safe-managed yapar, `decide_correctionrequest` safe allowlist dışında kalır (managed permission count: 25). Fresh correction policy: TECHNICIAN/STOREKEEPER view+add, ADMIN_MANAGER view+add+decide; mevcut Group'lar non-destructive kalır. `DEC-033` count authorization'ı permission tabanlı yapar; discrepancy approval ve baseline establishment sensitive ADMIN_MANAGER capability ve safe allowlist dışıdır. **Açık kalan:** reporting ve diğer operasyonel izinler (`DEC-OPEN-005`). | Decision permission dinamik safe management ile verilemez. Employee–User linkage `DEC-024` ile kararlıdır. |
 
 ## 13. Audit ve İzlenebilirlik Kuralları
 
@@ -231,10 +231,28 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | CNT-001 | CONFIRMED | Sistem fiziksel stok sayımı ve mutabakatını desteklemelidir. | Malzeme ve lokasyon bazında fiziksel sonuç kaydedilebilmelidir. |
 | CNT-002 | CONFIRMED | Fiziksel sayım, malzemenin gerekli raf/lokasyon ayrıntısında gerçekten bulunup bulunmadığını doğrulayabilmelidir. | Sistem “mevcut” dediğinde fiziksel bulunabilirlik test edilebilmelidir. |
 | CNT-003 | CONFIRMED | Sistem kaydı ile fiziksel sayım arasındaki fark kaydedilmelidir. | Fark sessizce stok değerinin üzerine yazılamaz. |
-| CNT-004 | CONFIRMED | Sayım farkının stok etkisi yalnızca yetkili kontrollü düzeltme üzerinden uygulanmalıdır. | Yetkisiz sayım farkı stok bakiyesini değiştiremez. |
-| CNT-005 | CONFIRMED | Sayım, tespit edilen fark, düzeltme talebi/kararı ve sonuç arasında izlenebilirlik korunmalıdır. | Mutabakat uçtan uca denetlenebilmelidir. |
+| CNT-004 | CONFIRMED | Rutin fiziksel sayım farkının stok etkisi, `CorrectionRequest` veya `CONTROLLED_CORRECTION` üzerinden değil, açık onaylı dedicated `COUNT_RECONCILIATION` işlemi üzerinden uygulanmalıdır. | Controlled correction, bilinen hatalı ledger satırına köklü ayrı workflow olarak kalır; yetkisiz fark bakiyeyi değiştiremez. |
+| CNT-005 | CONFIRMED | Sayım, snapshot, fiziksel sonuç, fark, karar, açıklama ve sonuç ledger etkisi arasında izlenebilirlik korunmalıdır. | Mutabakat uçtan uca denetlenebilmelidir. |
 | CNT-006 | CONFIRMED | İlk yetkili stok açılışından önce fiziksel sayım ve mutabakat tamamlanmalıdır. | Tamamlanmamış mutabakatla otorite devri yapılamaz. |
-| CNT-007 | TBD DEPENDENCY | Sayım sıklığı, sayım sorumluları, kör sayım yöntemi, fark toleransı, onay seviyeleri ve mutabakat tamamlanma ölçütü belirlenmemiştir. | Ayrıntılı sayım iş akışı bu kararlar olmadan kesinleştirilemez. |
+| CNT-007 | PARTIALLY CONFIRMED | Sayım sıklığı henüz belirlenmemiştir. Phase 5.4 için kapsam, kör sayım, sıfır tolerans, görev ayrılığı, onay ve tamamlanma ölçütleri `DEC-033` ile kararlıdır. | Sıklık kararı Phase 5.4 akışını bloke etmez. |
+| CNT-008 | CONFIRMED | Sayım sırasında stock freeze uygulanmaz. Oturum başlangıcında immutable expected snapshot alınır. | Operasyon devam ederken sayım yapılabilir; snapshot sonradan yeniden yazılamaz. |
+| CNT-009 | CONFIRMED | Mutabakat onayında ilgili current state kilitlenir, yeniden okunur, snapshot'a göre drift kontrol edilir, invariant'lar tekrar doğrulanır ve ancak sonra yazılır. | Sıra `lock → re-read → drift check → revalidate → write`tır. |
+| CNT-010 | CONFIRMED | Current state snapshot'tan farklıysa mutabakat reddedilir; recount/reconfirmation gerekir. | Stale expected state üzerinden ledger etkisi üretilemez. |
+| CNT-011 | CONFIRMED | Her count session tam bir `Location` subtree'sini kapsar; açık oturumların location subtree kapsamları çakışamaz. | Aynı fiziksel alan eşzamanlı iki açık sayımın konusu olamaz. |
+| CNT-012 | CONFIRMED | Counter expected ve discrepancy değerlerini görmez; reviewer/approver bu değerleri görür. | Kör sayım, fiziksel sonucu sistem beklentisine göre yönlendirmeyi önler. |
+| CNT-013 | CONFIRMED | Missing count row sıfır anlamına gelmez. Baseline candidate session, required `not-counted` satır varken establishment'a kaynak olamaz. | Eksik iş sessizce sıfır stoğa çevrilemez. |
+| CNT-014 | CONFIRMED | Tolerans sıfırdır; sıfır olmayan her discrepancy explicit approval gerektirir. | Otomatik veya örtülü fark kabulü yoktur. |
+| CNT-015 | CONFIRMED | Counter/performer kendi discrepancy'sini onaylayamaz. | Separation of duties pilot readiness gereksinimidir. |
+| CNT-016 | CONFIRMED | Approval explanation outer-trim sonrası 10–2000 karakter olmalıdır. | Karar gerekçesi boş veya göstermelik olamaz. |
+| CNT-017 | CONFIRMED | Pozitif routine reconciliation target-only, negatif routine reconciliation source-only line üretir. | Kanonik source azaltır / target artırır semantiği korunur. |
+| CNT-018 | CONFIRMED | Existing `QUANTITY` Material + condition için beklenmeyen fiziksel stok `expected_quantity=0` ile sayılabilir. Unknown catalog item doğrudan stock oluşturamaz; çözülene veya açıkça abandoned edilene kadar unresolved kalır. | Bilinmeyen kimlik candidate/unresolved kayıttır, ledger otoritesi değildir. |
+| CNT-019 | CONFIRMED | Expected snapshot'a zero-quantity `StockBalance` satırları alınmaz. | Persist edilmiş sıfır satır, sayım kapsamını yapay olarak genişletmez. |
+| CNT-020 | CONFIRMED | `baseline_candidate=false` routine session'da onaylı discrepancy `COUNT_RECONCILIATION` oluşturabilir. `baseline_candidate=true` cutover session bunu oluşturamaz; sayılan envanter yalnız baseline'a beslenir. | Routine düzeltme ile ilk otorite kurulumu birbirine karışmaz. |
+| CNT-021 | CONFIRMED | `INITIAL_BALANCE` yalnız controlled baseline establishment tarafından oluşturulabilir; ad-hoc UI, Admin veya management-command yolu yoktur. | Açılış stoğu arbitrary adjustment değildir. |
+| CNT-022 | CONFIRMED | Önceden authoritative inventory ledger history taşıyan bucket opening balance için uygun değildir. | Aynı bucket ikinci kez açılış stoğu alamaz. |
+| CNT-023 | CONFIRMED | Bir `InventoryBaseline`, `1..N PhysicalCountSession` kapsayabilir. Tüm gerekli kapsamlar tamamlanmadan, required not-counted satırlar bitmeden, gerekli unresolved item'lar resolved/dispositioned olmadan, bütün opening ledger etkileri commit edilmeden ve projection verification clean olmadan `ESTABLISHED` olamaz. | Cutover atomik otorite kararının tüm kanıtları tamamlanır. |
+| CNT-024 | CONFIRMED | Tek authoritative pilot cutover hem `QUANTITY` hem `SERIALIZED` envanteri kapsar. Serialized sayım Phase 5.4 critical path'indedir ve Phase 5.3 identity/current-state modelini kullanır; yeni lifecycle state eklenmez. | İki tracking mode aynı pilot otorite kesiminde doğrulanır. |
+| CNT-025 | CONFIRMED | Authorization permission tabanlıdır. Discrepancy approval ve baseline establishment ordinary safe dynamic permission değildir; sensitive `ADMIN_MANAGER` capability olarak kalır. | Yetki gizli buton veya genel dinamik rol genişletmesiyle verilmez. |
 
 ## 18. QR / Barkod Kuralları
 
@@ -273,8 +291,8 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | OD-008 | Kararlı | `DEC-032`: UUID teknik kimlik; zorunlu/global unique dahili varlık kodu; optional/material içinde unique üretici seri numarası. | Phase 5.3 serialized foundation + RECEIVE authorize edilmiştir; diğer serialized movement'lar deferred kalır. |
 | OD-009 | Eksik karar | Depo Görevlisinin “operasyonel depo işleri” ayrıntılı izin listesi bilinmiyor. | Yetki genişletilerek yorumlanamaz. |
 | OD-010 | Öneri bekliyor | Ret gerekçesinin zorunluluğu ürün belgesinde onaylanmamıştır. | COR-010 PROPOSED olarak kalır. |
-| OD-011 | Eksik karar | Fiziksel sayım farkı için tolerans, onay seviyesi ve sorumlular bilinmiyor. | Yetkili düzeltme gereği korunur; akış kesinleşmez. |
-| OD-012 | Eksik karar | Envanterin yetkili kaynağa dönüşmesi için mutabakatı kimin ve hangi tamamlanma ölçütüyle onaylayacağı bilinmiyor. | Onaylı mutabakat ön koşulu korunur. |
+| OD-011 | Kararlı | `DEC-033`: zero tolerance, blind count, self-approval yasağı, explicit ADMIN_MANAGER-sensitive approval ve 10–2000 açıklama. | Routine fark `COUNT_RECONCILIATION`dır; CorrectionRequest değildir. |
+| OD-012 | Kararlı | `DEC-033`: baseline `1..N` count session kapsar; sensitive ADMIN_MANAGER establishment ve complete/not-counted/unresolved/opening-effect/projection ölçütleri zorunludur. | Tek pilot cutover QUANTITY ve SERIALIZED envanteri kapsar. |
 | OD-013 | Eksik karar | Transfer gereken senaryolar ve transfer yetkileri bilinmiyor. | Transfer yalnızca uygulanabilirliği doğrulanan senaryolar için kapsamdır. |
 | OD-014 | Eksik karar | Birim dönüşümü, ondalık hassasiyet ve kısmi miktar davranışı bilinmiyor. | Otomatik dönüşüm varsayılmaz. |
 | OD-015 | Eksik karar | Aktif stok/hareket geçmişi bulunan malzemenin takip modu değiştirilebilir mi bilinmiyor. | Değişiklik koşulu kesinleştirilemez. |

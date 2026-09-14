@@ -263,7 +263,7 @@ Server-side authorization zorunludur; gizli/disabled button güvenlik değildir.
 
 Phase 3 managed Location permissions (`DEC-023`, `DEC-022` item 13): `locations.view_location`, `locations.add_location`, `locations.change_location`. Application access management `delete_location` expose etmez. `add_location` veya `change_location`, `view_location` gerektirir. Varsayılan şablonlar ileride `TECHNICIAN`/`STOREKEEPER` için `view_location`, `ADMIN_MANAGER` için view/add/change içerebilir. `setup_roles` non-destructive kalır; mevcut Group'lara sessizce yeni izin verilmez.
 
-Count/reconciliation ve reporting permission'larını uydurma. `DEC-028` direct quantity RETURN için `inventory.return_stock`, `DEC-029` quantity TRANSFER first slice için `inventory.transfer_stock` permission'ını onaylar. Phase 4.4 ve Phase 4.5 rollout tamamlanmıştır: fresh `STOREKEEPER` ve `ADMIN_MANAGER` bu izinleri alır, `TECHNICIAN` almaz. `DEC-030` ile correction view/add safe-managed, decision permission ise safe allowlist dışındadır; managed permission count 25'tir. `setup_roles` non-destructive kalır ve mevcut Group'lara bu izinleri sessizce eklemez.
+Count ve baseline authorization permission tabanlıdır (`DEC-033`). Discrepancy approval ile baseline establishment sensitive `ADMIN_MANAGER` capability olarak kalır; ordinary safe dynamic permission allowlist'ine eklenmez. Separation of duties pilot readiness gereksinimidir. Reporting permission'larını uydurma. `DEC-028` direct quantity RETURN için `inventory.return_stock`, `DEC-029` quantity TRANSFER first slice için `inventory.transfer_stock` permission'ını onaylar. Phase 4.4 ve Phase 4.5 rollout tamamlanmıştır: fresh `STOREKEEPER` ve `ADMIN_MANAGER` bu izinleri alır, `TECHNICIAN` almaz. `DEC-030` ile correction view/add safe-managed, decision permission ise safe allowlist dışındadır; managed permission count 25'tir. `setup_roles` non-destructive kalır ve mevcut Group'lara bu izinleri sessizce eklemez.
 
 `DEC-HG-005`, `DEC-028` ile yalnız unused linked QUANTITY RETURN first slice için kapanmıştır: exactly one immutable original ISSUE line; exactly one RETURN line; partial ve multiple RETURN allowed; cumulative linked quantity original ISSUE quantity'yi aşamaz; material/unit/condition original line ile aynıdır; source null, explicit target required; ordinary actor gelecekte `STOREKEEPER` veya `ADMIN_MANAGER`, `TECHNICIAN` değildir. Serialized, used/removed, defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları deferred/hard-gated kalır.
 
@@ -316,6 +316,21 @@ Physical count doğrudan `StockBalance` overwrite edemez:
 
 Quantity count numeric amount; serialized count asset identity/presence kullanır.
 
+`DEC-033` Phase 5.4 sözleşmesi:
+
+- Sayım sırasında stock freeze yoktur; session başlangıcında immutable expected snapshot alınır.
+- Reconciliation approval sırası `lock → re-read → drift check → revalidate → write`tır. Current state snapshot'tan farklıysa reconciliation reddedilir ve recount/reconfirmation gerekir.
+- Her session tek `Location` subtree'sini kapsar; overlapping subtree'lerde overlapping open session yasaktır.
+- Counter kör sayım yapar; expected/discrepancy reviewer/approver'a görünür. Missing row zero değildir; zero tolerance geçerlidir.
+- Sıfır olmayan her discrepancy explicit approval ister. Counter/performer kendi farkını onaylayamaz. Approval explanation trim edilmiş 10..2000 karakterdir.
+- Routine unexplained discrepancy dedicated `COUNT_RECONCILIATION` transaction'ıdır; `CorrectionRequest` veya `CONTROLLED_CORRECTION` kullanılmaz. Controlled correction bilinen hatalı ledger satırına köklü ayrı workflow'dur.
+- Positive reconciliation target-only, negative reconciliation source-only'dur.
+- Existing QUANTITY Material + condition unexpected physical stock `expected_quantity=0` ile sayılabilir. Unknown catalog item stock yaratamaz; resolved veya explicitly abandoned olana kadar unresolved kalır.
+- Zero-quantity `StockBalance` row'ları expected snapshot'a dahil edilmez.
+- `baseline_candidate=false` routine session approved discrepancy için `COUNT_RECONCILIATION` oluşturabilir. `baseline_candidate=true` cutover session bunu oluşturamaz; counted inventory yalnız baseline'a beslenir.
+- Baseline candidate session required `not-counted` row varken establish edilemez.
+- Tek authoritative pilot cutover QUANTITY ve SERIALIZED inventory'yi birlikte kapsar. Serialized count Phase 5.3 identity/current-state modelini kullanır; yeni lifecycle state eklenmez.
+
 Excel import sırası:
 
 > Excel → ImportBatch/ImportRow → parse → validation → preview → controlled master-data commit → staging-only candidate/count reference → physical count → reconciliation → baseline → scoped INITIAL_BALANCE → authoritative stock
@@ -329,9 +344,11 @@ Excel import sırası:
 
 Sistem ancak controlled physical reconciliation ve baseline/cutover sonrası authoritative olur. Açılış stoğu tam bir kez, yalnız baseline-owned `INITIAL_BALANCE` transaction'larla oluşur; arbitrary adjustment shortcut olarak kullanılamaz.
 
-Bir `InventoryBaseline`, downstream-owned association ile `1..N` scoped `INITIAL_BALANCE` transaction'a bağlanabilir. Her scope idempotent olmalı; baseline tüm required scope'lar commit edilip projection verify başarılı olduktan sonra `ESTABLISHED` olmalı; aynı cutover context için en fazla bir authoritative established baseline bulunmalıdır. Inventory ledger baseline'a reverse FK taşımaz.
+Bir `InventoryBaseline`, downstream-owned association ile `1..N PhysicalCountSession` ve `1..N` scoped `INITIAL_BALANCE` transaction'a bağlanabilir. Bütün required scopes complete, required `not-counted` rows bitmiş, gerekli unresolved items resolved/dispositioned, bütün opening ledger effects committed ve projection verification clean olmadan `ESTABLISHED` olamaz. Aynı cutover context için en fazla bir authoritative established baseline bulunmalıdır. Inventory ledger baseline'a reverse FK taşımaz.
 
-`DEC-HG-001`: Stock-stability strategy seçilmeden physical count/reconciliation schema, service veya UI başlatma. Scoped freeze, as-of snapshot + movement replay veya güvenliği kanıtlanmış revalidation/reconfirmation seçeneklerinden biri açıkça seçilmelidir. Seçimden bağımsız explicit scope/expected timing, lock altında revalidation, idempotent reconciliation, double-apply guard ve serialized missing/unexpected resolution zorunludur.
+`INITIAL_BALANCE` yalnız controlled baseline establishment ile oluşturulur. Ad-hoc UI, Django Admin veya management-command yolu yoktur. Prior authoritative inventory ledger history taşıyan bucket opening balance için uygun değildir.
+
+`DEC-HG-001`, `DEC-OPEN-007` ve `DEC-OPEN-008`, `DEC-033` ile kapanmıştır. `DEC-OPEN-010` OPEN kalır ve Phase 5.4 unit conversion veya yeni rounding semantiği eklemez. Bu karar kaydı Phase 5.4A implementation'ını başlatmaz.
 
 ## 16. Locations, Quantities ve Database
 

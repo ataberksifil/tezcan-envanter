@@ -6,7 +6,7 @@ Bu belge, `docs/02-DOMAIN-MODEL.md` içindeki domain modelini PostgreSQL ve iler
 
 Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kısıtlar kavramsaldır; açık iş kararları varsayımla kapatılmaz.
 
-Önerilen uygulama tablosu sayısı **23**'tür. `inventory_baseline_transaction_links` scoped cutover ilişkisi bu sayıya dahildir. Django'nun auth tabloları bu sayıya dahil değildir ve bu belgede yeniden tasarlanmamıştır.
+Önerilen uygulama tablosu sayısı **24**'tür. `inventory_baseline_count_session_links` ve `inventory_baseline_transaction_links` scoped cutover ilişkileri bu sayıya dahildir. Django'nun auth tabloları bu sayıya dahil değildir ve bu belgede yeniden tasarlanmamıştır.
 
 ## 2. Veri Modeli İlkeleri
 
@@ -258,7 +258,7 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 - **Primary Key:** `id`
 - **Foreign Keys:** `acting_user_id → auth user`; `source_transaction_id → inventory_transactions.id`. Correction ve baseline sonuç ilişkileri downstream workflow tabloları/linkleri tarafından sahiplenilir; inventory downstream app'lere reverse FK taşımaz.
 - **Unique Constraints:** `operation_id`; opsiyonel `transaction_number`.
-- **Current Check Constraint:** `transaction_type IN (RECEIPT, ISSUE, RETURN, TRANSFER, CONTROLLED_CORRECTION)`. `INITIAL_BALANCE` count/baseline gate çözülmeden current DB domain'e eklenmez.
+- **Current Phase 5.3 Check Constraint:** `transaction_type IN (RECEIPT, ISSUE, RETURN, TRANSFER, CONTROLLED_CORRECTION)`. `DEC-033` Phase 5.4 için `COUNT_RECONCILIATION` ve baseline-only `INITIAL_BALANCE` vocabulary'sini onaylar; current DB constraint ancak ayrı Phase 5.4 implementation/migration göreviyle genişletilebilir.
 - **Recommended Indexes:** `occurred_at`, `transaction_type, occurred_at`, `acting_user_id, occurred_at`, `source_transaction_id`; unique `operation_id`. Fingerprint tek başına lookup anahtarı değildir.
 - **Delete Policy:** `IMMUTABLE / NO DELETE`; PostgreSQL DB-level immutability guard zorunludur.
 - **Notes / TBD:** Ledger yalnızca tamamlanmış işlemleri içerdiği için mutable `status` alanı önerilmez. Taslak/validasyon import veya istek bağlamında tutulur. Committed header/line `UPDATE` ve `DELETE`, daha sonra Django migration ile yönetilecek PostgreSQL trigger-class guard tarafından reddedilmelidir; application/admin/ORM/raw application SQL bypass edemez. Exceptional repair/migration privileged, documented ve audited'dir. `INITIAL_BALANCE`, yalnızca onaylı `InventoryBaseline` üzerinden reconciled başlangıç stoğunu ledger'a alan kontrollü olaydır; serbest doğrudan stok yazımı değildir.
@@ -414,7 +414,7 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 |---|---|---:|---|---|
 | `id` | UUID | Hayır | PK | Oturum kimliği. |
 | `reference_number` | VARCHAR | Hayır | UNIQUE | İnsan okunur sayım referansı. |
-| `scope_location_id` | UUID | Evet | FK | Sayım kapsamının kök lokasyonu. |
+| `scope_location_id` | UUID | Hayır | FK | Sayım kapsamındaki tek `Location` subtree'sinin kökü. |
 | `status` | VARCHAR | Hayır | Tasarım değeri | Önerilen yaşam döngüsü. |
 | `reconciliation_status` | VARCHAR | Hayır | Tasarım değeri | Fark çözüm durumu. |
 | `started_by_user_id` | Auth user PK tipi | Hayır | FK | Başlatan kullanıcı. |
@@ -431,7 +431,7 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 - **Check Constraints:** Tamamlanmış state için completed user/time birlikteliği; kesin status sözlüğü onaydan sonra.
 - **Recommended Indexes:** `status`, `reconciliation_status`, `scope_location_id`, `started_at`.
 - **Delete Policy:** Başlatıldıktan sonra `RETAIN / NO HARD DELETE`.
-- **Notes / TBD:** `DRAFT`, `IN_PROGRESS`, `COMPLETED`, `RECONCILED` aday teknik state'lerdir; onaylı iş akışı değildir. `DEC-HG-001` gereği explicit scope ve expected timing semantiği ile stock-stability strategy (freeze, as-of replay veya güvenliği kanıtlanmış revalidation/reconfirmation) seçilmeden count/reconciliation schema/service/UI implementation başlayamaz. Reconciliation idempotent ve double-apply korumalı olmalı; expected state ledger etkisinden önce lock altında yeniden doğrulanmalıdır. Sayım onay seviyeleri ayrıca TBD'dir.
+- **Notes:** `DEC-033` stock-stability kararını kapatır: freeze yoktur; session creation tek Location subtree için immutable expected snapshot oluşturur. Çakışan subtree'lerde çakışan açık session yasaktır. Reconciliation idempotent/double-apply korumalıdır ve `lock → re-read → drift check → revalidate → write` sırasını izler; drift varsa reddedilip recount/reconfirmation istenir. `baseline_candidate=false` routine, `true` cutover session'dır. Exact lifecycle state names Phase 5.4 implementation tasarımında bu semantiği değiştirmeden kesinleştirilir.
 
 ### 13.2 `physical_count_quantity_lines`
 
@@ -448,16 +448,19 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `counted_quantity` | NUMERIC(18,3) | Evet | `>= 0` | Fiziksel sonuç; sayılana kadar null. |
 | `counted_by_user_id` | Auth user PK tipi | Evet | FK | Sayımı yapan. |
 | `counted_at` | TIMESTAMPTZ | Evet | — | Sayım zamanı. |
-| `correction_request_id` | UUID | Evet | FK | Fark çözüm talebi. |
+| `resolution_status` | VARCHAR | Hayır | Controlled value | Not-counted / no-discrepancy / pending-approval / approved / dispositioned durumunu ayırır. |
+| `approved_by_user_id` | Auth user PK tipi | Evet | FK | Sıfır olmayan routine discrepancy'yi onaylayan kullanıcı. |
+| `approval_explanation` | TEXT | Evet | Trim 10..2000 when approved | Explicit approval gerekçesi. |
+| `reconciliation_transaction_id` | UUID | Evet | FK | Counting-owned dedicated `COUNT_RECONCILIATION` sonucu; cutover session'da null. |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Satır oluşturma zamanı. |
 
 - **Primary Key:** `id`
-- **Foreign Keys:** Session, material, location, condition, user ve correction request FK'leri.
+- **Foreign Keys:** Session, material, location, condition, counted/approved user ve optional result inventory transaction FK'leri.
 - **Unique Constraints:** `(session_id, material_id, location_id, condition_id)`.
 - **Check Constraints:** Beklenen miktar negatif değil; sayılmışsa miktar negatif değil ve counted user/time birlikte dolu.
-- **Recommended Indexes:** Composite unique anahtar; `material_id`, `location_id`, `correction_request_id`.
+- **Recommended Indexes:** Composite unique anahtar; `material_id`, `location_id`, `resolution_status`, optional result transaction.
 - **Delete Policy:** `RETAIN / NO HARD DELETE`.
-- **Notes / TBD:** Fark `counted_quantity - expected_quantity` olarak türetilir; ayrıca mutable kolon önerilmez. Material tracking mode servis katmanında doğrulanır.
+- **Notes:** Fark `counted_quantity - expected_quantity` olarak türetilir; ayrıca mutable kolon önerilmez. Expected değer session-start immutable snapshot'ıdır; zero-quantity `StockBalance` row'ları snapshot'a alınmaz. Existing QUANTITY Material + condition için unexpected physical stock `expected_quantity=0` satırı eklenebilir. Missing row zero değildir. Routine approved positive effect target-only, negative effect source-only `COUNT_RECONCILIATION` line'ıdır. `CorrectionRequest` FK'si yoktur.
 
 ### 13.3 `physical_count_asset_lines`
 
@@ -475,16 +478,18 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `observed_condition_id` | UUID | Evet | FK | Fiziksel gözlem kondisyonu. |
 | `counted_by_user_id` | Auth user PK tipi | Evet | FK | Sayımı yapan. |
 | `counted_at` | TIMESTAMPTZ | Evet | — | Sayım zamanı. |
-| `correction_request_id` | UUID | Evet | FK | Fark çözüm talebi. |
+| `resolution_status` | VARCHAR | Hayır | Controlled value | Not-counted / matched / missing / unexpected / dispositioned durumunu ayırır. |
+| `approved_by_user_id` | Auth user PK tipi | Evet | FK | Gerekli serialized discrepancy karar aktörü. |
+| `approval_explanation` | TEXT | Evet | Trim 10..2000 when approved | Explicit approval/disposition gerekçesi. |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Satır oluşturma zamanı. |
 
 - **Primary Key:** `id`
-- **Foreign Keys:** Session, asset, location, beklenen/gözlenen condition, user ve correction request FK'leri.
+- **Foreign Keys:** Session, asset, location, beklenen/gözlenen condition ve counted/approved user FK'leri.
 - **Unique Constraints:** `(session_id, serialized_asset_id, location_id)`.
 - **Check Constraints:** Sayılmışsa counted user/time birlikte dolu.
-- **Recommended Indexes:** Composite unique anahtar; `serialized_asset_id`, `location_id`, `correction_request_id`.
+- **Recommended Indexes:** Composite unique anahtar; `serialized_asset_id`, `location_id`, `resolution_status`.
 - **Delete Policy:** `RETAIN / NO HARD DELETE`.
-- **Notes / TBD:** Beklenmeyen bulunan asset `expected_present=false, counted_present=true`; eksik asset tersiyle temsil edilir. `expected_condition_id`, sayım sonrasında asset projection'ı değişse bile başlangıç karşılaştırmasını korur. Yanlış lokasyonun tek veya iki satırla gösterimi servis iş akışında kesinleşir.
+- **Notes:** Beklenmeyen bulunan known asset `expected_present=false, counted_present=true`; eksik asset tersiyle temsil edilir. `expected_condition_id`, sayım sonrasında asset projection'ı değişse bile başlangıç karşılaştırmasını korur. Serialized count Phase 5.3 UUID/internal-code/current-state modelini kullanır ve yeni lifecycle state eklemez. Unknown catalog item authoritative asset/stock oluşturamaz; resolved veya explicitly abandoned olana kadar ayrı unresolved evidence/disposition olarak kalır. Missing row zero/present=false değildir.
 
 ## 14. Import Tabloları
 
@@ -607,7 +612,6 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `id` | UUID | Hayır | PK | Baseline kimliği. |
 | `reference` | VARCHAR | Hayır | UNIQUE | İnsan okunur cutover referansı. |
 | `import_batch_id` | UUID | Evet | FK | Staging/count-reference data'nın import kaynağı; stock authority değildir. |
-| `physical_count_session_id` | UUID | Evet | FK; provisional single-session shape | Mutabakat kanıtı; tek/çok session cardinality kararı bekleniyor. |
 | `status` | VARCHAR | Hayır | Controlled lifecycle | Hazırlık ve authoritative establishment durumu. |
 | `established_by_user_id` | Auth user PK tipi | Evet | FK | Cutover işlemini tamamlayan yetkili kullanıcı. |
 | `established_at` | TIMESTAMPTZ | Evet | Sistem zamanı | Yetki başlangıç zamanı. |
@@ -615,14 +619,32 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Kayıt zamanı. |
 
 - **Primary Key:** `id`
-- **Foreign Keys:** Import batch, provisional physical count session ve auth user FK'leri; delete restricted. Initial transaction ilişkisi Bölüm 17.2 downstream-owned link tablosundadır.
+- **Foreign Keys:** Import batch ve auth user FK'leri; delete restricted. Count session ilişkileri Bölüm 17.2, initial transaction ilişkileri Bölüm 17.3 downstream-owned link tablolarındadır.
 - **Unique Constraints:** `reference`; aynı cutover context için en fazla bir authoritative `ESTABLISHED` baseline sağlayan partial unique strateji implementation review'da kesinleştirilir.
 - **Check Constraints:** `ESTABLISHED` ise established actor/time dolu, değilse ikisi null; cross-table count reconciliation ve scope-completion kuralları service + targeted DB guard'dadır.
-- **Recommended Indexes:** `physical_count_session_id`, `import_batch_id`, `established_at`.
+- **Recommended Indexes:** `import_batch_id`, `established_at`.
 - **Delete Policy:** `IMMUTABLE / NO DELETE`.
-- **Notes / TBD:** Açık bir baseline tablosu justified'dır; import commit ile otorite cutover'ını ayırır ve hangi sayımın başlangıcı doğruladığını korur. Baseline ancak bütün gerekli scoped `INITIAL_BALANCE` işlemleri commit edilip projection verify başarılı olduktan sonra `ESTABLISHED` olabilir. `physical_count_session_id` yalnız provisional one-session shape'tir; bir baseline birden çok count session'a bağlanacaksa baseline implementation'dan önce downstream-owned count-session link tablosuyla değiştirilir. Cardinality ve onay yetkisi `DEC-OPEN-008` çözülmeden baseline schema implementation başlayamaz.
+- **Notes:** Açık bir baseline tablosu import commit ile authority cutover'ını ayırır. `DEC-033` ile bir baseline `1..N` baseline-candidate count session kapsar ve tek authoritative pilot cutover hem QUANTITY hem SERIALIZED inventory'yi içerir. Bütün required scope'lar complete, required `not-counted` satırlar bitmiş, gerekli unresolved item'lar resolved/dispositioned, bütün opening ledger effects committed ve projection verification clean olmadan `ESTABLISHED` olamaz. Establishment sensitive permission-based `ADMIN_MANAGER` capability'dir. Prior authoritative inventory ledger history taşıyan bucket opening balance için uygun değildir.
 
-### 17.2 `inventory_baseline_transaction_links`
+### 17.2 `inventory_baseline_count_session_links`
+
+**Purpose:** Bir baseline'ın `1..N` required cutover count session'ını downstream-owned ilişkiyle toplamasını sağlar.
+
+| Column | Conceptual Type | Null | Constraint | Description |
+|---|---|---:|---|---|
+| `id` | UUID | Hayır | PK | Link kimliği. |
+| `inventory_baseline_id` | UUID | Hayır | FK | İlişkinin sahibi baseline. |
+| `physical_count_session_id` | UUID | Hayır | FK | İlgili `baseline_candidate=true` session. |
+| `required` | BOOLEAN | Hayır | Default true | Establishment önkoşuluna dahil scope. |
+| `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Bağlantı zamanı. |
+
+- **Primary Key:** `id`
+- **Foreign Keys:** Baseline ve physical count session; delete restricted.
+- **Unique Constraints:** `(inventory_baseline_id, physical_count_session_id)`.
+- **Check Constraints:** Session'ın baseline candidate olması row-local değildir; service validation ve targeted DB guard gerektirir.
+- **Delete Policy:** Baseline establishment sonrası `IMMUTABLE / NO DELETE`.
+
+### 17.3 `inventory_baseline_transaction_links`
 
 **Purpose:** Bir baseline'ın tek dev transaction zorunluluğu olmadan bir veya daha çok scoped `INITIAL_BALANCE` ledger işlemini downstream-owned ilişkiyle toplamasını sağlar.
 
@@ -668,14 +690,14 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `correction_requests` | result transaction | 1 : 0..1 | `DEC-030` downstream-owned one-to-one association; APPROVED ise zorunlu. Ledger reverse FK taşımaz. |
 | `physical_count_sessions` | quantity lines | 1 : 0..N | Oturum en az bir quantity veya asset satırına sahip olmalı. |
 | `physical_count_sessions` | asset lines | 1 : 0..N | Uzmanlaşmış serialized sayım satırı. |
-| `correction_requests` | count lines | 1 : 0..N | Fark çözümü bağlantısı. |
 | `import_batches` | `import_rows` | 1 : 1..N | Batch satırları staging'dir. |
 | `materials` | `stock_balances` | 1 : 0..N | Yalnızca QUANTITY material. |
 | `locations` | `stock_balances` | 1 : 0..N | Yalnız `active && can_hold_stock` lokasyon. |
 | `material_conditions` | `stock_balances` | 1 : 0..N | Kondisyon partition'ı. |
 | `materials/assets/locations` | `barcode_identifiers` | 1 : 0..N | Her identifier tam bir hedef seçer. |
 | `import_batches` | `inventory_baselines` | 1 : 0..N TBD | Tekrar/cutover politikası açık. |
-| `physical_count_sessions` | `inventory_baselines` | 1 : 0..N TBD | Tercih edilen üst sınır bir baseline'dır; iş kararı olmadan unique uygulanmaz. |
+| `physical_count_sessions` | `inventory_baseline_count_session_links` | 1 : 0..N | Yalnız `baseline_candidate=true` session linklenebilir; authoritative-establishment uniqueness guard ayrıca uygulanır. |
+| `inventory_baselines` | `inventory_baseline_count_session_links` | 1 : 1..N | Bir baseline `DEC-033` gereği bir veya daha çok required count session kapsar. |
 | `inventory_baselines` | `inventory_baseline_transaction_links` | 1 : 1..N | Establishment için bütün required scope'lar bağlı olmalı. |
 | `inventory_transactions` | `inventory_baseline_transaction_links` | 1 : 0..1 | Link yalnız `INITIAL_BALANCE` transaction kabul eder. |
 
@@ -750,6 +772,7 @@ Broader RETURN ve controlled correction semantics kesinleşmeden DB'ye ek zorunl
 - `barcode_identifiers(identifier_type, identifier_value)` unique
 - `audit_events(occurred_at)`, `(entity_type, entity_id)`
 - `inventory_baseline_transaction_links(inventory_baseline_id, scope_key)` unique ve transaction/operation unique indeksleri
+- `inventory_baseline_count_session_links(inventory_baseline_id, physical_count_session_id)` unique
 
 `technical_specs` için GIN, fuzzy name araması için trigram veya rapora özel indeksler gerçek sorgu ve veri hacmi ölçülmeden eklenmemelidir.
 
@@ -779,6 +802,7 @@ Broader RETURN ve controlled correction semantics kesinleşmeden DB'ye ek zorunl
 | `barcode_identifiers` | SOFT DELETE / DEACTIVATE | Yeniden etiketleme geçmişi/audit. |
 | `audit_events` | IMMUTABLE; RETENTION TBD | İdari denetim izi. |
 | `inventory_baselines` | IMMUTABLE / NO DELETE | Otorite cutover kanıtı. |
+| `inventory_baseline_count_session_links` | IMMUTABLE / NO DELETE | Baseline count evidence lineage'i. |
 | `inventory_baseline_transaction_links` | IMMUTABLE / NO DELETE | Scoped başlangıç ledger lineage'i. |
 
 FK silme davranışı tarihsel tablolarda genel olarak `RESTRICT` olmalıdır. `CASCADE`, yalnızca henüz iş etkisi oluşturmamış geçici staging alt kayıtlarında retention politikası kesinleşince değerlendirilebilir.
@@ -978,7 +1002,7 @@ Bu legacy tablo güncel karar statüsünün kanonik kaydı değildir. `docs/06-D
 | DM-B11 | `DEC-028` unused linked QUANTITY RETURN için kararlı; broader serialized/used/defective/unknown-provenance RETURN açık kalır | Ledger service/FK kuralları |
 | DM-B12 | Transfer yetkileri ve zorunlu iş senaryoları nelerdir? | Permissions ve line validation |
 | DM-B13 | `DEC-030`: quantity correction bounds/lineage ve requester≠decider; broader correction deferred | `correction_requests`, downstream-owned transaction association |
-| DM-B14 | `DEC-HG-001`: Count stability; ayrıca tolerans, approver ve tamamlanma ölçütü | Count session, baseline |
+| DM-B14 | **DECIDED** (`DEC-033`): no-freeze immutable snapshot/drift refusal, zero tolerance, approver ve completion ölçütleri | Count session, baseline |
 | DM-B15 | Bir baseline bir mi birden çok count session'a mı bağlanır? | `inventory_baselines` cardinality |
 | DM-B16 | `DEC-006`–`DEC-009` ile Gate 0'da kapatıldı: unique + conflict + lock, READ COMMITTED, lock order, fingerprint | StockBalance concurrency |
 

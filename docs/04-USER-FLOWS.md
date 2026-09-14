@@ -826,33 +826,37 @@ flowchart TD
 
 ## 12. Physical Count and Reconciliation
 
-> **HARD GATE — `DEC-HG-001`:** Aşağıdaki akışlar gereksinim seviyesindedir. Scoped temporary freeze, as-of snapshot + post-snapshot movement replay veya concurrent movement altında güvenliği kanıtlanmış revalidation/reconfirmation stratejilerinden biri seçilmeden count/reconciliation schema, service veya UI implementation başlayamaz.
+> **DECIDED — `DEC-033`:** Stock freeze yoktur. Her session başlangıcında immutable expected snapshot alınır; reconciliation approval `lock → re-read → drift check → revalidate → write` sırasını izler. Drift varsa reconciliation reddedilir ve recount/reconfirmation gerekir. Bu karar Phase 5.4A implementation'ını başlatmaz.
 
 ### UF-CNT-001 — Fiziksel Sayım Oturumu
 
 **Actors**
-- Sayım yapan kullanıcı: **TBD**
-- Yönetici rolleri: **TBD**
+- Permission sahibi counter/performer
+- Expected/discrepancy görme permission'ı olan reviewer/approver
+- Sensitive discrepancy approval ve baseline establishment için `ADMIN_MANAGER`
 
 **Preconditions**
-- Sayım kapsamı tanımlanabilir.
+- Sayım kapsamı tam bir `Location` subtree'sidir ve çakışan subtree üzerinde başka açık session yoktur.
 - Sayım, staging-only candidate/count reference ile hazırlanan cutover öncesi kapsamda veya yetkili sistem stoğunda yapılabilir; candidate data stok değildir.
 
 **Trigger**
 - Yeni fiziksel sayım oturumu oluşturulur.
 
 **Main Flow**
-1. Sayım oturumu açılır; kapsam (lokasyon/alan) seçilir.
-2. Raf/lokasyon bazında sayım yapılır.
-3. **QUANTITY:** Beklenen ve sayılan miktar girilir; fark hesaplanır.
-4. **SERIALIZED:** Beklenen varlık var/yok ve gözlemlenen durum kaydedilir.
-5. Oturum tamamlanır; farklar listelenir.
-6. Stok projection doğrudan değiştirilmez.
+1. Sayım oturumu tek Location subtree için açılır; `baseline_candidate` routine/cutover ayrımını belirler.
+2. Sistem o anda immutable expected snapshot oluşturur; zero-quantity `StockBalance` row'larını dışarıda bırakır.
+3. Counter expected/discrepancy görmeden raf/lokasyon bazında kör sayım yapar.
+4. **QUANTITY:** Fiziksel miktar girilir. Existing Material + condition için unexpected stock `expected_quantity=0` olarak eklenebilir.
+5. **SERIALIZED:** Phase 5.3 asset identity/current-state modeliyle expected/observed presence ve condition kaydedilir; yeni lifecycle state eklenmez.
+6. Unknown catalog item stock oluşturmaz; resolved veya explicitly abandoned olana kadar unresolved kalır.
+7. Oturum tamamlanır; reviewer/approver expected ve discrepancies'i görür.
+8. Stok projection doğrudan değiştirilmez; missing row zero sayılmaz.
 
 ```mermaid
 flowchart TD
-    Create["Sayım oturumu oluştur"] --> Scope["Kapsam seç"]
-    Scope --> Count["Raf/lokasyon bazında say"]
+    Create["Sayım oturumu oluştur"] --> Scope["Tek Location subtree seç"]
+    Scope --> Snapshot["Immutable expected snapshot"]
+    Snapshot --> Count["Expected gizli: kör sayım"]
     Count --> Qty{"Quantity mi?"}
     Qty -->|Evet| QLine["Beklenen vs sayılan miktar"]
     Qty -->|Hayır| SLine["Beklenen vs sayılan varlık"]
@@ -864,16 +868,19 @@ flowchart TD
 
 **Validation Rules**
 - CNT-001–CNT-003: Fark kaydedilir; sessiz overwrite yok.
-- Count scope explicit olmalı ve expected value'nun hangi zamana ait olduğu hard gate kararıyla tanımlanmalıdır.
+- Count scope tek Location subtree ve expected value session-start snapshot'ıdır.
+- Çakışan açık count session scope'ları yasaktır.
+- Counter expected/discrepancy değerlerini göremez; reviewer/approver görebilir.
+- Missing/not-counted row zero değildir.
 
 **Success Result**
 - `physical_count_sessions` ve satırlar kayıtlı; farklar görünür.
 
 **Failure / Alternate Flows**
-- Yetki yok, geçersiz kapsam, eksik sayım satırı.
+- Yetki yok, geçersiz/overlapping kapsam, eksik sayım satırı, unresolved unknown item.
 
 **Permissions**
-- **TBD**.
+- Permission-based authorization. Sensitive approval/establishment ordinary safe dynamic permission değildir.
 
 **Inventory / Data Effect**
 - Sayım satırları; ledger/bakiye değişmez.
@@ -882,12 +889,11 @@ flowchart TD
 - Sayım aktörü ve zamanları.
 
 **TBD / Open Decisions**
-- `DEC-HG-001`: Açık session sırasında normal stock movement ile expected state ilişkisi.
-- Sayım sıklığı, sorumlular, tolerans.
+- Sayım sıklığı. `DEC-HG-001`, `DEC-OPEN-007` ve `DEC-OPEN-008` `DEC-033` ile kapanmıştır.
 
 ### UF-CNT-002 — Mutabakat
 
-**Actors:** Yetkili yönetici rolleri **TBD**
+**Actors:** Sensitive discrepancy approval permission'ı olan `ADMIN_MANAGER`; counter/performer kendi discrepancy'sini onaylayamaz.
 
 **Preconditions**
 - Tamamlanmış sayım oturumu ve kayıtlı farklar.
@@ -896,42 +902,52 @@ flowchart TD
 - Mutabakat ekranı açılır.
 
 **Main Flow**
-1. Farklar incelenir.
-2. Gerekirse araştırma yapılır.
-3. Yetkili kullanıcı düzeltme talebi veya kontrollü düzeltme sürecini başlatır.
-4. Expected current state lock altında yeniden doğrulanır; onaylı düzeltme/baseline ledger etkisi idempotent oluşturulur.
-5. Oturum mutabakat durumu güncellenir.
+1. Reviewer expected snapshot ve discrepancy'leri inceler; zero olmayan her fark explicit approval gerektirir.
+2. Gerekirse araştırma yapılır; approval explanation trim edilmiş 10–2000 karakter girilir.
+3. Routine session'da yetkili kullanıcı discrepancy'yi onaylar; `CorrectionRequest` açılmaz ve `CONTROLLED_CORRECTION` kullanılmaz.
+4. Session/line ve current state kilitlenir; current state yeniden okunur, immutable snapshot'a göre drift kontrol edilir ve invariant'lar yeniden doğrulanır.
+5. Drift varsa reconciliation reddedilir; recount/reconfirmation istenir ve ledger/projection değişmez.
+6. Drift yoksa routine positive discrepancy target-only, negative discrepancy source-only dedicated `COUNT_RECONCILIATION` transaction'ı olarak idempotent uygulanır.
+7. Cutover session `COUNT_RECONCILIATION` oluşturmaz; sayılan inventory yalnız baseline'a beslenir.
+8. Oturum mutabakat durumu güncellenir.
 
 ```mermaid
 flowchart TD
     Review["Farkları incele"] --> Investigate["Araştır"]
-    Investigate --> Correct["Düzeltme talebi / onay"]
-    Correct --> Ledger["Kontrollü ledger etkisi"]
+    Investigate --> Approve["Explicit approval + açıklama"]
+    Approve --> Drift{"Current state snapshot ile aynı mı?"}
+    Drift -->|Hayır| Recount["Reddet: recount/reconfirmation"]
+    Drift -->|Evet, routine| Ledger["COUNT_RECONCILIATION"]
+    Drift -->|Evet, cutover| Baseline["Baseline'a besle"]
     Ledger --> Reconciled["Mutabakat tamamlandı"]
+    Baseline --> Reconciled
 ```
 
 **Validation Rules**
-- CNT-004–CNT-005: Fark yalnızca yetkili düzeltme ile stok etkisine dönüşür.
+- Zero tolerance: sıfır olmayan her discrepancy explicit approval ister.
+- Counter/performer kendi discrepancy'sini onaylayamaz.
+- Approval explanation outer-trim sonrası 10–2000 karakterdir.
 - Aynı session/line iki kez reconcile edilemez; double-apply lifecycle lock ve idempotency guard ile engellenir.
-- Serialized missing/unexpected/wrong-location varlıkların çözümü izlenebilir kalmalıdır.
+- Approval sırası `lock → re-read → drift check → revalidate → write`tır; drift refusal zorunludur.
+- Serialized missing/unexpected/wrong-location varlıkların çözümü izlenebilir kalır.
 
 **Success Result**
 - Farklar izlenebilir biçimde çözülür.
 
 **Failure / Alternate Flows**
-- Onay yetkisi yok, düzeltme reddi, tolerans dışı fark (**TBD**).
+- Onay yetkisi yok, self-approval, geçersiz açıklama, current-state drift, unresolved item.
 
 **Permissions**
-- **TBD**.
+- Permission-based authorization; discrepancy approval sensitive `ADMIN_MANAGER` capability ve safe dynamic allowlist dışıdır.
 
 **Inventory / Data Effect**
-- Onaylı düzeltme veya baseline adımı sonrası projection güncellenir.
+- Routine onayda `COUNT_RECONCILIATION`; cutover'da yalnız sonraki baseline establishment projection'ı günceller.
 
 **Audit Effect**
-- Fark, talep, karar ve sonuç zinciri.
+- Snapshot, fark, karar/açıklama, actor/time ve sonuç transaction/disposition zinciri.
 
 **TBD / Open Decisions**
-- `DEC-HG-001` stability strategy; onay seviyeleri, tolerans, tamamlanma ölçütü.
+- `DEC-OPEN-010` unit conversion/rounding için OPEN kalır; Phase 5.4 yeni conversion veya rounding semantiği eklemez.
 
 ## 13. Excel Import and Cutover
 
@@ -996,35 +1012,38 @@ flowchart LR
 
 ### UF-BASE-001 — Envanter Baseline / Go-Live
 
-**Actors:** `ADMIN_MANAGER` (onaylayan rol **TBD**)
+**Actors:** Sensitive baseline-establishment permission'ı olan `ADMIN_MANAGER`.
 
 **Preconditions**
-- Import staging/count-reference data, fiziksel sayım ve mutabakat tamamlanmış veya tamamlanmak üzere; staging data stok değildir.
+- `1..N` baseline-candidate count session tek pilot cutover için bağlanmıştır; staging data stok değildir.
 
 **Trigger**
 - "Baseline oluştur / Sistemi yetkili yap" işlemi.
 
 **Main Flow**
-1. İlgili import batch ve count session incelenir.
-2. Mutabakat onayı verilir (**TBD** yetkili).
+1. İlgili import batch ve `1..N PhysicalCountSession` incelenir.
+2. Bütün required scope'ların complete, required `not-counted` satırların bitmiş ve required unresolved item'ların resolved/dispositioned olduğu doğrulanır.
 3. `inventory_baselines` kaydı oluşturulur.
-4. Count/cutover scope'larına göre bir veya daha çok idempotent `INITIAL_BALANCE` ledger işlemi oluşturulur ve baseline-owned linklerle bağlanır.
-5. Her scope commit edildikten sonra projection-ledger doğrulaması yapılır.
-6. Tüm gerekli scope'lar başarıyla tamamlandığında baseline `ESTABLISHED` olur ve sistem stoğu yetkili kaynak ilan edilir.
+4. Prior authoritative inventory ledger history taşıyan bucket'lar reddedilir.
+5. QUANTITY ve SERIALIZED sayılan inventory için count/cutover scope'larına göre bir veya daha çok idempotent `INITIAL_BALANCE` ledger işlemi oluşturulur ve baseline-owned linklerle bağlanır.
+6. Her scope commit edildikten sonra projection-ledger doğrulaması yapılır.
+7. Bütün opening ledger effects commit ve projection verification clean olduğunda baseline `ESTABLISHED` olur ve sistem stoğu yetkili kaynak ilan edilir.
 
 **Validation Rules**
 - IMP-005, CNT-006: Mutabakat onayı olmadan otorite devri yapılamaz.
 - Aynı cutover context için en fazla bir authoritative `ESTABLISHED` baseline olabilir.
 - Scope retry'ı aynı başlangıç stoğunu ikinci kez oluşturamaz.
+- Baseline candidate session `COUNT_RECONCILIATION` oluşturamaz ve required `not-counted` row varken establish edilemez.
+- `INITIAL_BALANCE` yalnız controlled baseline establishment'tan oluşur; ad-hoc UI/Admin/management-command yolu yoktur.
 
 **Success Result**
 - Go-live stok otoritesi başlar.
 
 **Failure / Alternate Flows**
-- Eksik mutabakat, yetki yok, duplicate baseline attempt.
+- Eksik required scope/not-counted row, unresolved item, prior ledger history, yetki yok, duplicate baseline attempt veya projection verification failure.
 
 **Permissions**
-- **TBD** onay yetkisi; muhtemel `ADMIN_MANAGER`.
+- Permission-based sensitive `ADMIN_MANAGER` capability; ordinary safe dynamic permission değildir.
 
 **Inventory / Data Effect**
 - Bir `inventory_baselines` kaydı, `1..N` scoped `INITIAL_BALANCE` transaction ve downstream-owned links; projection her scope'ta ledger ile atomik güncellenir.
@@ -1033,7 +1052,7 @@ flowchart LR
 - Cutover kararı, actor, zaman.
 
 **TBD / Open Decisions**
-- Baseline onaylayan rol; tamamlanma ölçütü.
+- Yok: Phase 5.4 baseline cardinality, approval ve establishment ölçütleri `DEC-033` ile kararlıdır.
 
 ## 14. QR / Barcode Flows
 
@@ -1400,12 +1419,12 @@ flowchart LR
 | Transaction Detail | Yetkili kullanıcılar | UF-HIS-001, UF-COR-001 |
 | Correction Request | TECHNICIAN, STOREKEEPER, ADMIN_MANAGER | UF-COR-001 |
 | Correction Approval Queue | `corrections.decide_correctionrequest`; fresh ADMIN_MANAGER | UF-COR-002 |
-| Physical Count Sessions | `DEC-HG-001` çözülene kadar kapalı | UF-CNT-001 |
-| Physical Count Entry | `DEC-HG-001` çözülene kadar kapalı | UF-CNT-001 |
-| Reconciliation | `DEC-HG-001` çözülene kadar kapalı | UF-CNT-002 |
+| Physical Count Sessions | `DEC-033` kararlı; Phase 5.4A implementation henüz başlamadı | UF-CNT-001 |
+| Physical Count Entry | `DEC-033` kararlı; Phase 5.4A implementation henüz başlamadı | UF-CNT-001 |
+| Reconciliation | `DEC-033` kararlı; Phase 5.4A implementation henüz başlamadı | UF-CNT-002 |
 | Import | ADMIN_MANAGER | UF-IMP-001 |
 | Import Preview | ADMIN_MANAGER | UF-IMP-001 |
-| Inventory Baseline / Cutover | ADMIN_MANAGER erişim/hazırlık; approval rolü `DEC-OPEN-008` | UF-BASE-001 |
+| Inventory Baseline / Cutover | Sensitive ADMIN_MANAGER capability (`DEC-033`); implementation başlamadı | UF-BASE-001 |
 | Low Stock | Yetkili kullanıcılar | UF-RPT-001 |
 | Reports | Yetkili kullanıcılar | UF-RPT-002 |
 | Material Management | ADMIN_MANAGER | UF-MST-001 |
@@ -1447,7 +1466,7 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 
 | Decision | Bloke edilen alan |
 |---|---|
-| `DEC-HG-001` | Count/reconciliation schema, service ve UI; stock-stability modeli seçilmeden başlayamaz. |
+| `DEC-HG-001` | **DECIDED** (`DEC-033`); Phase 5.4A implementation ayrı görevdir ve başlamamıştır. |
 | `DEC-030` | Quantity correction first slice kararlı; serialized/non-stock/evidence/count interaction deferred. |
 | `DEC-HG-003` | **DECIDED** (`DEC-025`). ProductionLine foundation ve quantity ISSUE Phase 4.2 COMPLETE. |
 | `DEC-HG-004` | **DECIDED** (`DEC-024`). Employee foundation ve quantity ISSUE Phase 4.2 COMPLETE. |
@@ -1462,8 +1481,8 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 | UF-O-03 | Minimum stok aggregation (global/lokasyon/kondisyon) | Low stock ekranı |
 | UF-O-04 | `DEC-028` quantity RETURN first-slice yetki/form contract'ı ve UI/role rollout Phase 4.4'te tamamlandı; broader RETURN deferred | Return ekranı |
 | UF-O-05 | Transfer yetkileri | Transfer menü görünürlüğü |
-| UF-O-06 | `DEC-HG-001` stability + fiziksel sayım/mutabakat rolleri | Count/Reconciliation ekranları |
-| UF-O-07 | Baseline cutover onaylayan rol | Go-live ekranı |
+| UF-O-06 | **DECIDED** (`DEC-033`): no-freeze snapshot/drift refusal, blind count, zero tolerance ve sensitive approval | Count/Reconciliation ekranları |
+| UF-O-07 | **DECIDED** (`DEC-033`): sensitive ADMIN_MANAGER establishment; baseline `1..N` session | Go-live ekranı |
 | UF-O-08 | `DEC-032` ile kararlı ve Phase 5.3'e authorize: UUID, mandatory internal code, optional per-material serial, `IN_STOCK` RECEIVE | Receipt serialized adımı |
 | UF-O-09 | Depo Görevlisi master data yetkisi | Material/Location management erişimi |
 | UF-O-10 | Rapor dönem sınırları ve hafta tanımı | Reports filtreleri |

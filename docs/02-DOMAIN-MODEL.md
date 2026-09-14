@@ -196,6 +196,7 @@ Domain davranışı:
 - `RETURN`
 - `TRANSFER`
 - `CONTROLLED_CORRECTION`
+- `COUNT_RECONCILIATION` — yalnız routine (`baseline_candidate=false`) fiziksel sayım farkı için
 - `INITIAL_BALANCE` — yalnız reconciled baseline/cutover için kontrollü teknik ledger türü
 
 Satın alma veya bakım işlem türleri eklenmez.
@@ -431,9 +432,9 @@ Kavramsal olarak:
 - sayımı başlatan/gerçekleştiren kullanıcılar,
 - başlangıç ve tamamlanma zamanları,
 - mutabakat durumu,
-- yetkili düzeltme ve/veya başlangıç tabanı ilişkisi
+- routine reconciliation ve/veya başlangıç tabanı ilişkisi
 
-taşır. Kesin durumlar ve onay seviyeleri **TBD**'dir.
+taşır. Her oturum tam bir `Location` subtree'sini kapsar. Çakışan subtree'ler üzerinde iki açık oturum bulunamaz. `baseline_candidate=false` routine session; `baseline_candidate=true` cutover session'dır.
 
 ### PhysicalCountLine
 
@@ -444,15 +445,17 @@ Her satır:
 - tekil bazlıysa beklenen ve fiziksel olarak bulunan `SerializedAsset` varlıkları,
 - hesaplanan veya açıkça kaydedilen fark,
 - sayımı yapan kullanıcı ve zaman,
-- farkı çözen düzeltme ilişkisi
+- farkın approval/disposition bilgisi ve varsa counting-owned sonuç transaction ilişkisi
 
 taşır.
 
-Miktar stokta fark sayısal olarak, tekil varlıkta ise var/yok, beklenmeyen varlık veya yanlış konum olarak ifade edilir. Fark, `StockBalance` üzerine sessizce yazılamaz; yetkili kontrollü düzeltmeyle sonuçlanmalıdır.
+Miktar stokta fark sayısal olarak, tekil varlıkta ise var/yok, beklenmeyen varlık veya yanlış konum olarak ifade edilir. Fark, `StockBalance` üzerine sessizce yazılamaz. Routine session'daki açık onaylı fark dedicated `COUNT_RECONCILIATION` transaction'ıyla sonuçlanabilir; `CorrectionRequest` veya `CONTROLLED_CORRECTION` bu akışta kullanılmaz. Controlled correction, bilinen hatalı immutable ledger satırına köklü ayrı workflow'dur.
 
-Sayım sıklığı, kör sayım, tolerans, sorumlular, onay seviyeleri ve “mutabakat tamamlandı” ölçütü **TBD**'dir.
+Sayaç için kör sayım uygulanır; expected ve discrepancy yalnız reviewer/approver'a görünür. Missing row sıfır değildir. Zero tolerance geçerlidir: sıfır olmayan her discrepancy explicit approval ister; counter/performer kendi farkını onaylayamaz. Approval explanation trim edilmiş 10–2000 karakterdir. Sayım sıklığı açık kalır ancak bu karar Phase 5.4'ü bloke etmez.
 
-Ek olarak açık bir stock-stability stratejisi zorunlu hard gate'tir (`DEC-HG-001`). Scoped temporary freeze, as-of snapshot + post-snapshot movement replay veya concurrent hareket altında güvenliği kanıtlanmış revalidation/reconfirmation seçeneklerinden biri seçilmeden count/reconciliation schema, service veya UI implementation başlayamaz. Seçimden bağımsız olarak count scope explicit, expected timing tanımlı, reconciliation idempotent, double-apply engelli ve ledger etkisinden önce expected state kilit altında yeniden doğrulanmış olmalıdır.
+`DEC-033`, `DEC-HG-001` hard gate'ini kapatır: stock freeze yoktur; session başlangıcında immutable expected snapshot alınır. Reconciliation approval sırası `lock → re-read → drift check → revalidate → write`tır. Current state snapshot'tan farklıysa işlem reddedilir ve recount/reconfirmation gerekir. Zero-quantity `StockBalance` satırları expected snapshot'a dahil edilmez. Existing QUANTITY Material + condition için beklenmeyen fiziksel stok `expected_quantity=0` ile sayılabilir; unknown catalog item stock yaratamaz ve resolved veya explicitly abandoned olana kadar unresolved kalır.
+
+Routine session onaylı pozitif farkı target-only, negatif farkı source-only `COUNT_RECONCILIATION` line'ıyla uygular. Cutover session `COUNT_RECONCILIATION` oluşturamaz; sayılan inventory yalnız baseline establishment'a beslenir. Serialized counting Phase 5.3 identity/current-state modelini ve yalnız mevcut lifecycle vocabulary'sini kullanır; yeni lifecycle state eklemez.
 
 ## 13. Excel Import Domaini
 
@@ -596,7 +599,7 @@ Bu seçeneklerden hiçbiri seçilmiş değildir. `MinimumStockStatus`, ledger ve
 | `ImportBatch` | içerir | `ImportRow` | Bir batch `1..N` satır içerir. |
 | `ImportBatch` | kaynak kullanır | `Attachment` | Bir kaynak dosya zorunlu; yeniden işleme davranışı **TBD**. |
 | `BarcodeIdentifier` | tanımlar | `Material` / `SerializedAsset` / `Location` | Her identifier tam `1` hedefe çözülür; hedef `0..N` identifier alabilir. |
-| `InventoryBaseline` | kaynaklanır | `ImportBatch` / `PhysicalCountSession` | Bir baseline ilgili staging reference ve mutabakat kanıtlarını referanslar; count cardinality/approval **TBD**. |
+| `InventoryBaseline` | kaynaklanır | `ImportBatch` / `PhysicalCountSession` | Bir baseline ilgili staging reference'ı ve `1..N` count session kanıtını referanslar (`DEC-033`). |
 | `InventoryBaseline` | downstream-owned link ile sonuçlanır | `InventoryTransaction` | Bir baseline `1..N` scoped `INITIAL_BALANCE` transaction'a bağlanır; inventory baseline modülüne reverse FK taşımaz. |
 
 ## 18. Domain Invariants
@@ -626,8 +629,13 @@ Bu invariant'lar ilişkisel kısıtlara, servis doğrulamalarına ve otomatik te
 - **DI-021:** `SerializedAsset.material` `SERIALIZED` olmalı; `StockBalance` `SERIALIZED` material için var olamaz; serialized line material'ı asset material'ıyla aynı olmalıdır.
 - **DI-022:** Inventory history bulunan `Material.tracking_mode` normal uygulama yollarında değiştirilemez.
 - **DI-023:** Açılış stoğu yalnız reconciled baseline'ın scoped `INITIAL_BALANCE` işlemleriyle bir kez oluşturulur.
+- **DI-024:** Sayım başlangıç expected snapshot'ı immutable'dır; reconciliation current state'i snapshot'tan drift etmişse ledger etkisi üretmez ve recount/reconfirmation ister.
+- **DI-025:** Missing row zero değildir; baseline candidate required `not-counted` satır varken establish edilemez.
+- **DI-026:** Routine sayım farkı `CONTROLLED_CORRECTION` değildir; yalnız explicit approval sonrası `COUNT_RECONCILIATION` olabilir. Cutover session bu transaction type'ı oluşturamaz.
+- **DI-027:** Prior authoritative inventory ledger history taşıyan bucket opening balance alamaz; `INITIAL_BALANCE` yalnız controlled baseline establishment yolundan oluşur.
+- **DI-028:** Baseline, bütün required scope'lar, unresolved dispositions, opening ledger effects ve clean projection verification tamamlanmadan `ESTABLISHED` olamaz.
 
-Mevcut kurallardan temiz biçimde sonuçlandırılamayan konular: kullanılabilir stokta kondisyon etkisi, minimum stok kapsamı, iade uygunluğu, sayım onay seviyesi, düzeltme tersleme yöntemi ve kullanım yeri modelidir. Bunlar invariant olarak uydurulmamıştır.
+Mevcut kurallardan temiz biçimde sonuçlandırılamayan konular: kullanılabilir stokta kondisyon etkisi, minimum stok kapsamı, iade uygunluğu, sayım sıklığı, düzeltme tersleme yöntemi ve kullanım yeri modelidir. Bunlar invariant olarak uydurulmamıştır.
 
 ## 19. Aggregate / Module Boundaries
 
@@ -651,7 +659,7 @@ V1 için tek uygulama ve tek dağıtım birimi içinde aşağıdaki modüler mon
 
 - `Inventory`, kimlikleriyle `Catalog`, `Locations` ve `Identity` kavramlarını kullanır.
 - `Corrections`, özgün ve sonuç işlemleri için `Inventory`ye; karar aktörü için `Identity`ye; kanıt metadata'sı için kendi modeline ve binary için `Core` storage abstraction'a bağlıdır.
-- `Counting`, beklenen durum için `Inventory`ye ve fark çözümü için `Corrections`a bağlanır.
+- `Counting`, expected/current state ve dedicated reconciliation ledger etkisi için public `Inventory` service/use-case'ine bağlanır; routine discrepancy için `Corrections`a bağımlı değildir.
 - `Imports`, `Catalog`, `Locations`, `Inventory`, `Counting` ve `Audit` ile kontrollü entegrasyon kurar; import commit'i ledger veya yetkili bakiye yazmaz. Açılış etkisini yalnız inventory service üzerinden scoped `INITIAL_BALANCE` olarak orkestre eder.
 - `Identification`, hedef nesne kimlikleri bakımından `Catalog`, `Locations` ve ileride `Inventory.SerializedAsset`ı tanır.
 - `Reporting`, diğer modüllerin denetlenebilir kayıtlarından projection üretir; kaynak kayıtların sahibi olmaz.
@@ -702,11 +710,11 @@ Gerekli domain kavramları:
 
 - `ImportBatch` ve `ImportRow`: kaynağı, doğrulama sonucunu ve stok olmayan staging/candidate reference data'yı izler;
 - `PhysicalCountSession` ve `PhysicalCountLine`: fiziksel gerçeği ve farkı kaydeder;
-- `CorrectionRequest` / kontrollü düzeltme ilişkisi: farkın sessiz değişiklik olmadan çözülmesini sağlar;
+- counting-owned approval/disposition ve sonuç ledger ilişkisi: farkın sessiz değişiklik olmadan çözülmesini sağlar; `CorrectionRequest` yalnız bilinen hatalı ledger satırı workflow'unda kalır;
 - `InventoryBaseline`: hangi staging referansı ve sayım kanıtının başlangıcı doğruladığını kaydeder ve `1..N` scoped `INITIAL_BALANCE` transaction'ı downstream-owned link ile toplar;
 - `AuditEvent`: kesim kararının aktörünü ve sistem zamanını korur.
 
-Import candidate data hiçbir aşamada ledger veya stok değildir. `InventoryBaseline`, bütün gerekli scope'lar idempotent biçimde commit edilip projection doğrulandıktan sonra `ESTABLISHED` olabilir; aynı cutover context için en fazla bir authoritative established baseline bulunur. Onayı verecek rol/kişi ve tamamlanma ölçütü **TBD**'dir; yeni bir yönetici unvanı veya icra onayı varsayılmaz.
+Import candidate data hiçbir aşamada ledger veya stok değildir. Bir `InventoryBaseline`, `1..N PhysicalCountSession` kapsayabilir. Bütün required scope'lar tamamlanmadan, required `not-counted` satırlar bitmeden, gerekli unresolved item'lar resolved/dispositioned olmadan, bütün opening ledger effects commit edilmeden ve projection verification clean olmadan `ESTABLISHED` olamaz. Aynı cutover context için en fazla bir authoritative established baseline bulunur. Establishment permission tabanlı sensitive `ADMIN_MANAGER` capability'dir; ordinary safe dynamic permission değildir.
 
 ## 22. Open Decisions
 
@@ -728,10 +736,10 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 | OD-026 | `ApplicationUser`–`Employee` ilişkisi `DEC-024` ile kararlı; rol atama `DEC-022` ile kararlı | Kimlik kardinaliteleri kararlı |
 | OD-016 | Lokasyon hiyerarşisi/kodu ve stoklu lokasyonun pasifleştirilmesi `DEC-023` ile kararlı | `Location` ilişkileri ve yaşam döngüsü (inventory enforcement sonraki entegrasyon) |
 | OD-015 | Olağan değişiklik `DEC-013` ile yasak; exceptional migration istenirse iş kararı | `Material`, ledger ve kontrollü dönüşüm |
-| OD-011, OD-012 | Sayım onayı, tolerans, baseline onayı ve otorite kesim ölçütü | `PhysicalCountSession` ve `InventoryBaseline` yaşam döngüsü |
+| OD-011, OD-012 | `DEC-033` ile kararlı: sıfır tolerans, görev ayrılığı, ADMIN_MANAGER-sensitive approval, baseline `1..N` session ve establishment ölçütleri | `PhysicalCountSession` ve `InventoryBaseline` yaşam döngüsü |
 | OD-017 | `DEC-030`: quantity düzeltme bounds, görev ayrılığı, partial/cumulative ve lineage | `CorrectionRequest` kardinalite ve durum geçişleri |
 | COR-011 / OD-017 | `DEC-030`: quantity controlled correction mekanikleri | Workflow-owned result ilişkisi |
-| Gate0-AUD-001 | `DEC-HG-001`: count stock-stability modeli | Count scope, expected timing, reconciliation |
+| Gate0-AUD-001 | `DEC-033`: no-freeze immutable snapshot + approval-time drift refusal | Count scope, expected timing, reconciliation |
 | Gate0-AUD-018 | `DEC-028`: unused linked QUANTITY RETURN kararlı; broader `DEC-HG-005` deferred | Return schema/service/UI |
 
 ### IMPORTANT BEFORE IMPLEMENTATION
@@ -768,7 +776,7 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 - minimum stok aggregation kapsamı;
 - exact usage place'in ileride ayrı model olup olmayacağı (`UsagePlace`; şimdilik free text);
 - iadeye uygunluk;
-- sayım ve baseline onay seviyesi;
+- sayım sıklığı;
 - düzeltmenin ters/dengeleyici işlem mekaniği;
 - tam Depo Görevlisi yetki matrisi;
 - retention/silme davranışı.

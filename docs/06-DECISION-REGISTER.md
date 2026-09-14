@@ -443,7 +443,31 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   10. **Permission/UI:** Serialized RECEIVE ayrı functional workflow kullanır ve mevcut `inventory.receive_stock` permission'ını yeniden kullanır. Fresh role semantics değişmez: TECHNICIAN almaz; STOREKEEPER ve ADMIN_MANAGER alır. Yeni serialized-specific permission yoktur.
   11. **History/identity protection:** Ledger history taşıyan asset hard-delete edilemez; material, internal asset code ve manufacturer serial identity'si generic model/admin yollarından değiştirilemez. Current projection yalnız inventory service ile değişir; writable Django Admin yüzeyi yoktur.
   12. **Projection verification:** `verify_inventory_projection` read-only capability'si serialized RECEIVE ledger-derived material/location/condition/`IN_STOCK` state ile persisted asset projection'ını karşılaştırır. Otomatik repair/rebuild yoktur; sonraki movements verifier'ı ayrıca genişletir.
-- **Consequence:** Phase 5.3 serialized foundation + serialized RECEIVE authorize edilir ve `DEC-OPEN-004` kapanır. Physical count dependency kabul edilir ancak `DEC-HG-001` çözülmeden count schema/service/UI başlamaz. Serialized ISSUE/RETURN/TRANSFER/correction, broader lifecycle/custody, QR, count/baseline/import/evidence ve UI polish deferred kalır.
+- **Consequence:** Phase 5.3 serialized foundation + serialized RECEIVE authorize edilir ve `DEC-OPEN-004` kapanır. Bu karar verildiğinde physical count `DEC-HG-001`i bekliyordu; gate daha sonra `DEC-033` ile kapatılmıştır. Serialized ISSUE/RETURN/TRANSFER/correction, broader lifecycle/custody, QR, import/evidence ve UI polish deferred kalır.
+
+### DEC-033 — Phase 5.4 Physical Count, Reconciliation and Pilot Baseline
+
+- **Status:** `DECIDED`
+- **Recorded:** 2026-09-14; Phase 5.3 COMPLETE sonrasında. Bu kayıt Phase 5.4A implementation'ını başlatmaz.
+- **Required before:** Phase 5.4A physical-count/counting schema, service veya UI; routine reconciliation; pilot baseline/cutover implementation
+- **Resolves:** `DEC-HG-001`, `DEC-OPEN-007`, `DEC-OPEN-008`; `OD-011`, `OD-012`, `DM-B14`, `DM-B15`, `UF-O-06`, `UF-O-07`, Gate0-AUD-001
+- **Does not resolve:** `DEC-OPEN-010` unit-specific precision/conversion; count frequency; unknown catalog item master-data resolution workflow; broader serialized lifecycle/movement semantics
+- **Decision:**
+  1. **Stability:** Count sırasında stock freeze yoktur. Session başlangıcında immutable expected snapshot alınır. Reconciliation approval kesin olarak `lock → re-read → drift check → revalidate → write` sırasını izler. Current state snapshot'tan farklıysa reconciliation reddedilir ve recount/reconfirmation gerekir; ledger/projection etkisi oluşmaz.
+  2. **Scope:** Her `PhysicalCountSession` tam bir `Location` subtree'sini kapsar. Overlapping Location subtree'leri üzerinde overlapping open count session'lara izin verilmez.
+  3. **Visibility:** Counter/performer için blind count uygulanır; expected ve discrepancy reviewer/approver'a görünür.
+  4. **Missing/zero:** Missing row zero anlamına gelmez. Zero-quantity `StockBalance` row'ları expected snapshot'a dahil edilmez. Baseline candidate session required `not-counted` row varken establish edilemez.
+  5. **Tolerance/approval:** Zero tolerance geçerlidir; sıfır olmayan her discrepancy explicit approval ister. Counter/performer kendi discrepancy'sini onaylayamaz. Approval explanation outer-trim sonrası 10–2000 karakterdir. Separation of duties pilot readiness gereksinimidir.
+  6. **Routine reconciliation type:** Routine unexplained discrepancy dedicated `COUNT_RECONCILIATION` transaction'ıyla uygulanır. Physical-count discrepancy `CorrectionRequest` veya `CONTROLLED_CORRECTION` üzerinden yürütülmez. Controlled correction yalnız bilinen hatalı immutable ledger satırına köklü ayrı workflow olarak kalır.
+  7. **Direction:** Positive reconciliation target-only; negative reconciliation source-only'dur. Kanonik source azaltır / target artırır semantiği değişmez.
+  8. **Unexpected stock:** Existing QUANTITY Material + condition için unexpected physical stock `expected_quantity=0` ile sayılabilir. Unknown catalog item doğrudan stock oluşturamaz; resolved veya explicitly abandoned olana kadar unresolved kalır.
+  9. **Routine/cutover split:** `baseline_candidate=false` routine session'da approved discrepancies `COUNT_RECONCILIATION` oluşturabilir. `baseline_candidate=true` cutover session `COUNT_RECONCILIATION` oluşturamaz; counted inventory yalnız baseline establishment'a beslenir.
+  10. **Opening authority:** `INITIAL_BALANCE` yalnız controlled baseline establishment tarafından oluşturulur. Ad-hoc UI, Django Admin veya management-command yolu yoktur. Prior authoritative inventory ledger history taşıyan bucket opening balance için uygun değildir.
+  11. **Baseline cardinality/completion:** Bir `InventoryBaseline`, `1..N PhysicalCountSession` kapsar. Bütün required scopes complete, required `not-counted` rows bitmiş, gerekli unresolved items resolved/dispositioned, bütün opening ledger effects committed ve projection verification clean olmadan `ESTABLISHED` olamaz.
+  12. **Pilot coverage:** Tek authoritative pilot cutover hem QUANTITY hem SERIALIZED inventory'yi kapsar; serialized counting Phase 5.4 critical path'indedir. Serialized count Phase 5.3 identity/current-state modelini kullanır ve yeni lifecycle state eklemez.
+  13. **Authorization:** Authorization yalnız permission tabanlıdır. Count discrepancy approval ve baseline establishment sensitive `ADMIN_MANAGER` capability olarak kalır; ordinary safe dynamic permission değildir.
+  14. **Units:** `DEC-OPEN-010` OPEN kalır. Phase 5.4 unit conversion veya yeni rounding semantiği eklemez.
+- **Consequence:** Count stability, tolerance/performer/approval ve baseline cardinality/establishment hard gate'leri kapanır. Ayrı implementation review/görevi olmadan schema, migration, service, permission rollout, UI veya test değişikliği yapılmaz; Phase 5.4A otomatik başlamaz.
 
 ## 3. Açık İş Kararları
 
@@ -451,7 +475,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 
 | Decision ID | Topic | Status | Source IDs | Required Before | Owner/Input Needed | Notes |
 |---|---|---|---|---|---|---|
-| `DEC-HG-001` | Physical count stock-stability strategy | `DEFERRED_WITH_HARD_GATE` | OD-011, OD-012, DM-B14, UF-O-06, Gate0-AUD-001 | Herhangi bir count/reconciliation schema/service/UI implementasyonu | İş sahibi + operasyon + mimari review | Scoped freeze, as-of snapshot/replay veya kanıtlanmış revalidation/reconfirmation seçeneklerinden biri seçilmeli. Explicit scope, expected timing, idempotent reconciliation, double-apply guard ve serialized discrepancy çözümü zorunlu. |
+| `DEC-HG-001` | Physical count stock-stability strategy | `DECIDED` | OD-011, OD-012, DM-B14, UF-O-06, Gate0-AUD-001 | Phase 5.4 implementation | — | `DEC-033` ile kapatıldı: no freeze, immutable session-start snapshot, approval-time lock/re-read/drift refusal/revalidation. |
 | `DEC-HG-002` | Correction bounds ve lineage | `DECIDED_FOR_QUANTITY_FIRST_SLICE` | OD-017, COR-011, DM-B13, UF-O-13, Gate0-AUD-006 | Serialized/broader correction | İş sahibi + inventory architect | `DEC-030` quantity first slice için gate'i kapatır. Serialized, non-stock context rewrite, evidence ve correction/count/baseline etkileşimi deferred kalır. |
 | `DEC-HG-003` | Production line veri modeli | `DECIDED` | OD-007, DM-B07, UF-O-01, Gate0-AUD-010 | ProductionLine foundation implementation (Phase 3.3 COMPLETE) | — | `DEC-025` ile kapatıldı. `ProductionLine` dynamic master-data entity; recursive hierarchy; code/name lifecycle; exact usage place ayrı free text. Foundation Phase 3.3 ve quantity ISSUE Phase 4.2 COMPLETE. |
 | `DEC-HG-004` | Employee identity linkage ve number reuse | `DECIDED` | OD-026 (employee linkage), DM-B01, DM-B08, UF-O-02, UF-O-16, UF-O-17, Gate0-AUD-017 | Employee foundation implementation (Phase 3.2 COMPLETE) | — | `DEC-024` ile kapatıldı (foundation). `accounts.Employee` ayrı entity; sicil string/global unique/editable; nullable one-to-one User link SET_NULL; lifecycle active/inactive. Foundation Phase 3.2 COMPLETE. Retention pilot öncesi kararları (`DEC-OPEN-013`, `DEC-OPEN-018`) açık kalır. Receiver snapshot korunur. |
@@ -462,8 +486,8 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | `DEC-OPEN-004` | Serialized identifier ve current-state vocabulary | `DECIDED` | OD-008, DM-B02, DM-B03, UF-O-08 | Phase 5.3 serialized foundation + RECEIVE | — | `DEC-032` ile kapatıldı: UUID technical identity; global unique internal asset code; optional per-material unique manufacturer serial; `IN_STOCK`-only first slice. |
 | `DEC-OPEN-005` | Storekeeper operational permissions | `OPEN` | OD-009, AUTH-011 (operational scope), UF-O-09 | İlgili warehouse feature | İş sahibi | Confirmed receipt/issue yetkileri korunur; diğerleri uydurulmaz. Phase 2 access management `DEC-022` ile kararlıdır. |
 | `DEC-OPEN-006` | Correction rejection reason zorunluluğu | `PROPOSED` | OD-010, COR-010, DM-S07, UF-O-19 | Correction reject form | İş sahibi | Onaylanana kadar nullable kalır. |
-| `DEC-OPEN-007` | Count tolerance, performer ve reconciliation role | `OPEN` | OD-011, DM-B14, UF-O-06 | Counting implementation | İş sahibi | `DEC-HG-001` stability kararından ayrıdır, ikisi de gerekir. |
-| `DEC-OPEN-008` | Baseline/cutover approval ve count-session cardinality | `OPEN` | OD-012, DM-B14, DM-B15, UF-O-07 | Baseline schema/cutover implementation | İş sahibi + architecture review | Onay yetkisi ve bir baseline'ın bir mi birden çok count session'a mı bağlanacağı belirlenmeli; yeni executive role uydurulamaz. |
+| `DEC-OPEN-007` | Count tolerance, performer ve reconciliation role | `DECIDED` | OD-011, DM-B14, UF-O-06 | Phase 5.4 implementation | — | `DEC-033`: zero tolerance, blind counter, self-approval yasağı, 10–2000 açıklama ve sensitive ADMIN_MANAGER approval. |
+| `DEC-OPEN-008` | Baseline/cutover approval ve count-session cardinality | `DECIDED` | OD-012, DM-B14, DM-B15, UF-O-07 | Phase 5.4 baseline implementation | — | `DEC-033`: sensitive ADMIN_MANAGER establishment; baseline `1..N` count session; complete/not-counted/unresolved/opening-effects/projection gates. |
 | `DEC-OPEN-009` | Transfer permissions ve zorunlu senaryolar | `OPEN` | OD-013, DM-B12, UF-O-05 | Transfer implementation | İş sahibi | Atomik source/target semantiği `DEC-003` ile şimdiden sabittir. |
 | `DEC-OPEN-010` | Unit decimal precision ve unit conversion | `OPEN` | OD-014, DM-B06, UF-O-18 | Unit-specific validation | İş sahibi | Technical default `NUMERIC(18,3)`; conversion yok. |
 | `DEC-OPEN-011` | Exceptional tracking-mode migration policy | `OPEN` | OD-015, DM-B10, UF-O-14 | Böyle bir dönüşüm talep edilirse | İş sahibi + migration review | Normal edit yasağı `DEC-013` ile kararlıdır. |
@@ -508,9 +532,9 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Technician field intake request/approval workflow | `DEC-020` kararlıdır; talep/onay schema/service/UI ve hareket türü eşlemesi `DEC-028` ordinary direct RETURN slice'ından ayrıdır ve ayrıca kararlaştırılmalıdır. |
 | Quantity unused linked RETURN | **COMPLETE** (Phase 4.4, 2026-09-12). `DEC-028`; kernel/schema/DB guards, service/projection, UI ve permission rollout uygulanmıştır. Broader RETURN `DEC-HG-005` altında deferred kalır. |
 | Quantity controlled corrections (Phase 5.2) | **COMPLETE** (2026-09-13; 1242 test passed). `DEC-030`, `DEC-031`; `DEC-OPEN-006` rejection reason için yalnız PROPOSED kalır |
-| Serialized inventory foundation + serialized RECEIVE (Phase 5.3) | **AUTHORIZED** (`DEC-032`, 2026-09-13). Yalnız asset identity/current projection + serialized RECEIVE; count ve diğer serialized movements deferred. |
-| Counting/reconciliation | `DEC-HG-001` ve `DEC-OPEN-007`; stability modeli olmadan Phase 11/count implementation başlayamaz |
-| Baseline schema/cutover | `DEC-OPEN-008` approval + count-session cardinality; `DEC-002` ve `DEC-015` teknik contract'ları sabittir |
+| Serialized inventory foundation + serialized RECEIVE (Phase 5.3) | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; asset identity/current projection + serialized RECEIVE tamamlandı. |
+| Counting/reconciliation | **DECIDED, IMPLEMENTATION NOT STARTED** (`DEC-033`, 2026-09-14). `DEC-HG-001` ve `DEC-OPEN-007` kapandı; Phase 5.4A otomatik başlamaz. |
+| Baseline schema/cutover | **DECIDED, IMPLEMENTATION NOT STARTED** (`DEC-033`, 2026-09-14). `DEC-OPEN-008` kapandı; `DEC-002` ve `DEC-015` teknik contract'ları korunur. |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |
 | QR | `DEC-OPEN-016`, `DEC-IT-006`; neutral ownership `DEC-011` ile sabittir |
 | Deployment/pilot | `DEC-IT-001`–`DEC-IT-005`, restore drill; retention için `DEC-OPEN-013`/`018` |
@@ -537,7 +561,8 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Quantity TRANSFER first slice | **COMPLETE** (Phase 4.5, 2026-09-12). `DEC-029`; kernel, service/projection, UI/history/material integration ve `inventory.transfer_stock` rollout uygulanmıştır. Broader TRANSFER senaryoları deferred kalır. |
 | Phase 5.1 current-stock visibility | **COMPLETE** at `44f1d30b7b8a72b768293de3ecbff32769e3f454`. |
 | Phase 5.2 quantity controlled correction | **COMPLETE** (`DEC-030`, `DEC-031`, 2026-09-13; 1242 test passed). Evidence bu ilk dilimde deferred. |
-| Phase 5.3 serialized inventory foundation + serialized RECEIVE | **AUTHORIZED** (`DEC-032`, 2026-09-13). `DEC-OPEN-004` kapandı; `DEC-HG-001` ve diğer serialized movement/lifecycle/QR kapsamları açık/deferred kaldı. |
+| Phase 5.3 serialized inventory foundation + serialized RECEIVE | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; `DEC-OPEN-004` kapandı. |
+| Phase 5.4 decision pack | **DECIDED** (`DEC-033`, 2026-09-14). `DEC-HG-001`, `DEC-OPEN-007`, `DEC-OPEN-008` kapandı; `DEC-OPEN-010` OPEN. Documentation-only; Phase 5.4A NOT STARTED. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
 | Gate 2 | Phase 2.10 — **Disposition: `PASS`** (2026-09-11). Bkz. §4.4. Phase 2 kapatıldı; Phase 3 başlayabilir. Inventory implementasyonu Phase 2 dışındadır. |
 | Gate 3 | Phase 3 + quantity-only RECEIPT (4.0A–4.1) — **Disposition: `PASS`** (2026-09-12). Bkz. §4.5. ISSUE/TRANSFER/RETURN/serialized/correction/count-baseline authorize edilmemiştir. |
@@ -741,7 +766,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 
 | Audit ID | Severity | Disposition | Problem | Audit önerisi | Final resolution / gate | Document updated |
 |---|---|---|---|---|---|---|
-| `AUD-001` | CRITICAL | `DEFER_WITH_HARD_GATE` | Açık count session sırasında hareketlerin expected state'i stale yapması | Freeze, as-of replay veya revalidation seçeneklerinden birini seç | `DEC-HG-001`; bugün seçenek seçilmedi, counting öncesi zorunlu | `02`, `03`, `04`, `05`, `AGENTS` |
+| `AUD-001` | CRITICAL | `ACCEPT_WITH_DIFFERENT_SOLUTION` | Açık count session sırasında hareketlerin expected state'i stale yapması | Freeze, as-of replay veya revalidation seçeneklerinden birini seç | `DEC-033`: no-freeze immutable snapshot; approval-time lock/re-read/drift refusal/revalidation | `00`, `01`, `02`, `03`, `04`, `05`, `06`, `AGENTS` |
 | `AUD-002` | CRITICAL | `ACCEPT_NOW` | Candidate inventory'nin modellenmemesi double stock riski yaratıyor | Import master-only, quantity staging, stock yalnız baseline | `DEC-001`, `DEC-002` | `02`, `03`, `04`, `05`, `AGENTS` |
 | `AUD-003` | HIGH | `ACCEPT_NOW` | Her hierarchy node stok tutabiliyor | Stock-eligible capability ekle | `DEC-004`; leaf-only değil `can_hold_stock` | `02`, `03`, `04`, `05`, `AGENTS` |
 | `AUD-004` | HIGH | `ACCEPT_NOW` | Ledger immutability yalnız policy | Trigger veya restricted DB role | `DEC-005`; preferred PostgreSQL trigger guard | `02`, `03`, `05`, `AGENTS` |
