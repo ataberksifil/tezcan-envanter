@@ -50,6 +50,7 @@ def verify_quantity_projection(
                     "TRANSFER",
                     "CONTROLLED_CORRECTION",
                     "COUNT_RECONCILIATION",
+                    "INITIAL_BALANCE",
                 ),
                 target_location__isnull=False,
                 serialized_asset__isnull=True,
@@ -112,10 +113,10 @@ def verify_quantity_projection(
 def verify_serialized_projection(
     *, using: str = "default"
 ) -> tuple[SerializedProjectionMismatch, ...]:
-    """Compare each asset projection with its one authoritative RECEIVE line.
+    """Compare each asset projection with its one genesis RECEIVE or INITIAL_BALANCE.
 
-    Phase 5.3 derives only the initial IN_STOCK state. Later serialized movement
-    slices extend this ledger reducer; this verifier never repairs persisted data.
+    Phase 5.3/5.4D-B derive only the initial IN_STOCK state. Later serialized
+    movement slices extend this ledger reducer; this verifier never repairs data.
     """
     lines_by_asset: dict[uuid.UUID, list[InventoryTransactionLine]] = {}
     lines = (
@@ -137,8 +138,9 @@ def verify_serialized_projection(
             reasons.append(f"receipt_count={len(asset_lines)}")
 
         if canonical_line is not None:
-            if canonical_line.transaction.transaction_type != (
-                InventoryTransaction.TransactionType.RECEIPT
+            if canonical_line.transaction.transaction_type not in (
+                InventoryTransaction.TransactionType.RECEIPT,
+                InventoryTransaction.TransactionType.INITIAL_BALANCE,
             ):
                 reasons.append("transaction_type")
             if (

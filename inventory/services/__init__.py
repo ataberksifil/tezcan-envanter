@@ -1,3 +1,10 @@
+from inventory.services.baselines import (
+    QuantityOpening,
+    SerializedOpening,
+    bucket_has_ledger_history,
+    derive_scoped_operation_id,
+    establish_initial_balance,
+)
 from inventory.services.projections import (
     QuantityProjectionMismatch,
     SerializedProjectionMismatch,
@@ -16,8 +23,13 @@ from inventory.services.reconciliations import reconcile_quantity_count
 
 __all__ = [
     "InventoryMutationResult",
+    "QuantityOpening",
     "QuantityProjectionMismatch",
+    "SerializedOpening",
     "SerializedProjectionMismatch",
+    "bucket_has_ledger_history",
+    "derive_scoped_operation_id",
+    "establish_initial_balance",
     "issue_quantity",
     "receive_quantity",
     "receive_serialized",

@@ -177,7 +177,7 @@ Projection doğrulaması teorik olamaz. Pilot öncesinde ledger'dan expected qua
 - Current state persisted projection/cache olabilir; ledger authoritative kalır. Serialized line asset FK taşır; quantity/unit `NULL`dır ve `StockBalance` kullanılmaz.
 - Movement sırasında asset row concurrency-safe kilitlenir.
 - Quantity ve serialized transaction şekilleri karıştırılamaz.
-- Phase 5.3 yalnız serialized RECEIVE'i authorize eder; ISSUE/RETURN/TRANSFER/correction ve QR deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve non-authoritative'tir; authoritative `SerializedAsset` oluşturmaz.
+- Phase 5.3 yalnız serialized RECEIVE'i authorize eder; ISSUE/RETURN/TRANSFER/correction ve QR deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve non-authoritative'tir; sayım satırı authoritative `SerializedAsset` oluşturmaz. Phase 5.4D-B COMPLETE: baseline establishment, candidate serialized satırı kontrollü `INITIAL_BALANCE` ile authoritative `SerializedAsset`a yükseltebilir.
 
 Geçerli tracking mode'lar:
 
@@ -350,7 +350,7 @@ Bir `InventoryBaseline`, downstream-owned association ile `1..N PhysicalCountSes
 
 `DEC-HG-001`, `DEC-OPEN-007` ve `DEC-OPEN-008`, `DEC-033` ile kapanmıştır. `DEC-OPEN-010` OPEN kalır ve Phase 5.4 unit conversion veya yeni rounding semantiği eklemez. Bu karar kaydı Phase 5.4A implementation'ını başlatmaz.
 
-Phase 5.4D-A serialized physical-count backend COMPLETE'tir; counting non-authoritative kalır. `InventoryBaseline` / `INITIAL_BALANCE` / baseline establishment sonraki ayrı görevdir ve başlamamıştır.
+Phase 5.4D-A serialized physical-count backend COMPLETE'tir; counting establishment öncesi non-authoritative kalır. Phase 5.4D-B COMPLETE: `InventoryBaseline`, session ownership, scoped `INITIAL_BALANCE` result links, combined QUANTITY+SERIALIZED cutover, candidate serialized promotion, serialized identity DB normalization, no-freeze scope-wide drift, prior-ledger-history protection, separation of duties, establishment idempotency, projection verification before `ESTABLISHED` ve atomic rollback uygulanmıştır. Baseline-candidate session `COUNT_RECONCILIATION` oluşturmaz. Count/baseline UI, role/default-permission rollout, serialized ISSUE/RETURN/TRANSFER/controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode bu dilimde yoktur.
 
 ## 16. Locations, Quantities ve Database
 

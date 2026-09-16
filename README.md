@@ -25,7 +25,8 @@
 - **Phase 4.4:** Quantity unused linked RETURN — COMPLETE (2026-09-12; commits `e96ec2d`, `3e68f02`, `a98cf87`)
 - **Quantity RETURN first slice:** uçtan uca implement edilmiştir (kernel, service, UI, `inventory.return_stock` permission rollout)
 - **Phase 4.5:** Quantity TRANSFER — COMPLETE
-- **Son doğrulanmış test suite:** 1169 passed
+- **Phase 5.4D-B:** InventoryBaseline + INITIAL_BALANCE + combined QUANTITY/SERIALIZED cutover COMPLETE
+- **Son doğrulanmış test suite:** 1526 passed
 - **Managed permission count:** 23
 - **Gate 3:** PASS (2026-09-12)
 
@@ -207,11 +208,13 @@ Fresh-role policy (`inventory.transfer_stock`): TECHNICIAN no; STOREKEEPER yes; 
 
 Broader TRANSFER senaryoları deferred: serialized, condition-changing, multi-source/multi-target, FIFO/FEFO, technician custody, person-to-person handover, production usage, correction/count, QR/offline.
 
-**Son doğrulanmış test suite:** 1169 passed
+**Phase 5.4D-B:** InventoryBaseline + INITIAL_BALANCE + combined QUANTITY/SERIALIZED cutover — COMPLETE. Count/baseline UI, role/default-permission rollout, serialized ISSUE/RETURN/TRANSFER/controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode uygulanmamıştır.
+
+**Son doğrulanmış test suite:** 1526 passed
 
 **Managed permission count:** 23
 
-**Gate 3:** PASS (2026-09-12; audited HEAD `4cf89525`; bkz. [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) §4.5). Tarihsel kapsam: Phase 3 (Location, Employee, ProductionLine) ve quantity-only RECEIPT slice (4.0A–4.1). Phase 4.2 ISSUE, Phase 4.3 history, Phase 4.4 RETURN first slice ve Phase 4.5 quantity TRANSFER first slice sonradan implement edilmiştir; Gate 3 bunları audit etmemiştir. Serialized inventory, correction ve count/baseline henüz implement edilmemiştir. Açık inventory hard gate'ler (`DEC-HG-001`, `DEC-HG-002`, `DEC-HG-005`, `DEC-OPEN-004`, `DEC-OPEN-005`, `DEC-OPEN-010`, `DEC-OPEN-011`, `DEC-OPEN-019`, `DEC-OPEN-021` Material remainder) korunur. `DEC-HG-003` ve `DEC-HG-004` foundation kararları kapatılmıştır.
+**Gate 3:** PASS (2026-09-12; audited HEAD `4cf89525`; bkz. [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) §4.5). Tarihsel kapsam: Phase 3 (Location, Employee, ProductionLine) ve quantity-only RECEIPT slice (4.0A–4.1). Phase 4.2 ISSUE, Phase 4.3 history, Phase 4.4 RETURN first slice ve Phase 4.5 quantity TRANSFER first slice sonradan implement edilmiştir; Gate 3 bunları audit etmemiştir. Serialized inventory, correction ve count/baseline sonradan Phase 5.3–5.4D-B backend dilimlerinde implement edilmiştir; Gate 3 bunları audit etmemiştir. Count/baseline UI ve sonraki fazlar başlamamıştır.
 
 ### Sağlık kontrolü
 

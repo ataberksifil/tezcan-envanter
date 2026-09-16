@@ -90,6 +90,7 @@ class InventoryTransaction(models.Model):
         TRANSFER = "TRANSFER", "Stok transferi"
         CONTROLLED_CORRECTION = "CONTROLLED_CORRECTION", "Kontrollü düzeltme"
         COUNT_RECONCILIATION = "COUNT_RECONCILIATION", "Sayım mutabakatı"
+        INITIAL_BALANCE = "INITIAL_BALANCE", "Açılış bakiyesi"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     operation_id = models.UUIDField()
@@ -139,6 +140,7 @@ class InventoryTransaction(models.Model):
                         "TRANSFER",
                         "CONTROLLED_CORRECTION",
                         "COUNT_RECONCILIATION",
+                        "INITIAL_BALANCE",
                     ]
                 ),
                 name="inventory_tx_type_supported",
@@ -212,9 +214,18 @@ class SerializedAsset(models.Model):
                 name="inventory_asset_internal_code_nonblank",
             ),
             models.CheckConstraint(
+                condition=~Q(internal_asset_code__regex=r"^\s|\s$"),
+                name="inventory_asset_internal_code_trimmed",
+            ),
+            models.CheckConstraint(
                 condition=Q(serial_number__isnull=True)
                 | ~Q(serial_number__regex=r"^\s*$"),
                 name="inventory_asset_serial_nonblank_or_null",
+            ),
+            models.CheckConstraint(
+                condition=Q(serial_number__isnull=True)
+                | ~Q(serial_number__regex=r"^\s|\s$"),
+                name="inventory_asset_serial_trimmed_or_null",
             ),
             models.CheckConstraint(
                 condition=Q(current_state="IN_STOCK"),

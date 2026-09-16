@@ -28,6 +28,7 @@ from locations.models import Location
 
 COUNTING_0003 = "0003_physicalcountquantityrejection_and_more"
 COUNTING_0004 = "0004_serialized_physical_count"
+IMPORTS_0001 = "0001_inventory_baseline"
 
 
 def _counting_0003_applied() -> bool:
@@ -40,6 +41,16 @@ def _counting_0004_applied() -> bool:
     return MigrationRecorder.Migration.objects.filter(
         app="counting", name=COUNTING_0004
     ).exists()
+
+
+def _imports_0001_applied() -> bool:
+    return MigrationRecorder.Migration.objects.filter(
+        app="imports", name=IMPORTS_0001
+    ).exists()
+
+
+def _restore_migration_graph() -> None:
+    call_command("migrate", verbosity=0)
 
 
 class CountReconciliationMigrationReverseTests(TransactionTestCase):
@@ -85,12 +96,16 @@ class CountReconciliationMigrationReverseTests(TransactionTestCase):
         )
 
     def _fixture_teardown(self):
-        if not _counting_0004_applied():
-            call_command("migrate", "counting", verbosity=0)
+        if not _counting_0004_applied() or not _imports_0001_applied():
+            _restore_migration_graph()
         with connection.cursor() as cursor:
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    audit_auditevent,
+                    inventory_baseline_transaction_links,
+                    inventory_baseline_count_session_links,
+                    inventory_baselines,
                     counting_physicalcountserializedline,
                     counting_physicalcountquantityrejection,
                     counting_physicalcountquantityline,
@@ -116,6 +131,9 @@ class CountReconciliationMigrationReverseTests(TransactionTestCase):
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    inventory_baseline_transaction_links,
+                    inventory_baseline_count_session_links,
+                    inventory_baselines,
                     counting_physicalcountserializedline,
                     counting_physicalcountquantityrejection,
                     counting_physicalcountquantityline,
@@ -164,8 +182,10 @@ class CountReconciliationMigrationReverseTests(TransactionTestCase):
         self.assertTrue(_counting_0003_applied())
         call_command("migrate", "counting", "0002", verbosity=0)
         self.assertFalse(_counting_0003_applied())
-        call_command("migrate", "counting", verbosity=0)
+        _restore_migration_graph()
         self.assertTrue(_counting_0003_applied())
+        self.assertTrue(_counting_0004_applied())
+        self.assertTrue(_imports_0001_applied())
 
     def test_rejection_history_blocks_counting_0003_reverse(self):
         session, line = self._completed_discrepancy()
@@ -255,12 +275,16 @@ class SerializedCountMigrationReverseTests(TransactionTestCase):
         )
 
     def _fixture_teardown(self):
-        if not _counting_0004_applied():
-            call_command("migrate", "counting", verbosity=0)
+        if not _counting_0004_applied() or not _imports_0001_applied():
+            _restore_migration_graph()
         with connection.cursor() as cursor:
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    audit_auditevent,
+                    inventory_baseline_transaction_links,
+                    inventory_baseline_count_session_links,
+                    inventory_baselines,
                     counting_physicalcountserializedline,
                     counting_physicalcountquantityrejection,
                     counting_physicalcountquantityline,
@@ -285,8 +309,9 @@ class SerializedCountMigrationReverseTests(TransactionTestCase):
         self.assertTrue(_counting_0004_applied())
         call_command("migrate", "counting", "0003", verbosity=0)
         self.assertFalse(_counting_0004_applied())
-        call_command("migrate", "counting", verbosity=0)
+        _restore_migration_graph()
         self.assertTrue(_counting_0004_applied())
+        self.assertTrue(_imports_0001_applied())
 
     def test_serialized_count_history_blocks_counting_0004_reverse(self):
         from inventory.services.receipts import receive_serialized
