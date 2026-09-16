@@ -673,13 +673,17 @@ def test_raw_sql_rejects_quantity_serialized_mix_on_initial_balance(kernel_objec
             )
 
 
-def test_establish_baseline_permission_is_not_safe_allowlisted():
-    from accounts.roles import DEFAULT_ROLE_TEMPLATES, SAFE_CATALOG_PERMISSION_LABELS
+def test_establish_baseline_permission_is_sensitive_and_admin_manager_only():
+    from accounts.roles import (
+        ADMIN_MANAGER,
+        DEFAULT_ROLE_TEMPLATES,
+        SAFE_CATALOG_PERMISSION_LABELS,
+        STOREKEEPER,
+        TECHNICIAN,
+    )
 
     assert ESTABLISH_BASELINE_PERMISSION not in SAFE_CATALOG_PERMISSION_LABELS
-    assert "establish_baseline" not in {
-        codename
-        for template in DEFAULT_ROLE_TEMPLATES.values()
-        for codename in template
-    }
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 25
+    assert "establish_baseline" in DEFAULT_ROLE_TEMPLATES[ADMIN_MANAGER]
+    assert "establish_baseline" not in DEFAULT_ROLE_TEMPLATES[TECHNICIAN]
+    assert "establish_baseline" not in DEFAULT_ROLE_TEMPLATES[STOREKEEPER]
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 28

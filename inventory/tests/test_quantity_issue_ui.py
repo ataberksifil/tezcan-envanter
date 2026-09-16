@@ -275,7 +275,7 @@ def test_explicit_issue_stock_permission_grants_access(app_client):
 
 
 def test_managed_permission_count_is_twenty_three():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 25
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 28
     assert "inventory.issue_stock" in SAFE_CATALOG_PERMISSION_LABELS
 
 

@@ -184,8 +184,8 @@ def test_safe_permissions_and_manage_access_superuser_round_trip_are_audited():
     assert MANAGE_ACCESS_PERMISSION not in canonical_role_snapshot(role)["permissions"]
 
 
-def test_managed_permission_set_is_exactly_twenty_three():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 25
+def test_managed_permission_set_is_exactly_twenty_eight():
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 28
     assert "accounts.view_employee" in SAFE_CATALOG_PERMISSION_LABELS
     assert "accounts.add_employee" in SAFE_CATALOG_PERMISSION_LABELS
     assert "accounts.change_employee" in SAFE_CATALOG_PERMISSION_LABELS
@@ -202,6 +202,11 @@ def test_managed_permission_set_is_exactly_twenty_three():
     assert "corrections.view_correctionrequest" in SAFE_CATALOG_PERMISSION_LABELS
     assert "corrections.add_correctionrequest" in SAFE_CATALOG_PERMISSION_LABELS
     assert "corrections.decide_correctionrequest" not in SAFE_CATALOG_PERMISSION_LABELS
+    assert "counting.view_physicalcountsession" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "counting.add_physicalcountsession" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "counting.change_physicalcountsession" in SAFE_CATALOG_PERMISSION_LABELS
+    assert "counting.decide_discrepancy" not in SAFE_CATALOG_PERMISSION_LABELS
+    assert "imports.establish_baseline" not in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.add_inventorytransaction" not in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.change_inventorytransaction" not in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.delete_inventorytransaction" not in SAFE_CATALOG_PERMISSION_LABELS
@@ -224,9 +229,11 @@ def test_managed_permission_set_is_exactly_twenty_three():
         "inventory.change_stockbalance",
         "inventory.delete_stockbalance",
         "accounts.manage_access",
+        "counting.decide_discrepancy",
+        "imports.establish_baseline",
     ],
 )
-def test_service_rejects_every_permission_outside_safe_twenty(forged):
+def test_service_rejects_every_permission_outside_safe_twenty_eight(forged):
     actor = make_superuser()
     role = Group.objects.create(name="Safe")
     with pytest.raises(ValidationError):

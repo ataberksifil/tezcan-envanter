@@ -25,9 +25,9 @@
 - **Phase 4.4:** Quantity unused linked RETURN — COMPLETE (2026-09-12; commits `e96ec2d`, `3e68f02`, `a98cf87`)
 - **Quantity RETURN first slice:** uçtan uca implement edilmiştir (kernel, service, UI, `inventory.return_stock` permission rollout)
 - **Phase 4.5:** Quantity TRANSFER — COMPLETE
-- **Phase 5.4D-B:** InventoryBaseline + INITIAL_BALANCE + combined QUANTITY/SERIALIZED cutover COMPLETE
-- **Son doğrulanmış test suite:** 1526 passed
-- **Managed permission count:** 23
+- **Phase 5.4:** Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE (Phase 5.4E permission rollout dahil)
+- **Son doğrulanmış test suite:** 1526+ passed
+- **Managed permission count:** 28
 - **Gate 3:** PASS (2026-09-12)
 
 Phase 2 ayrıntıları için bkz. [Yol Haritası](#yol-haritası).
@@ -208,7 +208,7 @@ Fresh-role policy (`inventory.transfer_stock`): TECHNICIAN no; STOREKEEPER yes; 
 
 Broader TRANSFER senaryoları deferred: serialized, condition-changing, multi-source/multi-target, FIFO/FEFO, technician custody, person-to-person handover, production usage, correction/count, QR/offline.
 
-**Phase 5.4D-B:** InventoryBaseline + INITIAL_BALANCE + combined QUANTITY/SERIALIZED cutover — COMPLETE. Count/baseline UI, role/default-permission rollout, serialized ISSUE/RETURN/TRANSFER/controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode uygulanmamıştır.
+**Phase 5.4:** Physical Count + Combined Quantity/Serialized Baseline backend — COMPLETE. Backend: count session foundation, quantity/serialized count, blind count, explicit zero/NOT_COUNTED, routine COUNT_RECONCILIATION, SoD discrepancy approval, combined baseline/INITIAL_BALANCE, drift detection, serialized candidate promotion, projection verification, permission rollout. Count/baseline UI, serialized ISSUE/RETURN/TRANSFER/controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode uygulanmamıştır. `DEC-OPEN-010` OPEN kalır.
 
 **Son doğrulanmış test suite:** 1526 passed
 

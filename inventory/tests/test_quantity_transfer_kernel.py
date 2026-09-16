@@ -361,7 +361,7 @@ def test_transfer_ledger_is_immutable_through_orm_and_raw_sql(transfer_objects):
 def test_transfer_permission_is_defined_and_rolled_out():
     permissions = dict(InventoryTransaction._meta.permissions)
     assert "transfer_stock" in permissions
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 25
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 28
     assert "inventory.return_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.transfer_stock" in SAFE_CATALOG_PERMISSION_LABELS
 

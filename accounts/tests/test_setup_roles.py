@@ -27,7 +27,15 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture
 def catalog_permissions():
     content_types = ContentType.objects.filter(
-        app_label__in=("catalog", "locations", "accounts", "inventory", "corrections"),
+        app_label__in=(
+            "catalog",
+            "locations",
+            "accounts",
+            "inventory",
+            "corrections",
+            "counting",
+            "imports",
+        ),
         model__in=(
             "category",
             "unitofmeasure",
@@ -38,6 +46,9 @@ def catalog_permissions():
             "inventorytransaction",
             "stockbalance",
             "correctionrequest",
+            "physicalcountsession",
+            "physicalcountquantityline",
+            "inventorybaseline",
         ),
     )
     permissions = Permission.objects.filter(
@@ -59,6 +70,8 @@ def _template_codenames_for_group(group_name: str) -> set[str]:
                 "accounts",
                 "inventory",
                 "corrections",
+                "counting",
+                "imports",
             )
         )
         if permission.codename in allowed
@@ -117,11 +130,20 @@ def test_new_view_only_templates_receive_no_catalog_write_or_delete_permissions(
 ):
     _run_setup_roles()
     codenames = _template_codenames_for_group(role_name)
+    non_catalog_write_exceptions = {
+        "add_correctionrequest",
+        "add_physicalcountsession",
+        "change_physicalcountsession",
+    }
     assert not any(
-        codename.startswith("add_") and codename != "add_correctionrequest"
+        codename.startswith("add_") and codename not in non_catalog_write_exceptions
         for codename in codenames
     )
-    assert not any(codename.startswith("change_") for codename in codenames)
+    assert not any(
+        codename.startswith("change_")
+        and codename not in non_catalog_write_exceptions
+        for codename in codenames
+    )
     assert not any(codename.startswith("delete_") for codename in codenames)
     assert "view_location" in codenames
     assert "view_employee" in codenames
@@ -255,6 +277,9 @@ def test_existing_storekeeper_customized_catalog_permissions_are_preserved(
         "view_stockbalance",
         "view_correctionrequest",
         "add_correctionrequest",
+        "view_physicalcountsession",
+        "add_physicalcountsession",
+        "change_physicalcountsession",
     }
 
 
@@ -621,3 +646,54 @@ def test_new_template_group_membership_resolves_has_perm(
     user = _create_user(f"user-{role_name.lower()}", role_name)
     user = _refresh_user_permissions(user)
     assert user.has_perm(permission_codename) is expected
+
+
+def test_fresh_count_and_baseline_role_policy(catalog_permissions):
+    _run_setup_roles()
+    count_permissions = {
+        "view_physicalcountsession",
+        "add_physicalcountsession",
+        "change_physicalcountsession",
+    }
+    for role_name in (TECHNICIAN, STOREKEEPER):
+        codenames = _template_codenames_for_group(role_name)
+        assert count_permissions <= codenames
+        assert "decide_discrepancy" not in codenames
+        assert "establish_baseline" not in codenames
+    admin_codenames = _template_codenames_for_group(ADMIN_MANAGER)
+    assert count_permissions <= admin_codenames
+    assert "decide_discrepancy" in admin_codenames
+    assert "establish_baseline" in admin_codenames
+
+
+def test_fresh_count_and_baseline_role_policy_non_destructive_rerun(catalog_permissions):
+    _run_setup_roles()
+    admin = Group.objects.get(name=ADMIN_MANAGER)
+    admin.permissions.remove(catalog_permissions["decide_discrepancy"])
+    admin.permissions.remove(catalog_permissions["establish_baseline"])
+    technician = Group.objects.get(name=TECHNICIAN)
+    technician.permissions.remove(catalog_permissions["view_physicalcountsession"])
+    before_admin = _permission_pks_for_group(ADMIN_MANAGER)
+    before_technician = _permission_pks_for_group(TECHNICIAN)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(ADMIN_MANAGER) == before_admin
+    assert _permission_pks_for_group(TECHNICIAN) == before_technician
+    assert "decide_discrepancy" not in _template_codenames_for_group(ADMIN_MANAGER)
+    assert "establish_baseline" not in _template_codenames_for_group(ADMIN_MANAGER)
+    assert "view_physicalcountsession" not in _template_codenames_for_group(TECHNICIAN)
+
+
+def test_existing_storekeeper_removed_count_permission_is_not_restored(catalog_permissions):
+    _run_setup_roles()
+    storekeeper = Group.objects.get(name=STOREKEEPER)
+    storekeeper.permissions.remove(catalog_permissions["change_physicalcountsession"])
+    before = _permission_pks_for_group(STOREKEEPER)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(STOREKEEPER) == before
+    assert "change_physicalcountsession" not in _template_codenames_for_group(
+        STOREKEEPER
+    )

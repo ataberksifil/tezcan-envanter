@@ -573,14 +573,13 @@ def test_unauthorized_actor_cannot_decide_discrepancy(objects):
     ).exists()
 
 
-def test_decide_permission_is_declared_but_not_rolled_out():
-    from accounts.roles import DEFAULT_ROLE_TEMPLATES, SAFE_CATALOG_PERMISSION_LABELS
+def test_decide_permission_is_sensitive_and_admin_manager_only():
+    from accounts.roles import ADMIN_MANAGER, DEFAULT_ROLE_TEMPLATES, SAFE_CATALOG_PERMISSION_LABELS, STOREKEEPER, TECHNICIAN
 
     assert "counting.decide_discrepancy" not in SAFE_CATALOG_PERMISSION_LABELS
-    assert all(
-        "decide_discrepancy" not in template
-        for template in DEFAULT_ROLE_TEMPLATES.values()
-    )
+    assert "decide_discrepancy" in DEFAULT_ROLE_TEMPLATES[ADMIN_MANAGER]
+    assert "decide_discrepancy" not in DEFAULT_ROLE_TEMPLATES[TECHNICIAN]
+    assert "decide_discrepancy" not in DEFAULT_ROLE_TEMPLATES[STOREKEEPER]
 
 
 def test_approved_snapshot_actor_time_bucket_and_link_are_frozen(objects):

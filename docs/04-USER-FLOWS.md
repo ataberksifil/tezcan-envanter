@@ -888,7 +888,7 @@ flowchart TD
 
 **Phase 5.4D-A implementation note:** Counting-owned `PhysicalCountSerializedLine` ve mevcut START içindeki serialized expected snapshot uygulanmıştır. Bir oturum QUANTITY + SERIALIZED kanıt taşıyabilir. Expected asset'ler authoritative `SerializedAsset` snapshot referansıdır; unexpected existing asset gözlemlenebilir; candidate item staging-only kaydedilir ve counting sırasında `SerializedAsset` oluşturmaz. Untouched expected ≠ explicit missing; routine `NOT_COUNTED` vardır; baseline-candidate completion serialized `NOT_COUNTED` reddeder. Counting establishment öncesi non-authoritative kalır. Serialized `COUNT_RECONCILIATION` yoktur.
 
-**Phase 5.4D-B implementation note:** `InventoryBaseline` prepare/establish backend COMPLETE'tir. Combined QUANTITY+SERIALIZED cutover, scoped `INITIAL_BALANCE`, candidate serialized promotion, no-freeze drift, prior-ledger-history protection, SoD, idempotency ve ESTABLISHED öncesi projection verification uygulanmıştır. Count/baseline UI, role/default-permission rollout, serialized ISSUE/RETURN/TRANSFER/controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode yoktur.
+**Phase 5.4 implementation note:** Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Phase 5.4E default-role permission rollout tamamlanmıştır: fresh TECHNICIAN/STOREKEEPER `counting.view/add/change_physicalcountsession`; fresh ADMIN_MANAGER ayrıca `counting.decide_discrepancy` ve `imports.establish_baseline`. Count/baseline UI, serialized ISSUE/RETURN/TRANSFER/controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode yoktur.
 
 **Audit Effect**
 - Sayım aktörü ve zamanları.
@@ -916,7 +916,7 @@ flowchart TD
 7. Cutover session `COUNT_RECONCILIATION` oluşturmaz; sayılan inventory yalnız baseline'a beslenir.
 8. Oturum mutabakat durumu güncellenir.
 
-**Phase 5.4C implementation note:** Routine QUANTITY fark için `approve_quantity_discrepancy` ve `reject_quantity_discrepancy` application service'leri uygulanmıştır. Ret stok/ledger yazmaz; immutable ret snapshot kaydı oluşturur ve oturumu explicit recount/review için `STARTED/NOT_STARTED` durumuna döndürür. Onay atomik olarak tek `COUNT_RECONCILIATION` line'ı, projection update'i, approval metadata'sını ve counting-owned result link'ini yazar. UI ve permission rollout Phase 5.4C kapsamında değildir.
+**Phase 5.4C implementation note:** Routine QUANTITY fark için `approve_quantity_discrepancy` ve `reject_quantity_discrepancy` application service'leri uygulanmıştır. Ret stok/ledger yazmaz; immutable ret snapshot kaydı oluşturur ve oturumu explicit recount/review için `STARTED/NOT_STARTED` durumuna döndürür. Onay atomik olarak tek `COUNT_RECONCILIATION` line'ı, projection update'i, approval metadata'sını ve counting-owned result link'ini yazar. Permission rollout Phase 5.4E'de tamamlanmıştır; UI yoktur.
 
 ```mermaid
 flowchart TD
@@ -1019,7 +1019,7 @@ flowchart LR
 
 ### UF-BASE-001 — Envanter Baseline / Go-Live
 
-**Phase 5.4D-B implementation note:** Backend COMPLETE. UI/navigation ve default-role permission rollout yoktur; sensitive `imports.establish_baseline` service-side uygulanır.
+**Phase 5.4D-B/5.4E implementation note:** Backend ve default-role permission rollout COMPLETE. UI/navigation yoktur; sensitive `imports.establish_baseline` service-side uygulanır ve fresh ADMIN_MANAGER şablonunda kalır.
 
 **Actors:** Sensitive baseline-establishment permission'ı olan `ADMIN_MANAGER`.
 
@@ -1428,12 +1428,12 @@ flowchart LR
 | Transaction Detail | Yetkili kullanıcılar | UF-HIS-001, UF-COR-001 |
 | Correction Request | TECHNICIAN, STOREKEEPER, ADMIN_MANAGER | UF-COR-001 |
 | Correction Approval Queue | `corrections.decide_correctionrequest`; fresh ADMIN_MANAGER | UF-COR-002 |
-| Physical Count Sessions | `DEC-033` kararlı; serialized physical-count backend Phase 5.4D-A COMPLETE; UI/permission rollout yok | UF-CNT-001 |
-| Physical Count Entry | `DEC-033` kararlı; serialized physical-count backend Phase 5.4D-A COMPLETE; UI/permission rollout yok | UF-CNT-001 |
-| Reconciliation | `DEC-033` kararlı; QUANTITY kernel Phase 5.4C COMPLETE; serialized `COUNT_RECONCILIATION` ve UI/permission rollout yok | UF-CNT-002 |
+| Physical Count Sessions | `DEC-033` kararlı; Phase 5.4 backend COMPLETE; permission rollout COMPLETE; UI yok | UF-CNT-001 |
+| Physical Count Entry | `DEC-033` kararlı; Phase 5.4 backend COMPLETE; permission rollout COMPLETE; UI yok | UF-CNT-001 |
+| Reconciliation | `DEC-033` kararlı; QUANTITY kernel Phase 5.4C COMPLETE; permission rollout COMPLETE; serialized `COUNT_RECONCILIATION` ve UI yok | UF-CNT-002 |
 | Import | ADMIN_MANAGER | UF-IMP-001 |
 | Import Preview | ADMIN_MANAGER | UF-IMP-001 |
-| Inventory Baseline / Cutover | Sensitive `imports.establish_baseline`; Phase 5.4D-B backend COMPLETE; UI/permission rollout yok | UF-BASE-001 |
+| Inventory Baseline / Cutover | Sensitive `imports.establish_baseline`; Phase 5.4 backend COMPLETE; permission rollout COMPLETE; UI yok | UF-BASE-001 |
 | Low Stock | Yetkili kullanıcılar | UF-RPT-001 |
 | Reports | Yetkili kullanıcılar | UF-RPT-002 |
 | Material Management | ADMIN_MANAGER | UF-MST-001 |

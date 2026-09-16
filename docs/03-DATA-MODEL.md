@@ -481,7 +481,7 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 - **Primary Key:** `id`
 - **Foreign Keys:** Line ve auth user FK'leri; delete restricted.
 - **Delete Policy:** `IMMUTABLE / NO DELETE`; PostgreSQL trigger guard.
-- **Notes:** Ret ledger veya `StockBalance` yazmaz; expected snapshot'ı rewrite etmez. Oturum `STARTED` + `NOT_STARTED` durumuna döner ve explicit recount CAS token'ı mevcut `counted_at` ile devam eder. Phase 5.4C UI/permission rollout'u yoktur.
+- **Notes:** Ret ledger veya `StockBalance` yazmaz; expected snapshot'ı rewrite etmez. Oturum `STARTED` + `NOT_STARTED` durumuna döner ve explicit recount CAS token'ı mevcut `counted_at` ile devam eder. Phase 5.4C UI yoktur; permission rollout Phase 5.4E'de tamamlanmıştır.
 
 ### 13.3 `physical_count_asset_lines`
 
@@ -645,7 +645,7 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 - **Check Constraints:** `ESTABLISHED` ise established actor/time dolu, değilse ikisi null; cross-table count reconciliation ve scope-completion kuralları service + targeted DB guard'dadır.
 - **Recommended Indexes:** `import_batch_id`, `established_at`.
 - **Delete Policy:** `IMMUTABLE / NO DELETE`.
-- **Notes:** Açık bir baseline tablosu import commit ile authority cutover'ını ayırır. `DEC-033` ile bir baseline `1..N` baseline-candidate count session kapsar ve tek authoritative pilot cutover hem QUANTITY hem SERIALIZED inventory'yi içerir. Bütün required scope'lar complete, required `not-counted` satırlar bitmiş, gerekli unresolved item'lar resolved/dispositioned, bütün opening ledger effects committed ve projection verification clean olmadan `ESTABLISHED` olamaz. Establishment sensitive permission-based capability'dir (`imports.establish_baseline`); default-role rollout yoktur. Prior authoritative inventory ledger history taşıyan bucket opening balance için uygun değildir. Phase 5.4D-B backend COMPLETE; UI yoktur.
+- **Notes:** Açık bir baseline tablosu import commit ile authority cutover'ını ayırır. `DEC-033` ile bir baseline `1..N` baseline-candidate count session kapsar ve tek authoritative pilot cutover hem QUANTITY hem SERIALIZED inventory'yi içerir. Bütün required scope'lar complete, required `not-counted` satırlar bitmiş, gerekli unresolved item'lar resolved/dispositioned, bütün opening ledger effects committed ve projection verification clean olmadan `ESTABLISHED` olamaz. Establishment sensitive permission-based capability'dir (`imports.establish_baseline`); fresh ADMIN_MANAGER şablonunda kalır, safe allowlist dışındadır. Prior authoritative inventory ledger history taşıyan bucket opening balance için uygun değildir. Phase 5.4 backend COMPLETE; UI yoktur.
 
 ### 17.2 `inventory_baseline_count_session_links`
 

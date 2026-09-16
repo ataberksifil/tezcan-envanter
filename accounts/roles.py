@@ -48,6 +48,16 @@ _VIEW_ADD_CORRECTION = frozenset(
     {"view_correctionrequest", "add_correctionrequest"}
 )
 _DECIDE_CORRECTION = frozenset({"decide_correctionrequest"})
+_VIEW_PHYSICAL_COUNT = frozenset({"view_physicalcountsession"})
+_VIEW_ADD_CHANGE_PHYSICAL_COUNT = frozenset(
+    {
+        "view_physicalcountsession",
+        "add_physicalcountsession",
+        "change_physicalcountsession",
+    }
+)
+_DECIDE_COUNT_DISCREPANCY = frozenset({"decide_discrepancy"})
+_ESTABLISH_BASELINE = frozenset({"establish_baseline"})
 
 DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
     TECHNICIAN: _VIEW_ONLY_CATALOG
@@ -56,7 +66,8 @@ DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
     | _ISSUE_STOCK
     | _VIEW_INVENTORY_TRANSACTION
     | _VIEW_STOCK_BALANCE
-    | _VIEW_ADD_CORRECTION,
+    | _VIEW_ADD_CORRECTION
+    | _VIEW_ADD_CHANGE_PHYSICAL_COUNT,
     STOREKEEPER: _VIEW_ONLY_CATALOG
     | frozenset({"view_location"})
     | _VIEW_ONLY_EMPLOYEE
@@ -66,7 +77,8 @@ DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
     | _TRANSFER_STOCK
     | _VIEW_INVENTORY_TRANSACTION
     | _VIEW_STOCK_BALANCE
-    | _VIEW_ADD_CORRECTION,
+    | _VIEW_ADD_CORRECTION
+    | _VIEW_ADD_CHANGE_PHYSICAL_COUNT,
     ADMIN_MANAGER: _VIEW_ADD_CHANGE_CATALOG
     | frozenset({"view_location", "add_location", "change_location"})
     | _VIEW_ADD_CHANGE_EMPLOYEE
@@ -78,7 +90,10 @@ DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
     | _VIEW_INVENTORY_TRANSACTION
     | _VIEW_STOCK_BALANCE
     | _VIEW_ADD_CORRECTION
-    | _DECIDE_CORRECTION,
+    | _DECIDE_CORRECTION
+    | _VIEW_ADD_CHANGE_PHYSICAL_COUNT
+    | _DECIDE_COUNT_DISCREPANCY
+    | _ESTABLISH_BASELINE,
 }
 
 DEFAULT_ROLE_NAMES: tuple[str, ...] = (TECHNICIAN, STOREKEEPER, ADMIN_MANAGER)
@@ -112,6 +127,9 @@ SAFE_CATALOG_PERMISSION_LABELS: tuple[str, ...] = (
     "inventory.view_inventorytransaction",
     "corrections.view_correctionrequest",
     "corrections.add_correctionrequest",
+    "counting.view_physicalcountsession",
+    "counting.add_physicalcountsession",
+    "counting.change_physicalcountsession",
 )
 SAFE_CATALOG_PERMISSION_SET: frozenset[str] = frozenset(
     SAFE_CATALOG_PERMISSION_LABELS
