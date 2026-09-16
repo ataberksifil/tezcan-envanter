@@ -27,11 +27,18 @@ from locations.models import Location
 
 
 COUNTING_0003 = "0003_physicalcountquantityrejection_and_more"
+COUNTING_0004 = "0004_serialized_physical_count"
 
 
 def _counting_0003_applied() -> bool:
     return MigrationRecorder.Migration.objects.filter(
         app="counting", name=COUNTING_0003
+    ).exists()
+
+
+def _counting_0004_applied() -> bool:
+    return MigrationRecorder.Migration.objects.filter(
+        app="counting", name=COUNTING_0004
     ).exists()
 
 
@@ -78,12 +85,13 @@ class CountReconciliationMigrationReverseTests(TransactionTestCase):
         )
 
     def _fixture_teardown(self):
-        if not _counting_0003_applied():
+        if not _counting_0004_applied():
             call_command("migrate", "counting", verbosity=0)
         with connection.cursor() as cursor:
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    counting_physicalcountserializedline,
                     counting_physicalcountquantityrejection,
                     counting_physicalcountquantityline,
                     counting_physicalcountsession,
@@ -108,6 +116,7 @@ class CountReconciliationMigrationReverseTests(TransactionTestCase):
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    counting_physicalcountserializedline,
                     counting_physicalcountquantityrejection,
                     counting_physicalcountquantityline,
                     counting_physicalcountsession
@@ -209,3 +218,108 @@ class CountReconciliationMigrationReverseTests(TransactionTestCase):
             ).quantity,
             Decimal("7.000"),
         )
+
+
+class SerializedCountMigrationReverseTests(TransactionTestCase):
+    """Fail-closed reverse of counting 0004 against the real test DB."""
+
+    databases = {"default"}
+
+    def setUp(self):
+        suffix = uuid.uuid4().hex[:8]
+        self.actor = get_user_model().objects.create_user(username=f"srv-{suffix}")
+        self.actor.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="inventory",
+                content_type__model="inventorytransaction",
+                codename="receive_stock",
+            )
+        )
+        self.actor = get_user_model().objects.get(pk=self.actor.pk)
+        self.category = Category.objects.create(code=f"SRV-CAT-{suffix}", name="Kat")
+        self.material = Material.objects.create(
+            material_code=f"SRV-M-{suffix}",
+            name="Tekil malzeme",
+            category=self.category,
+            tracking_mode=Material.TrackingMode.SERIALIZED,
+        )
+        self.condition = MaterialCondition.objects.create(
+            code=f"SRV-C-{suffix}", name="Kondisyon", sort_order=920
+        )
+        self.root = Location.objects.create(code=f"SRV-R-{suffix}", name="Kök")
+        self.location = Location.objects.create(
+            code=f"SRV-L-{suffix}",
+            name="Raf",
+            parent=self.root,
+            can_hold_stock=True,
+        )
+
+    def _fixture_teardown(self):
+        if not _counting_0004_applied():
+            call_command("migrate", "counting", verbosity=0)
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                TRUNCATE TABLE
+                    counting_physicalcountserializedline,
+                    counting_physicalcountquantityrejection,
+                    counting_physicalcountquantityline,
+                    counting_physicalcountsession,
+                    corrections_correctionrequest,
+                    inventory_issuecontext,
+                    inventory_inventorytransactionline,
+                    inventory_inventorytransaction,
+                    inventory_stockbalance,
+                    inventory_serializedasset
+                """
+            )
+        Material.objects.filter(pk=self.material.pk).delete()
+        Location.objects.filter(pk__in=[self.location.pk, self.root.pk]).delete()
+        MaterialCondition.objects.filter(pk=self.condition.pk).delete()
+        Category.objects.filter(pk=self.category.pk).delete()
+        get_user_model().objects.filter(pk=self.actor.pk).delete()
+
+    def test_empty_serialized_history_can_reverse_counting_0004(self):
+        with connection.cursor() as cursor:
+            cursor.execute("TRUNCATE TABLE counting_physicalcountserializedline")
+        self.assertTrue(_counting_0004_applied())
+        call_command("migrate", "counting", "0003", verbosity=0)
+        self.assertFalse(_counting_0004_applied())
+        call_command("migrate", "counting", verbosity=0)
+        self.assertTrue(_counting_0004_applied())
+
+    def test_serialized_count_history_blocks_counting_0004_reverse(self):
+        from inventory.services.receipts import receive_serialized
+        from counting.models import PhysicalCountSerializedLine
+        from counting.services import (
+            create_physical_count_session,
+            start_physical_count_session,
+        )
+
+        receive_serialized(
+            actor=self.actor,
+            operation_id=uuid.uuid4(),
+            material_id=self.material.pk,
+            internal_asset_code=f"SRV-A-{uuid.uuid4().hex[:8]}",
+            serial_number=None,
+            condition_id=self.condition.pk,
+            target_location_id=self.location.pk,
+        )
+        session = create_physical_count_session(
+            actor=self.actor,
+            reference_number=f"SRV-{uuid.uuid4().hex}",
+            scope_location_id=self.root.pk,
+        )
+        start_physical_count_session(actor=self.actor, session_id=session.pk)
+        line_id = PhysicalCountSerializedLine.objects.get(session=session).pk
+        with self.assertRaises(IntegrityError) as exc_info:
+            call_command("migrate", "counting", "0003", verbosity=0)
+        cause = exc_info.exception.__cause__
+        diag = getattr(cause, "diag", None)
+        self.assertIn("serialized count history exists", str(exc_info.exception))
+        self.assertEqual(
+            getattr(diag, "constraint_name", None),
+            "counting_serialized_reverse_requires_no_data",
+        )
+        self.assertTrue(_counting_0004_applied())
+        self.assertTrue(PhysicalCountSerializedLine.objects.filter(pk=line_id).exists())

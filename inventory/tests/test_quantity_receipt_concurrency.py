@@ -60,6 +60,7 @@ class QuantityReceiptConcurrencyTests(TransactionTestCase):
             cursor.execute(
                 """
                 TRUNCATE TABLE
+                    counting_physicalcountserializedline,
                     counting_physicalcountquantityrejection,
                     counting_physicalcountquantityline,
                     counting_physicalcountsession,

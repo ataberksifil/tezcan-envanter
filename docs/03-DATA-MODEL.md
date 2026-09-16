@@ -510,7 +510,7 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 - **Check Constraints:** Sayılmışsa counted user/time birlikte dolu.
 - **Recommended Indexes:** Composite unique anahtar; `serialized_asset_id`, `location_id`, `resolution_status`.
 - **Delete Policy:** `RETAIN / NO HARD DELETE`.
-- **Notes:** Beklenmeyen bulunan known asset `expected_present=false, counted_present=true`; eksik asset tersiyle temsil edilir. `expected_condition_id`, sayım sonrasında asset projection'ı değişse bile başlangıç karşılaştırmasını korur. Serialized count Phase 5.3 UUID/internal-code/current-state modelini kullanır ve yeni lifecycle state eklemez. Unknown catalog item authoritative asset/stock oluşturamaz; resolved veya explicitly abandoned olana kadar ayrı unresolved evidence/disposition olarak kalır. Missing row zero/present=false değildir.
+- **Notes:** Beklenmeyen bulunan known asset `expected_present=false, counted_present=true`; eksik asset tersiyle temsil edilir. `expected_condition_id`, sayım sonrasında asset projection'ı değişse bile başlangıç karşılaştırmasını korur. Serialized count Phase 5.3 UUID/internal-code/current-state modelini kullanır ve yeni lifecycle state eklemez. Unknown catalog item authoritative asset/stock oluşturamaz; resolved veya explicitly abandoned olana kadar ayrı unresolved evidence/disposition olarak kalır. Missing row zero/present=false değildir. Phase 5.4D-A counting-owned `PhysicalCountSerializedLine` uygular: expected satırlar authoritative `SerializedAsset` snapshot referansıdır; existing authoritative asset unexpected olarak gözlemlenebilir; fiziksel bulunan candidate item `serialized_asset` olmadan staging-only kaydedilir ve authoritative asset oluşturmaz. Untouched expected ≠ explicit missing. Counting non-authoritative kalır; serialized `COUNT_RECONCILIATION` bu dilimde yoktur. Phase 5.3 `SerializedAsset` normalizasyon sınırı baseline ikinci gerçek yazar olduğunda yeniden gözden geçirilmelidir.
 
 ## 14. Import Tabloları
 
@@ -846,6 +846,8 @@ Lock öncesi validation yalnız erken kullanıcı feedback'idir; current-state c
 - **Physical reconciliation/baseline:** Count session ve baseline adayı kilitlenmeli; duplicate cutover engellenmelidir.
 
 Phase 5.4C routine QUANTITY mutabakatında toplam kilit sırası `PhysicalCountSession → PhysicalCountQuantityLine → operation_id reservation → Material → Location → MaterialCondition → StockBalance`dır. Kilitli bakiye snapshot `expected_quantity` ile bire bir eşleşmezse typed drift conflict ile atomik rollback yapılır. Eksik bakiye current zero olarak karşılaştırılır; persisted zero satırı zorunlu değildir.
+
+Phase 5.4D-A START, mevcut quantity snapshot kilitlerinden sonra in-scope `SerializedAsset` satırlarını kilitler ve expected serialized satırları oluşturur; candidate satırlar authoritative asset yazmaz.
 
 Birden fazla quantity balance satırı `material_id → location_id → condition_id → primary key` sırasıyla kilitlenir. Serialized operation ilgili `SerializedAsset` satırını kilitler ve current location/condition/state'i lock sonrasında yeniden doğrular. Correction, import, reconciliation ve baseline kendi lifecycle/guard satırlarını lock altında yeniden doğrular.
 

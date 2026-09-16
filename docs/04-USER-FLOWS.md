@@ -320,7 +320,7 @@ flowchart TD
 - Acting user, `occurred_at`, işlem detayı ledger'da.
 
 **Scope Boundary**
-- `DEC-032` yalnız serialized RECEIVE'i authorize eder. Serialized ISSUE/RETURN/TRANSFER/correction, QR, count/baseline ve broader lifecycle deferred kalır.
+- `DEC-032` yalnız serialized RECEIVE'i authorize eder. Serialized ISSUE/RETURN/TRANSFER/correction, QR, serialized `COUNT_RECONCILIATION`/baseline ve broader lifecycle deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve non-authoritative'tir.
 
 ### UF-INT-001 — Saha / Atölye Malzeme Alım Talebi
 
@@ -886,6 +886,8 @@ flowchart TD
 **Inventory / Data Effect**
 - Sayım satırları; ledger/bakiye değişmez.
 
+**Phase 5.4D-A implementation note:** Counting-owned `PhysicalCountSerializedLine` ve mevcut START içindeki serialized expected snapshot uygulanmıştır. Bir oturum QUANTITY + SERIALIZED kanıt taşıyabilir. Expected asset'ler authoritative `SerializedAsset` snapshot referansıdır; unexpected existing asset gözlemlenebilir; candidate item staging-only kaydedilir ve `SerializedAsset` oluşturmaz. Untouched expected ≠ explicit missing; routine `NOT_COUNTED` vardır; baseline-candidate completion serialized `NOT_COUNTED` reddeder. Counting non-authoritative kalır. Serialized `COUNT_RECONCILIATION`, baseline/cutover, UI ve permission rollout bu dilimde yoktur.
+
 **Audit Effect**
 - Sayım aktörü ve zamanları.
 
@@ -1422,9 +1424,9 @@ flowchart LR
 | Transaction Detail | Yetkili kullanıcılar | UF-HIS-001, UF-COR-001 |
 | Correction Request | TECHNICIAN, STOREKEEPER, ADMIN_MANAGER | UF-COR-001 |
 | Correction Approval Queue | `corrections.decide_correctionrequest`; fresh ADMIN_MANAGER | UF-COR-002 |
-| Physical Count Sessions | `DEC-033` kararlı; Phase 5.4A implementation henüz başlamadı | UF-CNT-001 |
-| Physical Count Entry | `DEC-033` kararlı; Phase 5.4A implementation henüz başlamadı | UF-CNT-001 |
-| Reconciliation | `DEC-033` kararlı; Phase 5.4A implementation henüz başlamadı | UF-CNT-002 |
+| Physical Count Sessions | `DEC-033` kararlı; serialized physical-count backend Phase 5.4D-A COMPLETE; UI/permission rollout yok | UF-CNT-001 |
+| Physical Count Entry | `DEC-033` kararlı; serialized physical-count backend Phase 5.4D-A COMPLETE; UI/permission rollout yok | UF-CNT-001 |
+| Reconciliation | `DEC-033` kararlı; QUANTITY kernel Phase 5.4C COMPLETE; serialized `COUNT_RECONCILIATION` ve UI/permission rollout yok | UF-CNT-002 |
 | Import | ADMIN_MANAGER | UF-IMP-001 |
 | Import Preview | ADMIN_MANAGER | UF-IMP-001 |
 | Inventory Baseline / Cutover | Sensitive ADMIN_MANAGER capability (`DEC-033`); implementation başlamadı | UF-BASE-001 |
@@ -1469,7 +1471,7 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 
 | Decision | Bloke edilen alan |
 |---|---|
-| `DEC-HG-001` | **DECIDED** (`DEC-033`); Phase 5.4A implementation ayrı görevdir ve başlamamıştır. |
+| `DEC-HG-001` | **DECIDED** (`DEC-033`); Phase 5.4A–5.4D-A counting backend uygulanmıştır; baseline/cutover başlamamıştır. |
 | `DEC-030` | Quantity correction first slice kararlı; serialized/non-stock/evidence/count interaction deferred. |
 | `DEC-HG-003` | **DECIDED** (`DEC-025`). ProductionLine foundation ve quantity ISSUE Phase 4.2 COMPLETE. |
 | `DEC-HG-004` | **DECIDED** (`DEC-024`). Employee foundation ve quantity ISSUE Phase 4.2 COMPLETE. |

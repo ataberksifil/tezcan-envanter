@@ -177,7 +177,7 @@ Projection doğrulaması teorik olamaz. Pilot öncesinde ledger'dan expected qua
 - Current state persisted projection/cache olabilir; ledger authoritative kalır. Serialized line asset FK taşır; quantity/unit `NULL`dır ve `StockBalance` kullanılmaz.
 - Movement sırasında asset row concurrency-safe kilitlenir.
 - Quantity ve serialized transaction şekilleri karıştırılamaz.
-- Phase 5.3 yalnız serialized RECEIVE'i authorize eder; ISSUE/RETURN/TRANSFER/correction, QR ve physical count deferred kalır.
+- Phase 5.3 yalnız serialized RECEIVE'i authorize eder; ISSUE/RETURN/TRANSFER/correction ve QR deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve non-authoritative'tir; authoritative `SerializedAsset` oluşturmaz.
 
 Geçerli tracking mode'lar:
 
@@ -349,6 +349,8 @@ Bir `InventoryBaseline`, downstream-owned association ile `1..N PhysicalCountSes
 `INITIAL_BALANCE` yalnız controlled baseline establishment ile oluşturulur. Ad-hoc UI, Django Admin veya management-command yolu yoktur. Prior authoritative inventory ledger history taşıyan bucket opening balance için uygun değildir.
 
 `DEC-HG-001`, `DEC-OPEN-007` ve `DEC-OPEN-008`, `DEC-033` ile kapanmıştır. `DEC-OPEN-010` OPEN kalır ve Phase 5.4 unit conversion veya yeni rounding semantiği eklemez. Bu karar kaydı Phase 5.4A implementation'ını başlatmaz.
+
+Phase 5.4D-A serialized physical-count backend COMPLETE'tir; counting non-authoritative kalır. `InventoryBaseline` / `INITIAL_BALANCE` / baseline establishment sonraki ayrı görevdir ve başlamamıştır.
 
 ## 16. Locations, Quantities ve Database
 
