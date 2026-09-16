@@ -99,7 +99,7 @@ Pragmatik V1 yapısı dokuz başlangıç Django app'i ve bir teknik `core` paket
 | `catalog` | Category, UnitOfMeasure, MaterialCondition, Material | `audit` write API | StockBalance/ledger değiştirmek |
 | `locations` | Location hiyerarşisi ve pasifleştirme | `audit` write API | Transfer veya stok düzeltmesi yapmak |
 | `inventory` | SerializedAsset, InventoryTransaction/Line, IssueContext, StockBalance; tüm stok mutation servisleri | `accounts`, `catalog`, `locations`, `audit` | Import UI, correction kararı veya rapor sahipliği |
-| `corrections` | CorrectionRequest, correction Attachment; talep/karar orkestrasyonu | `accounts`, `inventory`, `core.storage`, `audit` | Ledger'ı doğrudan yazmak; inventory service çağırır |
+| `corrections` | CorrectionRequest, CorrectionEvidence; talep/karar/evidence orkestrasyonu | `accounts`, `inventory`, `core.storage`, `audit` | Ledger'ı doğrudan yazmak; inventory service çağırır |
 | `counting` | PhysicalCountSession, quantity/asset count lines, discrepancy approval/disposition ve baseline session links | `accounts`, `catalog`, `locations`, `inventory`, `audit` | Farkı doğrudan StockBalance'a yazmak veya routine discrepancy'yi `CorrectionRequest`a yönlendirmek |
 | `imports` | ImportBatch/Row, Excel parse/validate/preview, InventoryBaseline orkestrasyonu | `accounts`, `catalog`, `locations`, `inventory`, `counting`, `audit`, `core.storage` | Upload sonrası doğrudan yetkili bakiye yazmak |
 | `reports` | Salt okunur rapor query/use-case'leri ve Excel export | `catalog`, `locations`, `inventory` | Kaynak kayıtları değiştirmek |
@@ -417,7 +417,7 @@ Template/HTMX response içinde buton görünürlüğü kullanıcı deneyimidir; 
 ### Feature hard gates
 
 - **`DEC-033` Physical Count / Reconciliation / Pilot Baseline:** `DEC-HG-001`, `DEC-OPEN-007` ve `DEC-OPEN-008` kapalıdır. No-freeze immutable session-start snapshot, drift refusal, one-subtree scope, blind count, zero tolerance, separation of duties, dedicated `COUNT_RECONCILIATION`, `1..N` count-session baseline ve QUANTITY+SERIALIZED pilot cutover kararlıdır. Phase 5.4A ayrıca başlatılmalıdır; bu dokümantasyon kararı implementation değildir.
-- **`DEC-030` Quantity Corrections:** First slice partial/repeated signed effect, canonical original-line lineage, no correction-of-correction, requester≠decider ve current-stock lock/revalidation ile kararlıdır. Serialized/non-stock correction, evidence ve count/baseline interaction deferred kalır (`DEC-031`).
+- **`DEC-030` Quantity Corrections:** First slice partial/repeated signed effect, canonical original-line lineage, no correction-of-correction, requester≠decider ve current-stock lock/revalidation ile kararlıdır. V1 photographic evidence `DEC-034` ile kapanmıştır. Serialized/non-stock correction ve count/baseline interaction deferred kalır.
 - **`DEC-HG-003` ProductionLine foundation:** **DECIDED** (`DEC-025`). `ProductionLine` dynamic master-data entity (`inventory` app); recursive hierarchy; exact usage place ayrı free text. Quantity ISSUE Phase 4.2A–4.2C COMPLETE.
 - **`DEC-HG-004` Employee foundation:** **DECIDED** (`DEC-024`). `accounts.Employee` ayrı entity; sicil/User link/lifecycle kararlı. Phase 3.2 implementation COMPLETE. Retention pilot öncesi kararları açık kalır; receiver snapshot korunur.
 - **`DEC-HG-005` Return:** `DEC-028` ile yalnız unused linked QUANTITY RETURN slice kararlıdır: one ISSUE line ↔ one RETURN line, partial/multiple, cumulative cap, same material/unit/condition, null source ve explicit target. Broader serialized/used/defective/condition-changing/unknown-provenance/supplier/unlinked/correction-count/technician approval senaryoları hard-gated kalır.
@@ -451,21 +451,22 @@ Bilinmeyen/ambiguous/inactive kod stok etkisi oluşturmadan hata verir. Resolve 
 
 ## 18. File / Attachment Architecture
 
-V1'de onaylanmış dosya kullanımı correction request destekleyici fotoğrafıdır.
+V1'de onaylanmış dosya kullanımı correction request destekleyici fotoğrafıdır (`DEC-034`, Phase 5.5 COMPLETE).
 
-- Metadata PostgreSQL'de `attachments` tablosunda tutulur.
-- Binary dosya Django storage abstraction arkasındaki persistent filesystem'de tutulur.
+- Metadata PostgreSQL'de `corrections_correctionevidence` tablosunda tutulur.
+- Binary dosya `core.storage` Django storage abstraction arkasındaki private filesystem'de tutulur (`PRIVATE_MEDIA_ROOT`); `MEDIA_ROOT`/`MEDIA_URL` kanıt erişim yolu değildir.
 - Büyük fotoğraf binary'si ilişkisel DB'ye konmaz.
-- Internal/randomized storage key kullanılır; kullanıcı dosya adı path olarak kullanılmaz.
+- Internal/randomized storage key kullanılır (`corrections/evidence/<uuid>.<ext>`); kullanıcı dosya adı path olarak kullanılmaz.
 - Path traversal engellenir.
-- MIME, magic bytes/gerçek içerik, extension ve boyut doğrulanır.
+- Magic bytes/gerçek içerik, uzantı ve boyut doğrulanır; uzantı otoriter değildir.
+- Kabul: JPEG, PNG, WebP. Red: HEIC/HEIF (dönüştürme yok), GIF, SVG, PDF, arbitrary binary.
+- Dosya başına en fazla 10 MiB. V1'de toplam-case limiti yoktur.
 - Dosya çalıştırılabilir içerik olarak servis edilmez.
-- Sensitive evidence public `MEDIA_URL` üzerinden verilmez; authenticated, object-level permission-checked application path kullanılır.
-- Backup hem metadata'yı hem media volume'u kapsar.
+- Sensitive evidence public `MEDIA_URL` üzerinden verilmez; authenticated `/corrections/evidence/<uuid>/` path `corrections.view_correctionrequest` ile korunur.
+- Backup hem metadata'yı hem private media volume'u kapsar.
+- V1 otomatik retention silme yoktur; onaylanan ve reddedilen kanıt historical record ile tutulur.
 
-DB transaction ile filesystem atomik değildir. Kanonik sıra: file'ı validate/upload et → persistent storage'da finalize et → DB metadata/reference commit et. DB commit başarısız olursa orphan file kalabilir; periyodik missing/orphan reconciliation ve kontrollü cleanup bunu yönetir. Bunun tersi olan “metadata commit edildi fakat file hiç oluşmadı” durumundan kaçınılır. Ayrı Celery gerekmez.
-
-İzinli image türleri, boyut sınırı, retention ve “güncel fotoğraf” ölçütü **TBD**'dir.
+DB transaction ile filesystem atomik değildir. Kanonik sıra: file'ı validate/upload et → persistent storage'da finalize et → DB metadata/reference commit et. DB commit başarısız olursa orphan file kalabilir; V1'de otomatik cleanup worker yoktur. Bunun tersi olan “metadata commit edildi fakat file hiç oluşmadı” durumundan kaçınılır. Ayrı Celery gerekmez.
 
 ## 19. Excel Import Architecture
 
@@ -605,6 +606,7 @@ Environment-based configuration kullanılmalıdır:
 - `ALLOWED_HOSTS`
 - `DATABASE_URL` veya ayrı DB bileşenleri
 - `MEDIA_ROOT`
+- `PRIVATE_MEDIA_ROOT`
 - `STATIC_ROOT`
 - CSRF trusted origins
 - HTTPS/reverse-proxy ayarları
@@ -839,7 +841,7 @@ Bu legacy özet tüm projeyi bloke etmez. Güncel status, owner, source mapping 
 - Material/location eski ad-kod snapshot gereksinimi: tarihsel rapor kabul çalışmasına kadar.
 - Gelişmiş technical attribute araması ve GIN index: gerçek arama ihtiyacına kadar.
 - Audit/import/photo retention: pilot öncesi; bu sırada silme yapılmaz.
-- Correction evidence/photo `DEC-031` ile ilk quantity diliminden deferred; authenticated correction-view visibility, HEIC/device support ve retention future contract olarak korunur.
+- Correction evidence/photo `DEC-034` ile V1 quantity controlled correction için kapanmıştır; serialized correction deferred kalır.
 - Performance hedefleri ve cache: ölçüm yapılana kadar.
 
 ### C. IT / DEPLOYMENT DEPENDENCIES

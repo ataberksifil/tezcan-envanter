@@ -8,6 +8,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 
 from audit.models import AuditEvent
 from accounts.roles import DEFAULT_ROLE_TEMPLATES, SAFE_CATALOG_PERMISSION_LABELS
+from corrections.conftest import jpeg_upload
 from corrections.models import CorrectionRequest
 from corrections.services import (
     approve_correction_request,
@@ -29,6 +30,7 @@ def make_request(objects, **overrides):
         "explanation": "Yanlış kayıt düzeltme açıklaması",
         "effect_type": CorrectionRequest.EffectType.QUANTITY,
         "quantity_effect": Decimal("1.000"),
+        "evidence_files": [jpeg_upload()],
     }
     values.update(overrides)
     return create_correction_request(**values)
@@ -265,6 +267,7 @@ def test_correction_transaction_cannot_be_a_new_root(correction_objects):
             explanation="Correction transaction root olamaz",
             effect_type="QUANTITY",
             quantity_effect=Decimal("1.000"),
+            evidence_files=[jpeg_upload()],
         )
 
 

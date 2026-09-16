@@ -3,9 +3,38 @@ from decimal import Decimal
 from django import forms
 
 from catalog.models import Material, MaterialCondition
+from corrections.evidence import MAX_EVIDENCE_BYTES
 from corrections.models import CorrectionRequest
 from inventory.models import InventoryTransaction, InventoryTransactionLine
 from locations.models import Location
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+    def value_from_datadict(self, data, files, name):
+        if hasattr(files, "getlist"):
+            return files.getlist(name)
+        value = files.get(name)
+        if value in (None, ""):
+            return []
+        return value
+
+
+class MultipleFileField(forms.FileField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        if not data:
+            raise forms.ValidationError(self.error_messages["required"], code="required")
+        items = data if isinstance(data, (list, tuple)) else [data]
+        single_file_clean = super().clean
+        cleaned = [single_file_clean(item, initial) for item in items if item]
+        if not cleaned:
+            raise forms.ValidationError(self.error_messages["required"], code="required")
+        return cleaned
 
 
 class CorrectionRequestForm(forms.Form):
@@ -58,6 +87,23 @@ class CorrectionRequestForm(forms.Form):
         max_length=2000,
         strip=True,
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 5}),
+    )
+    evidence = MultipleFileField(
+        label="Kanıt fotoğrafları",
+        required=True,
+        widget=MultipleFileInput(
+            attrs={
+                "class": "form-control",
+                "multiple": True,
+                "accept": "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp",
+            }
+        ),
+        help_text=(
+            "En az bir fotoğraf zorunludur. Kabul edilen biçimler: JPEG, PNG, WebP. "
+            f"Dosya başına en fazla {MAX_EVIDENCE_BYTES // (1024 * 1024)} MiB. "
+            "HEIC/HEIF desteklenmez; cihazınızdan JPEG, PNG veya WebP olarak "
+            "dışa aktarın."
+        ),
     )
 
     def __init__(self, *args, original_transaction, **kwargs):

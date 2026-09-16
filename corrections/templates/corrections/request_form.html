@@ -8,7 +8,7 @@
     <a class="btn btn-outline-secondary" href="{% url 'inventory:transaction-history-detail' original_transaction.pk %}">İşleme dön</a>
 </div>
 <p class="text-body-secondary">Özgün işlem: <span class="font-monospace">{{ original_transaction.pk }}</span>. Talep beklemedeyken stok değişmez.</p>
-<form method="post" novalidate>
+<form method="post" enctype="multipart/form-data" novalidate>
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
     {% for field in form %}
@@ -19,7 +19,6 @@
             {% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
         </div>
     {% endfor %}
-    <div class="alert alert-secondary">Fotoğraf/kanıt bu ilk quantity correction diliminde alınmaz; sonraki evidence fazına ertelenmiştir.</div>
     <button class="btn btn-primary" type="submit">Talebi oluştur</button>
 </form>
 {% endblock %}

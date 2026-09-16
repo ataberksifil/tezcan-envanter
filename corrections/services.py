@@ -10,7 +10,9 @@ from django.utils import timezone
 
 from audit.services import record_audit_event
 from catalog.models import Material
-from corrections.models import CorrectionRequest
+from core.storage import persist_private_file
+from corrections.evidence import evidence_storage_key, validate_evidence_files
+from corrections.models import CorrectionEvidence, CorrectionRequest
 from inventory.models import InventoryTransaction, InventoryTransactionLine
 from inventory.services.corrections import apply_controlled_correction
 
@@ -42,6 +44,7 @@ def create_correction_request(
     explanation,
     effect_type,
     quantity_effect,
+    evidence_files,
     corrected_material_id=None,
     corrected_location_id=None,
     corrected_condition_id=None,
@@ -49,6 +52,7 @@ def create_correction_request(
 ) -> CorrectionRequest:
     current_actor = _authorize(actor, ADD_CORRECTION_PERMISSION, using)
     normalized_explanation = _normalize_explanation(explanation)
+    validated_evidence = validate_evidence_files(evidence_files)
 
     with transaction.atomic(using=using):
         try:
@@ -110,6 +114,24 @@ def create_correction_request(
                     code=PENDING_CONFLICT,
                 ) from exc
             raise
+        # DEC-018: persist each file, then commit evidence metadata. A later
+        # DB rollback may leave orphan files; that is accepted V1 behavior.
+        for item in validated_evidence:
+            evidence_id = uuid.uuid4()
+            storage_key = persist_private_file(
+                evidence_storage_key(evidence_id, item.extension),
+                item.content,
+            )
+            CorrectionEvidence.objects.using(using).create(
+                id=evidence_id,
+                correction_request=request_record,
+                storage_key=storage_key,
+                original_filename=item.original_filename,
+                content_type=item.content_type,
+                size_bytes=item.size_bytes,
+                sha256=item.sha256,
+                uploaded_by=current_actor,
+            )
         return request_record
 
 

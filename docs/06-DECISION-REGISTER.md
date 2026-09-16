@@ -421,7 +421,7 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
 - **Status:** `DECIDED`
 - **Required before:** Phase 5.2 first quantity controlled-correction slice
 - **Decision:** Daha önce onaylı supporting-photo/evidence gereksinimi silinmez, ancak Phase 5.2'nin ilk quantity controlled-correction diliminde bilinçli olarak ertelenir. Bu dilimde upload, evidence/attachment modeli, storage, HEIC işleme, dosya validation, retention veya retrieval endpoint'i uygulanmaz.
-- **Future contract:** Evidence eklendiğinde correction-view yetkili kullanıcılar evidence görebilir; erişim authenticated ve object/permission checked application path üzerinden olur, public media URL kullanılmaz. Format/size/currentness, HEIC/device support, visibility ayrıntıları ve retention `DEC-OPEN-013`/`DEC-OPEN-018` kapsamında sonuçlandırılmalıdır.
+- **Future contract:** `DEC-034` / Phase 5.5 bu sözleşmeyi V1 quantity correction evidence olarak kapatır.
 - **Consequence:** Phase 5.2 evidence olmadan ilerleyebilir; ilerideki evidence fazı bu kaydı sessizce kalıcı muafiyet olarak yorumlayamaz.
 
 ### DEC-032 — Serialized Inventory Foundation and Serialized RECEIVE First Slice
@@ -469,6 +469,28 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   14. **Units:** `DEC-OPEN-010` OPEN kalır. Phase 5.4 unit conversion veya yeni rounding semantiği eklemez.
 - **Consequence:** Count stability, tolerance/performer/approval ve baseline cardinality/establishment hard gate'leri kapanır. Ayrı implementation review/görevi olmadan schema, migration, service, permission rollout, UI veya test değişikliği yapılmaz; Phase 5.4A otomatik başlamaz.
 
+### DEC-034 — V1 Controlled Correction Photographic Evidence
+
+- **Status:** `DECIDED`
+- **Required before / recorded with:** Phase 5.5 controlled correction evidence closure
+- **Resolves:** `DEC-OPEN-013` V1 correction-evidence format/size/HEIC/access/no-auto-delete için; `OD-018`, `COR-005`, `COR-013`, `TBD-013`
+- **Does not resolve:** `DEC-OPEN-018` uzun dönem archive/silme süreleri; `DEC-OPEN-027` material/location photo scope; serialized correction
+- **Decision:**
+  1. **Zorunluluk:** Phase 5.5 sonrası her yeni `CorrectionRequest` en az bir photographic evidence attachment olmadan geçerli submitted/`PENDING` talep olamaz. Create workflow request ve evidence'ı aynı service transaction'ında atomik oluşturur. Actionable/PENDING talep required evidence olmadan var olamaz.
+  2. **Grandfathering:** Phase 5.5 öncesi committed `CorrectionRequest` satırları fabricated evidence ile backfill edilmez ve okunabilir/geçerli kalır. DB, historical satırların evidence taşımasını zorunlu kılmaz; mandatory kural yeni request'ler için application/service sınırındadır.
+  3. **Çoklu kanıt:** Bir talep `1..N` görüntü taşıyabilir. İş kuralı olarak üst sınır yoktur. Teknik kaynak koruması: dosya başına en fazla **10 MiB**. Toplam-case limiti yoktur.
+  4. **Biçimler:** V1 kabul `image/jpeg`, `image/png`, `image/webp`. V1 red: HEIC, HEIF, GIF, SVG, PDF, arbitrary binary. Uzantı otoriter değildir; içerik/imza doğrulanır.
+  5. **HEIC/HEIF:** Explicitly unsupported. Pillow/plugin/system conversion ve server-side transcoding yoktur. Kullanıcıya JPEG, PNG veya WebP yüklemesi/dışa aktarması söylenir.
+  6. **Retention:** V1'de otomatik silme yoktur. Kanıt correction historical record ile tutulur; onaylanan ve reddedilen evidence korunur. User-facing delete ve ordinary admin delete yoktur. Future retention/archive yalnız explicit policy/migration ile değişir.
+  7. **Ownership:** Metadata `corrections.CorrectionEvidence`; binary `core.storage` private abstraction. Ayrı `attachments` app ve polymorphic framework yoktur. Image bytes PostgreSQL'de tutulmaz.
+  8. **İmmutability:** Successful create sonrası metadata silently editable değildir; ordinary delete yoktur; FK/uploader/time/digest/path rewrite yoktur. PostgreSQL UPDATE/DELETE guard uygulanır.
+  9. **Storage sırası:** `DEC-018` korunur: validate → persist/finalize file → commit DB metadata. Committed metadata missing file'a işaret etmez. DB failure after file write orphan file bırakabilir; V1 otomatik cleanup worker yoktur.
+  10. **Naming:** Server-owned opaque key `corrections/evidence/<uuid>.<safe-ext>`. Kullanıcı dosya adı yalnız snapshot/display. Path traversal/absolute path kullanıcı filename'dan storage path'e yansımaz. Filesystem path kullanıcıya gösterilmez.
+  11. **Retrieval:** Authenticated `/corrections/evidence/<uuid>/`. Permission `corrections.view_correctionrequest`. Anonymous normal login redirect; authenticated without permission 403. Public `MEDIA_URL` evidence access yoktur. Visibility mevcut global correction-view modelini korur; guessed UUID permission bypass etmez.
+  12. **Karar workflow:** Approval/rejection existing SoD ve quantity arithmetic'i değiştirmez. Karar anında yeni fotoğraf gerekmez. Evidence inventory request fingerprint'e girmez.
+  13. **Admin:** Read-only metadata; add/change/delete ve destructive bulk action yok.
+- **Consequence:** Quantity controlled correction V1 evidence closure COMPLETE. Serialized correction deferred kalır.
+
 ## 3. Açık İş Kararları
 
 Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` alanında kanonik karar kaydına bağlanır.
@@ -492,7 +514,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | `DEC-OPEN-010` | Unit decimal precision ve unit conversion | `OPEN` | OD-014, DM-B06, UF-O-18 | Unit-specific validation | İş sahibi | Technical default `NUMERIC(18,3)`; conversion yok. |
 | `DEC-OPEN-011` | Exceptional tracking-mode migration policy | `OPEN` | OD-015, DM-B10, UF-O-14 | Böyle bir dönüşüm talep edilirse | İş sahibi + migration review | Normal edit yasağı `DEC-013` ile kararlıdır. |
 | `DEC-OPEN-012` | Stocked location deactivation | `DECIDED` | OD-016, DM-B09, UF-O-15 | Inventory integration (authoritative stock-row enforcement) | — | `DEC-023` ile kapatıldı. Non-zero stock Location pasifleştirilemez ve `can_hold_stock` True→False yapılamaz; stok önce sıfırlanmalıdır. Phase 3.1 CRUD, stok satırı yokken güvenle uygulanabilir. Inventory aynı invariant'ı otoritatif uygulamak zorundadır. |
-| `DEC-OPEN-013` | Photo format/size/currentness/retention | `OPEN` | OD-018, COR-013, DM-P01 | Attachment feature; retention pilot öncesi | Security + iş sahibi | Güvenlik sınırları `DEC-017`, storage/backup sırası `DEC-018` ile kararlıdır. |
+| `DEC-OPEN-013` | Photo format/size/currentness/retention | `DECIDED` (V1 correction evidence) | OD-018, COR-013, DM-P01, TBD-013 | Attachment feature | — | `DEC-034` ile V1 kapatıldı: JPEG/PNG/WebP; HEIC/HEIF yok; 10 MiB/dosya; create-time mandatory; no auto-delete; protected retrieval. Uzun dönem silme süreleri `DEC-OPEN-018` açık kalır. |
 | `DEC-OPEN-014` | Report periods, usage/decrease definitions | `OPEN` | OD-019, REP-007, UF-O-10 | Reporting implementation | İş sahibi | Europe/Istanbul presentation default'u korunur. |
 | `DEC-OPEN-015` | Excel workbook mapping ve cleansing | `OPEN` | OD-020, IMP-006 | Import implementation | Gerçek workbook + iş sahibi | Candidate stock yasağı `DEC-001` ile kararlıdır. |
 | `DEC-OPEN-016` | QR payload, labels ve device rules | `OPEN` | OD-021, OD-029, DM-P02, UF-O-21 | QR feature | Operasyon + IT | Module ownership `DEC-011` ile kararlıdır. |
@@ -531,13 +553,14 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Quantity ISSUE first slice (Phase 4.2A–4.2C) | **COMPLETE** (2026-09-12). `DEC-027`; receiver/ProductionLine snapshots, kernel/service/UI ve `inventory.issue_stock` rollout uygulanmıştır. |
 | Technician field intake request/approval workflow | `DEC-020` kararlıdır; talep/onay schema/service/UI ve hareket türü eşlemesi `DEC-028` ordinary direct RETURN slice'ından ayrıdır ve ayrıca kararlaştırılmalıdır. |
 | Quantity unused linked RETURN | **COMPLETE** (Phase 4.4, 2026-09-12). `DEC-028`; kernel/schema/DB guards, service/projection, UI ve permission rollout uygulanmıştır. Broader RETURN `DEC-HG-005` altında deferred kalır. |
-| Quantity controlled corrections (Phase 5.2) | **COMPLETE** (2026-09-13; 1242 test passed). `DEC-030`, `DEC-031`; `DEC-OPEN-006` rejection reason için yalnız PROPOSED kalır |
+| Quantity controlled corrections (Phase 5.2) | **COMPLETE** (2026-09-13; 1242 test passed). `DEC-030`, `DEC-031`; evidence later `DEC-034` / Phase 5.5 |
+| Phase 5.5 correction evidence | **COMPLETE** (`DEC-034`). JPEG/PNG/WebP mandatory for new quantity correction requests; HEIC/HEIF unsupported; 10 MiB/file; protected retrieval; historical rows grandfathered. Serialized correction deferred. |
 | Serialized inventory foundation + serialized RECEIVE (Phase 5.3) | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; asset identity/current projection + serialized RECEIVE tamamlandı. |
 | Counting/reconciliation | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout, `DEC-033`). Serialized `COUNT_RECONCILIATION` ve count/baseline UI sonraki ayrı görevlerdir. |
 | Baseline schema/cutover | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout). `InventoryBaseline`, scoped `INITIAL_BALANCE`, combined QUANTITY+SERIALIZED establishment. Count/baseline UI yoktur. `DEC-002` / `DEC-015` / `DEC-032` / `DEC-033` korunur. |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |
 | QR | `DEC-OPEN-016`, `DEC-IT-006`; neutral ownership `DEC-011` ile sabittir |
-| Deployment/pilot | `DEC-IT-001`–`DEC-IT-005`, restore drill; retention için `DEC-OPEN-013`/`018` |
+| Deployment/pilot | `DEC-IT-001`–`DEC-IT-005`, restore drill; uzun dönem retention için `DEC-OPEN-018` |
 | Phase 2 catalog/configuration UI | `DEC-021`: dynamic configuration principle, seed≠whitelist, UoM/role/technical-spec boundaries |
 | Phase 2.9B-0 access management policy | `DEC-022`: management capability, allowlist, anti-escalation, audit identity, Admin/UI boundary |
 | Phase 2 dynamic role management | `DEC-021`, `DEC-022`: yalnız güvenli catalog/configuration permission'ları; inventory receipt/issue/approval izinleri expose edilmez |
@@ -560,7 +583,8 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Quantity RETURN first slice (Phase 4.4) | **COMPLETE** (2026-09-12). `DEC-028`; kernel, service/projection, UI/history integration ve `inventory.return_stock` rollout uygulanmıştır; broader RETURN deferred kalır. |
 | Quantity TRANSFER first slice | **COMPLETE** (Phase 4.5, 2026-09-12). `DEC-029`; kernel, service/projection, UI/history/material integration ve `inventory.transfer_stock` rollout uygulanmıştır. Broader TRANSFER senaryoları deferred kalır. |
 | Phase 5.1 current-stock visibility | **COMPLETE** at `44f1d30b7b8a72b768293de3ecbff32769e3f454`. |
-| Phase 5.2 quantity controlled correction | **COMPLETE** (`DEC-030`, `DEC-031`, 2026-09-13; 1242 test passed). Evidence bu ilk dilimde deferred. |
+| Phase 5.2 quantity controlled correction | **COMPLETE** (`DEC-030`, `DEC-031`, 2026-09-13; 1242 test passed). Evidence Phase 5.5 / `DEC-034` ile kapanmıştır. |
+| Phase 5.5 correction evidence | **COMPLETE** (`DEC-034`). Quantity controlled correction V1 photographic evidence kapanmıştır. Serialized correction deferred. |
 | Phase 5.3 serialized inventory foundation + serialized RECEIVE | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; `DEC-OPEN-004` kapandı. |
 | Phase 5.4 decision pack | **COMPLETE** (`DEC-033`). 5.4A–5.4E uygulanmıştır; serialized `COUNT_RECONCILIATION`, serialized mutation workflow'ları ve count/baseline UI uygulanmamıştır. `DEC-OPEN-010` OPEN kalır. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
@@ -814,7 +838,7 @@ Legacy kimlikler silinmez; toplu eşlemeler aşağıdaki kanonik kayıtlara yön
 | `OD-015`, `DM-B10`, `UF-O-14` | `DEC-013`, `DEC-OPEN-011` |
 | `OD-016`, `DM-B09`, `UF-O-15` | `DEC-004`, `DEC-023` (`DEC-OPEN-012` DECIDED) |
 | `OD-017`, `DM-B13`, `UF-O-13` | `DEC-HG-002` |
-| `OD-018`, `DM-P01` | `DEC-OPEN-013` |
+| `OD-018`, `DM-P01` | `DEC-034` (`DEC-OPEN-013` DECIDED for V1); uzun dönem silme `DEC-OPEN-018` |
 | `OD-019`, `UF-O-10` | `DEC-OPEN-014` |
 | `OD-020` | `DEC-OPEN-015` |
 | `OD-021`, `OD-029`, `DM-P02`, `UF-O-21` | `DEC-OPEN-016` |
@@ -843,7 +867,7 @@ Legacy kimlikler silinmez; toplu eşlemeler aşağıdaki kanonik kayıtlara yön
 | `TBD-010` | `DEC-024` |
 | `TBD-011` | `DEC-OPEN-005`, `DEC-OPEN-007`, `DEC-OPEN-008`, `DEC-OPEN-009` |
 | `TBD-012` | `DEC-HG-002`, `DEC-OPEN-006` |
-| `TBD-013` | `DEC-OPEN-013`, `DEC-OPEN-018` |
+| `TBD-013` | `DEC-034` (`DEC-OPEN-013` DECIDED for V1); `DEC-OPEN-018` |
 | `TBD-014` | `DEC-OPEN-027` |
 | `TBD-015`, `TBD-016` | `DEC-OPEN-016` |
 | `TBD-017` | `DEC-OPEN-014`, `DEC-OPEN-017`, `DEC-OPEN-024` |

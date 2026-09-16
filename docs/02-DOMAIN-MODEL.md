@@ -53,7 +53,7 @@ Bu belge:
 | `StockBalance` | Projection | Miktar bazlı güncel stok görünümü. |
 | `SerializedAssetState` | Projection | Tekil varlığın geçmişten türetilen güncel konum ve kondisyonu. |
 | `CorrectionRequest` | Entity / Aggregate Root | Tamamlanmış bir işlemi kontrollü biçimde düzeltme talebi. |
-| `Attachment` | Entity | Bir iş bağlamına ait kanıt dosyası; V1'de doğrulanmış kullanım düzeltme fotoğrafıdır. |
+| `CorrectionEvidence` | Entity | Düzeltme talebine ait historical fotoğraf kanıtı metadata'sı; binary `core.storage` private abstraction arkasındadır. |
 | `PhysicalCountSession` | Entity / Aggregate Root | Belirli kapsamda yürütülen fiziksel sayım ve mutabakat çalışması. |
 | `PhysicalCountLine` | Entity | Beklenen sistem durumu ile fiziksel sayım sonucunun karşılaştırması. |
 | `ImportBatch` | Entity / Aggregate Root | Bir Excel kaynağının kontrollü doğrulama ve aktarım süreci. |
@@ -417,7 +417,7 @@ Kurallar:
 - sonuç işlemi bağlantısının sahibi `CorrectionRequest`tır; inventory ledger downstream correction modülüne reverse FK taşımaz;
 - `DEC-030` quantity first slice'ta partial/repeated correction canonical original line'a köklenir; correction-of-correction yoktur; upward cap yoktur; cumulative negative effect original quantity equivalent'ını sıfır altına indiremez;
 - approval current balance üzerinde lock/revalidate eder; later movement tek başına blocker değildir, yetersiz current stock atomik failure üretir ve request `PENDING` kalır;
-- supporting evidence/photo `DEC-031` ile ilk quantity diliminden deferred'dır; gelecekte correction-view-authorized visibility, authenticated retrieval, HEIC/device support ve retention gereksinimleri korunur.
+- supporting evidence/photo `DEC-034` ile V1 quantity correction için uygulanmıştır: yeni talep en az bir JPEG/PNG/WebP içerir; HEIC/HEIF yok; 10 MiB/dosya; no auto-delete; authenticated `corrections.view_correctionrequest` retrieval; historical pre-Phase-5.5 kayıtlar grandfathered'dır. Serialized correction deferred kalır.
 
 ## 12. Fiziksel Sayım ve Mutabakat Domaini
 
@@ -522,19 +522,21 @@ QR payload biçimi, semboloji, etiket ölçüsü, yazıcı entegrasyonu ve yenid
 
 ## 15. Attachment ve Audit Domaini
 
-### Attachment
+### CorrectionEvidence
 
-`Attachment`, gelecekteki düzeltme kanıtı metadata'sını temsil eden entity'dir. `DEC-031` ile Phase 5.2 ilk quantity correction diliminde model/storage uygulanmaz. Gelecekte metadata sahipliği `Corrections` boundary'sinde, binary storage teknik abstraction'ı shared `Core` altında kalır; correction-view-authorized kullanıcılar authenticated/object-checked erişebilir. V1'de ayrı bir Attachments module zorunlu değildir. Import kaynak dosyası kendi `ImportBatch` metadata'sında izlenir.
+`CorrectionEvidence`, düzeltme kanıtı metadata'sını temsil eden `corrections`-owned entity'dir (`DEC-034`). Binary, `core.storage` private filesystem abstraction arkasındadır; ayrı Attachments app yoktur. Correction-view yetkili kullanıcılar authenticated application path ile erişir; public `MEDIA_URL` kullanılmaz.
 
 Kavramsal metadata:
 
-- dosya kimliği,
-- sahibi olan iş bağlamı,
-- yükleyen kullanıcı,
-- sistem yükleme zamanı,
-- dosyayı audit açısından tanımlayacak metadata.
+- UUID kimliği,
+- sahibi olan `CorrectionRequest`,
+- opaque storage key,
+- orijinal dosya adı snapshot'ı,
+- content type ve byte size,
+- SHA-256 digest,
+- yükleyen kullanıcı ve sistem zamanı.
 
-Dosya yolu/depolama yöntemi, boyut/biçim, erişim ve saklama süresi **TBD**'dir. Genel malzeme veya montaj fotoğraf geçmişi V1 gereksinimi değildir.
+V1 kabul: JPEG, PNG, WebP. HEIC/HEIF desteksizdir; sunucu tarafı dönüştürme yoktur. Dosya başına en fazla 10 MiB. Otomatik silme yoktur; onaylanan ve reddedilen kanıt korunur. Phase 5.5 öncesi historical `CorrectionRequest` satırları evidence olmadan okunabilir kalır. Genel malzeme veya montaj fotoğraf geçmişi V1 gereksinimi değildir (`DEC-OPEN-027`).
 
 ### AuditEvent
 
@@ -593,7 +595,7 @@ Bu seçeneklerden hiçbiri seçilmiş değildir. `MinimumStockStatus`, ledger ve
 | `IssueContext` | referans verir | `ProductionLine` | Seçilen hat UUID referansı; tarihsel code/name snapshot zorunlu (`DEC-025`). |
 | `CorrectionRequest` | düzeltir | `InventoryTransaction` | Her talep tam `1` özgün işleme; işlem `0..N` talebe konu olabilir. Birden çok talep davranışı **TBD**. |
 | `CorrectionRequest` | sonuçlanır | `InventoryTransaction` | Onaylı talep `0..N` kontrollü düzeltme işlemine bağlanabilir; kesin mekanizma **TBD**. |
-| `CorrectionRequest` | kanıt içerir | `Attachment` | En az `1` güncel destekleyici fotoğraf gerekir. |
+| `CorrectionRequest` | kanıt içerir | `CorrectionEvidence` | Yeni talep için en az `1` fotoğraf zorunlu (`DEC-034`); historical kayıtlar `0..N`. |
 | `PhysicalCountSession` | içerir | `PhysicalCountLine` | Bir oturum `1..N` satır içerir. |
 | `PhysicalCountLine` | karşılaştırır | `Material` / `SerializedAsset` / `Location` | Takip moduna göre miktar veya tekil varlık karşılaştırılır. |
 | `ImportBatch` | içerir | `ImportRow` | Bir batch `1..N` satır içerir. |
@@ -619,7 +621,7 @@ Bu invariant'lar ilişkisel kısıtlara, servis doğrulamalarına ve otomatik te
 - **DI-011:** Bir `InventoryTransactionLine` aynı anda hem anonim miktar hem de serialized varlık etkisi taşıyamaz.
 - **DI-012:** `TransactionType` ile `MaterialCondition` birbirinin yerine kullanılamaz.
 - **DI-013:** `ISSUE`, alıcı adı, soyadı, sicil numarası, üretim hattı, fiili kullanım yeri ve sistem işlem zamanı olmadan tamamlanamaz.
-- **DI-014:** `CorrectionRequest`, talep eden kullanıcı, açıklama ve güncel fotoğraf olmadan `PENDING` duruma gelemez; `PENDING` talep stok değiştiremez.
+- **DI-014:** Yeni `CorrectionRequest`, talep eden kullanıcı, açıklama ve en az bir V1-uyumlu fotoğraf olmadan `PENDING` duruma gelemez; `PENDING` talep stok değiştiremez. Phase 5.5 öncesi historical satırlar evidence olmadan okunabilir kalır.
 - **DI-015:** Fiziksel sayım farkı `StockBalance` üzerinde sessiz doğrudan değişiklik oluşturamaz; yetkili düzeltme izi gerekir.
 - **DI-016:** Etkin bir `BarcodeIdentifier` tam olarak bir domain nesnesine çözülür ve taranabilir değeri sistem içinde belirsiz olamaz.
 - **DI-017:** Asıl işlem zamanı sistem tarafından kaydedilir ve normal kullanıcı tarafından sessizce değiştirilemez.
@@ -652,7 +654,7 @@ V1 için tek uygulama ve tek dağıtım birimi içinde aşağıdaki modüler mon
 | **Imports** | Excel batch/satır doğrulama, controlled master-data commit ve baseline orkestrasyonu | `ImportBatch`, `InventoryBaseline` |
 | **Identification** | QR/barkod kimliklerinin nesnelere çözülmesi | `BarcodeIdentifier` |
 | **Audit** | Stok dışı idari audit kayıtları | `AuditEvent` |
-| **Corrections / Core storage** | Correction attachment metadata / binary storage abstraction | `Attachment` / teknik storage adapter |
+| **Corrections / Core storage** | Correction evidence metadata / binary storage abstraction | `CorrectionEvidence` / `core.storage` |
 | **Reporting** | Haftalık hareket, kullanım, azalış, düşük stok ve Excel çıktı projection'ları | Salt okunur rapor/projection'lar |
 
 ### Modül bağımlılıkları
@@ -750,7 +752,7 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 | OD-005 | Quantity stokta çoklu lokasyondan seçim/dağıtım | Çıkış ve transfer hizmet davranışı |
 | OD-009, OD-013 | Depo Görevlisi operasyonları ve transfer yetkileri | Yetki politikaları |
 | OD-010 | Ret gerekçesinin zorunlu olup olmadığı | `CorrectionRequest` karar doğrulaması |
-| OD-018 | Fotoğraf güncelliği, dosya koşulları ve erişim | `Attachment` doğrulaması |
+| OD-018 | Fotoğraf güncelliği, dosya koşulları ve erişim | `DEC-034` V1 correction evidence |
 | OD-019 | Rapor dönemleri, kullanım tanımı, azalış hesabı ve filtreler | Reporting projection'ları |
 | OD-020 | Excel yapısı, eşleme, temizlik ve hata çözümü | `ImportRow` doğrulama modeli |
 | OD-021, OD-029 | QR payload/etiket standardı, yazıcı ve teslim zamanlaması | `BarcodeIdentifier` ve etiket yaşam döngüsü |

@@ -4,10 +4,33 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from catalog.models import Category, Material, MaterialCondition, UnitOfMeasure
 from inventory.services.receipts import receive_quantity
 from locations.models import Location
+
+JPEG_BYTES = b"\xff\xd8\xff\xe0" + b"\x00" * 32
+PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+WEBP_BYTES = b"RIFF" + (40).to_bytes(4, "little") + b"WEBP" + b"\x00" * 32
+GIF_BYTES = b"GIF89a" + b"\x00" * 24
+SVG_BYTES = b'<svg xmlns="http://www.w3.org/2000/svg"></svg>'
+PDF_BYTES = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"
+HTML_BYTES = b"<html><body>not an image</body></html>"
+HEIC_BYTES = b"\x00\x00\x00\x18ftypheic" + b"mif1heic" + b"\x00" * 16
+BINARY_BYTES = b"\x00\x01\x02\x03\x04\xff\xfe"
+
+
+def jpeg_upload(name="evidence.jpg"):
+    return SimpleUploadedFile(name, JPEG_BYTES, content_type="image/jpeg")
+
+
+def png_upload(name="evidence.png"):
+    return SimpleUploadedFile(name, PNG_BYTES, content_type="image/png")
+
+
+def webp_upload(name="evidence.webp"):
+    return SimpleUploadedFile(name, WEBP_BYTES, content_type="image/webp")
 
 
 def grant(user, *labels):
@@ -89,3 +112,8 @@ def correction_objects(db):
         "transaction": receipt.transaction,
         "line": receipt.lines[0],
     }
+
+
+@pytest.fixture(autouse=True)
+def private_media_root(tmp_path, settings):
+    settings.PRIVATE_MEDIA_ROOT = tmp_path / "private_media"

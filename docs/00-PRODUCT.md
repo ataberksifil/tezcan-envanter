@@ -126,7 +126,7 @@ Tekil takipte zorunlu tanımlayıcılar, seri numarası kuralları ve takip biç
 - **FR-008:** Sistem malzeme durumunu kayıt altına alabilmelidir.
 - **FR-009:** Sistem negatif stok oluşmasını önlemelidir.
 - **FR-010:** Sistem işlem geçmişini saklamalı ve yetkili kullanıcılarca görüntülenebilir kılmalıdır.
-- **FR-011:** Sistem açıklamalı düzeltme talebi iş akışını desteklemelidir. Güncel destekleyici fotoğraf gereksinimi korunur; ilk quantity controlled-correction diliminde `DEC-031` ile ertelenmiştir.
+- **FR-011:** Sistem açıklamalı düzeltme talebi iş akışını desteklemelidir. Yeni quantity controlled correction talebi en az bir destekleyici fotoğraf içermelidir (`DEC-034`). Phase 5.5 öncesi historical talepler grandfathered'dır.
 - **FR-012:** Düzeltmeler yönetici/müdür onayına tabi olmalıdır.
 - **FR-013:** Sistem malzeme bazında yapılandırılabilir minimum stok seviyesi desteklemelidir.
 - **FR-014:** Minimum seviyenin altına düşen stok, uygun yetkili kullanıcılar için açıkça görünür olmalıdır.
@@ -203,9 +203,9 @@ Hareket kayıtlarının muhasebe mantığı, iade ve düzeltmelerin ters kayıt 
 - **AUD-007:** Talebin oluşturulması, değerlendirilmesi, onayı/reddi ve stok üzerindeki sonucu denetlenebilir olmalıdır.
 - **AUD-008:** Önemli işlemlerin kullanıcı ve zaman bilgisi korunmalıdır.
 
-`DEC-030` ilk quantity correction diliminde yanlış quantity/location/condition/material desteklenir; partial ve repeated correction canonical original line'a köklenir, correction-of-correction yoktur, original ledger değişmez ve onay current stock üzerinde atomik `CONTROLLED_CORRECTION` etkisi oluşturur. Requester kendi talebinde karar veremez. `DEC-031` evidence/photo uygulamasını bu ilk dilimden erteler; future authenticated visibility, format/HEIC ve retention gereksinimleri korunur.
+`DEC-030` ilk quantity correction diliminde yanlış quantity/location/condition/material desteklenir; partial ve repeated correction canonical original line'a köklenir, correction-of-correction yoktur, original ledger değişmez ve onay current stock üzerinde atomik `CONTROLLED_CORRECTION` etkisi oluşturur. Requester kendi talebinde karar veremez. `DEC-034` V1 evidence kapanışını uygular: yeni talep için en az bir JPEG/PNG/WebP fotoğraf zorunludur; HEIC/HEIF desteklenmez; dosya başına 10 MiB; otomatik silme yoktur; authenticated `corrections.view_correctionrequest` retrieval; public media URL yoktur. Serialized correction deferred kalır.
 
-Düzeltmenin ters hareket, dengeleme kaydı veya başka bir kontrollü mekanizma ile uygulanacağı; ret/iptal durumları; onaylayan ile talep edenin aynı kişi olup olamayacağı; fotoğraf saklama ve erişim politikası **TBD**'dir.
+Düzeltmenin ters hareket, dengeleme kaydı veya başka bir kontrollü mekanizma ile uygulanacağı; ret gerekçesinin zorunluluğu (`DEC-OPEN-006` PROPOSED) **TBD**'dir. Fotoğraf V1 biçim/boyut/erişim/saklama (silmeme) politikası `DEC-034` ile kararlıdır; uzun dönem archive/silme süresi `DEC-OPEN-018` açık kalır.
 
 Düzeltme kanıtı dışındaki genel fotoğraf geçmişi ve montaj/kullanım yeri fotoğrafçılığı onaylanmış kapsam değildir ve **TBD** olarak kalır.
 
@@ -366,7 +366,7 @@ Onaylanmış V1 taahhüdü oluşturmayan gelecek değerlendirmeleri:
 | TBD-010 | Teslim alan kişi ve kullanıcı ilişkisi | Teslim alan kişinin sistem kullanıcısı olma zorunluluğu ve çalışan kaynağı netleştirilecek. |
 | TBD-011 | Rol ve yetki matrisi | Operasyonel depo görevleri, yönetici yetkileri, rol atama ve onay sınırları ayrıntılandırılacak. |
 | TBD-012 | Düzeltme onay kuralları | Talep eden/onaylayan ayrımı, ret, iptal ve uygulama mekanizması belirlenecek. |
-| TBD-013 | Düzeltme fotoğrafı politikası | Dosya biçimi, boyut, saklama, erişim ve “güncel” kanıt ölçütü belirlenecek. |
+| TBD-013 | Düzeltme fotoğrafı politikası | `DEC-034` ile V1 kapanmıştır: JPEG/PNG/WebP, HEIC/HEIF yok, 10 MiB/dosya, create-time mandatory, no auto-delete, protected retrieval. Uzun dönem silme süresi `DEC-OPEN-018`. |
 | TBD-014 | Daha geniş fotoğraf kapsamı | Fotoğraf geçmişi ile montaj/kullanım yeri fotoğrafları henüz onaylı değildir. |
 | TBD-015 | QR/barkod standardı | Yük, benzersiz kimlik, semboloji, etiket biçimi/dayanıklılığı ve yeniden basım süreci tasarlanacak. |
 | TBD-016 | Etiket ekipmanı uyumluluğu | Mevcut yazıcı ve sarf malzemeleri teknik olarak doğrulanacak. |
@@ -454,7 +454,7 @@ Aşağıdaki onaylı gereksinimler bir sonraki görevde resmi, test edilebilir i
 
 7. **Düzeltme ve denetim**
    - Geçmiş hareketin sessizce değiştirilememesi.
-   - Düzeltme talebinde açıklama zorunluluğu; evidence/photo ilk quantity diliminde `DEC-031` ile deferred.
+   - Düzeltme talebinde açıklama zorunluluğu; yeni talep için mandatory JPEG/PNG/WebP kanıt (`DEC-034`).
    - Yönetici/müdür onayı, ret ve uygulama akışı.
    - Düzeltmenin stok geçmişine denetlenebilir biçimde yansıması.
 

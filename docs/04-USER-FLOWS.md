@@ -625,15 +625,16 @@ flowchart TD
 2. Kullanıcı açıklama girer.
 3. Quantity effect veya doğru material/location/condition identity'sini belirtir.
 4. Talebi gönderir.
-5. Talep `PENDING` olur. İlk dilimde fotoğraf yoktur (`DEC-031`).
+5. Talep `PENDING` olur. Yeni talep en az bir JPEG/PNG/WebP kanıt fotoğrafı taşır (`DEC-034`).
 
 **Validation Rules**
 - Talep eden ve trim edilmiş 10..2000 karakter açıklama zorunlu; correction target canonical original line olmalıdır (`DEC-030`).
+- Yeni talep için en az bir geçerli kanıt fotoğrafı zorunludur; geçersiz dosya tüm oluşturmayı başarısız kılar (`DEC-034`).
 - `PENDING` talep stok değiştirmez (COR-006).
-- Sensitive fotoğraf public media URL ile sunulmaz; correction object permission'ı kontrol edilen application path üzerinden erişilir.
+- Sensitive fotoğraf public media URL ile sunulmaz; `corrections.view_correctionrequest` kontrol edilen `/corrections/evidence/<uuid>/` path üzerinden erişilir.
 
 **Success Result**
-- `correction_requests` kaydı oluşturulur; özgün işlem değişmez.
+- `correction_requests` ve bağlı `correction_evidence` kayıtları oluşturulur; özgün işlem değişmez.
 
 **Failure / Alternate Flows**
 - Açıklama/effect eksik, yetki yok, geçersiz veya correction transaction hedefi.
@@ -648,7 +649,7 @@ flowchart TD
 - Talep, talep eden, `requested_at` kaydedilir.
 
 **TBD / Open Decisions**
-- Evidence/photo ilk dilimde `DEC-031` ile deferred; format, HEIC/device support, retention ve authenticated visibility gelecekte karara bağlanır.
+- Ret gerekçesi zorunluluğu yalnız `PROPOSED` (`DEC-OPEN-006`). Serialized correction deferred.
 
 ### UF-COR-002 — Düzeltme Onayı / Reddi
 
@@ -662,7 +663,7 @@ flowchart TD
 
 **Main Flow**
 1. Bekleyen talepler listelenir.
-2. Yönetici talebi açar; özgün işlem/satır, açıklama ve correction effect incelenir.
+2. Yönetici talebi açar; özgün işlem/satır, açıklama, correction effect ve kanıt fotoğrafları incelenir.
 3. Onay veya ret kararı verilir.
 4. **Onay:** Kontrollü düzeltme ledger etkisi oluşturulur; özgün işlem korunur.
 5. **Ret:** Talep `REJECTED`; karar veren ve zaman kaydedilir.
@@ -702,7 +703,7 @@ flowchart TD
 
 **TBD / Open Decisions**
 - `DEC-030` quantity first slice kararları uygulanır; serialized/non-stock correction ve count/baseline interaction deferred kalır.
-- Evidence `DEC-031` ile deferred; ret gerekçesi zorunluluğu yalnız `PROPOSED`dır.
+- Evidence `DEC-034` ile V1 kapanmıştır; ret gerekçesi zorunluluğu yalnız `PROPOSED`dır. Karar anında yeni fotoğraf gerekmez; mevcut kanıt korunur.
 
 ### UF-HIS-001 — İşlem Geçmişi Görüntüleme
 
@@ -1476,7 +1477,7 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 | Decision | Bloke edilen alan |
 |---|---|
 | `DEC-HG-001` | **DECIDED** (`DEC-033`); Phase 5.4A–5.4D-B counting/baseline backend uygulanmıştır; count/baseline UI yoktur. |
-| `DEC-030` | Quantity correction first slice kararlı; serialized/non-stock/evidence/count interaction deferred. |
+| `DEC-030` | Quantity correction first slice kararlı; serialized/non-stock/count interaction deferred. Evidence `DEC-034` ile V1 kapanmıştır. |
 | `DEC-HG-003` | **DECIDED** (`DEC-025`). ProductionLine foundation ve quantity ISSUE Phase 4.2 COMPLETE. |
 | `DEC-HG-004` | **DECIDED** (`DEC-024`). Employee foundation ve quantity ISSUE Phase 4.2 COMPLETE. |
 | `DEC-HG-005` | `DEC-028` ile yalnız unused linked QUANTITY RETURN slice için kapandı; broader RETURN schema/service/UI hard-gated kalır. |

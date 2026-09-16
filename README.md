@@ -26,7 +26,8 @@
 - **Quantity RETURN first slice:** uçtan uca implement edilmiştir (kernel, service, UI, `inventory.return_stock` permission rollout)
 - **Phase 4.5:** Quantity TRANSFER — COMPLETE
 - **Phase 5.4:** Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE (Phase 5.4E permission rollout dahil)
-- **Son doğrulanmış test suite:** 1526+ passed
+- **Phase 5.5:** Controlled Correction Evidence / Photo Closure COMPLETE (`DEC-034`)
+- **Son doğrulanmış test suite:** 1568 passed
 - **Managed permission count:** 28
 - **Gate 3:** PASS (2026-09-12)
 
@@ -70,6 +71,7 @@ Yerel geliştirme için PostgreSQL gereklidir. Ortam değişkeni adları ve örn
 - Statik kaynak dosyaları `core/static/` gibi app static dizinlerinde bulunur.
 - `collectstatic` çıktı hedefi: `var/static`
 - Runtime upload hedefi: `var/media`
+- Private correction evidence: `var/private_media` (`MEDIA_URL` üzerinden servis edilmez)
 - `var/` kasıtlı olarak Git-ignore edilmiş üretilmiş/runtime veridir.
 - Uygulama logları konsola gider.
 - Uygulama saat dilimi `Europe/Istanbul`, `USE_TZ=True`.
@@ -210,7 +212,9 @@ Broader TRANSFER senaryoları deferred: serialized, condition-changing, multi-so
 
 **Phase 5.4:** Physical Count + Combined Quantity/Serialized Baseline backend — COMPLETE. Backend: count session foundation, quantity/serialized count, blind count, explicit zero/NOT_COUNTED, routine COUNT_RECONCILIATION, SoD discrepancy approval, combined baseline/INITIAL_BALANCE, drift detection, serialized candidate promotion, projection verification, permission rollout. Count/baseline UI, serialized ISSUE/RETURN/TRANSFER/controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode uygulanmamıştır. `DEC-OPEN-010` OPEN kalır.
 
-**Son doğrulanmış test suite:** 1526 passed
+**Phase 5.5:** Controlled Correction Evidence / Photo Closure — COMPLETE (`DEC-034`). Yeni quantity `CorrectionRequest` için en az bir JPEG/PNG/WebP kanıt zorunludur; HEIC/HEIF desteklenmez; dosya başına 10 MiB; otomatik silme yoktur; authenticated `/corrections/evidence/<uuid>/` retrieval `corrections.view_correctionrequest` ile korunur; public `MEDIA_URL` yoktur; historical pre-5.5 talepler grandfathered'dır. Serialized correction deferred kalır.
+
+**Son doğrulanmış test suite:** 1568 passed
 
 **Managed permission count:** 23
 

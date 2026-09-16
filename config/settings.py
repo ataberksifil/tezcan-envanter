@@ -236,6 +236,8 @@ STATIC_ROOT = BASE_DIR / 'var' / 'static'
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'var' / 'media'
+# Correction evidence is private; do not serve it through MEDIA_URL.
+PRIVATE_MEDIA_ROOT = BASE_DIR / 'var' / 'private_media'
 
 
 # Logging

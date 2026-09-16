@@ -6,6 +6,11 @@ app_name = "corrections"
 
 urlpatterns = [
     path("", views.CorrectionRequestListView.as_view(), name="request-list"),
+    path(
+        "evidence/<uuid:pk>/",
+        views.CorrectionEvidenceView.as_view(),
+        name="evidence-download",
+    ),
     path("<uuid:pk>/", views.CorrectionRequestDetailView.as_view(), name="request-detail"),
     path(
         "for-transaction/<uuid:transaction_pk>/new/",

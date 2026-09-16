@@ -374,33 +374,33 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 - **Check/trigger constraints:** Status/decision/result completeness; effect shape; trimmed explanation; original line membership ve non-correction QUANTITY root; original bucket membership; requester != decider; result type/lineage; submitted semantic fields immutable; no hard delete. Ret gerekçesi DB'de zorunlu yapılmaz.
 - **Recommended Indexes:** `status, requested_at`, `original_transaction_id`, `requested_by_user_id`, `decided_by_user_id`.
 - **Delete Policy:** Gönderim sonrası `IMMUTABLE / NO HARD DELETE`; yalnızca kontrollü durum geçişi.
-- **Notes:** `DEC-030` quantity first slice kararlıdır. Sonuç transaction ilişkisinin sahibi correction workflow'dur; ledger üzerinde reverse `correction_request_id` yoktur. Pure quantity effect bir correction line, identity restatement iki correction line üretir. `rejection_reason` zorunluluğu yalnızca PROPOSED'dır. Serialized/non-stock correction deferred kalır.
+- **Notes:** `DEC-030` quantity first slice kararlıdır. Sonuç transaction ilişkisinin sahibi correction workflow'dur; ledger üzerinde reverse `correction_request_id` yoktur. Pure quantity effect bir correction line, identity restatement iki correction line üretir. `rejection_reason` zorunluluğu yalnızca PROPOSED'dır. Serialized/non-stock correction deferred kalır. `DEC-034` yeni talep için evidence'ı service katmanında zorunlu kılar; historical satırlar için DB-level "her request'in evidence'ı vardır" kuralı yoktur.
 
-## 12. Attachment Tabloları
+## 12. Correction Evidence Tabloları
 
-### 12.1 `attachments`
+### 12.1 `correction_evidence`
 
-**Purpose:** Gelecekte düzeltme talebinin güncel fotoğraf kanıtını tutar. `DEC-031` nedeniyle Phase 5.2 ilk quantity diliminde tablo/model uygulanmaz.
+**Purpose:** Düzeltme talebinin photographic evidence metadata'sını tutar. Binary PostgreSQL'de tutulmaz. Phase 5.5 / `DEC-034` ile uygulanmıştır.
 
 | Column | Conceptual Type | Null | Constraint | Description |
 |---|---|---:|---|---|
-| `id` | UUID | Hayır | PK | Dosya metadata kimliği. |
+| `id` | UUID | Hayır | PK | Kanıt metadata kimliği. |
 | `correction_request_id` | UUID | Hayır | FK | Sahibi olan düzeltme talebi. |
-| `original_filename` | VARCHAR | Hayır | Boş olamaz | Kullanıcının dosya adı. |
-| `storage_key` | VARCHAR | Hayır | UNIQUE | Depolama sağlayıcısındaki anahtar/ad. |
-| `content_type` | VARCHAR | Hayır | Fotoğraf policy TBD | MIME türü. |
-| `size_bytes` | BIGINT | Hayır | `> 0` | Dosya boyutu. |
-| `checksum` | VARCHAR | Evet | — | Bütünlük/duplicate tespiti için önerilir. |
-| `uploaded_by_user_id` | Auth user PK tipi | Hayır | FK | Yükleyen kullanıcı. |
-| `uploaded_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Yükleme zamanı. |
+| `original_filename` | VARCHAR | Hayır | Boş olamaz | Kullanıcı dosya adının path-stripped snapshot'ı. |
+| `storage_key` | VARCHAR | Hayır | UNIQUE | Private storage anahtarı (`corrections/evidence/<uuid>.<ext>`). |
+| `content_type` | VARCHAR | Hayır | `image/jpeg`, `image/png`, `image/webp` | Tespit edilen MIME türü. |
+| `size_bytes` | BIGINT | Hayır | `> 0`, ≤ 10 MiB (service) | Dosya boyutu. |
+| `sha256` | CHAR(64) | Hayır | hex digest | İçerik SHA-256. |
+| `uploaded_by_id` | Auth user PK tipi | Hayır | FK | Yükleyen kullanıcı. |
+| `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Yükleme zamanı. |
 
 - **Primary Key:** `id`
-- **Foreign Keys:** `correction_request_id → correction_requests.id`; `uploaded_by_user_id → auth user`; delete restricted.
+- **Foreign Keys:** `correction_request_id → correction_requests.id`; `uploaded_by_id → auth user`; delete restricted.
 - **Unique Constraints:** `storage_key`.
-- **Check Constraints:** `size_bytes > 0`.
-- **Recommended Indexes:** `correction_request_id`, `uploaded_by_user_id`, opsiyonel `checksum`.
-- **Delete Policy:** Submitted request sonrası retention kararı verilene kadar `NO HARD DELETE`.
-- **Notes / TBD:** V1 için doğrudan FK, generic polymorphic attachment'tan daha basit ve güvenlidir. Metadata model ownership `corrections` app'indedir; binary handling `core` storage abstraction'ı üzerinden yürür, ayrı attachments app gerekmez. Import kaynak dosyası kendi batch metadata'sında tutulur. Sensitive evidence public `MEDIA_URL` ile değil permission/object-checked application path ile servis edilir. Fotoğraf formatı, boyut sınırı, güncellik ve retention TBD'dir.
+- **Check Constraints:** `size_bytes > 0`; supported content types; SHA-256 hex; safe storage key prefix.
+- **Recommended Indexes:** `correction_request_id, created_at`.
+- **Delete Policy:** `IMMUTABLE / NO HARD DELETE`. Ordinary UPDATE/DELETE PostgreSQL guard ile kesilir. V1 otomatik retention silme yoktur.
+- **Notes:** Metadata ownership `corrections`; binary `core.storage` private filesystem (MEDIA_URL dışında). Sensitive evidence public `MEDIA_URL` ile değil `/corrections/evidence/<uuid>/` authenticated path ile servis edilir. Yeni request için en az bir satır service katmanında zorunludur; historical pre-Phase-5.5 `CorrectionRequest` satırları evidence'siz kalabilir. HEIC/HEIF/GIF/SVG/PDF reddedilir. File-before-DB (`DEC-018`); DB rollback orphan file bırakabilir, V1 otomatik cleanup yoktur.
 
 ## 13. Physical Count Tabloları
 
@@ -707,7 +707,7 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `employees` | `issue_contexts` | 1 : 0..N | Receiver UUID referansı; snapshot zorunlu (`DEC-024`). |
 | `production_lines` | `issue_contexts` | 1 : 0..N | Hat UUID referansı; code/name snapshot zorunlu (`DEC-025`). |
 | `inventory_transactions` | `correction_requests` | 1 : 0..N | `DEC-030`: aynı original transaction için eşzamanlı en fazla bir `PENDING` talep; terminal sonrası yeni talep açılabilir. |
-| `correction_requests` | `attachments` | 1 : 0..N | `DEC-031`: fotoğraf/kanıt Phase 5.2 first slice'dan bilinçli olarak deferred; gelecekteki kanıt zorunluluğu açık karara bağlı kalır. |
+| `correction_requests` | `correction_evidence` | 1 : 0..N | `DEC-034`: yeni talep için service `1..N` zorunlu; historical satırlar `0..N`. |
 | `correction_requests` | result transaction | 1 : 0..1 | `DEC-030` downstream-owned one-to-one association; APPROVED ise zorunlu. Ledger reverse FK taşımaz. |
 | `physical_count_sessions` | quantity lines | 1 : 0..N | Oturum en az bir quantity veya asset satırına sahip olmalı. |
 | `physical_count_sessions` | asset lines | 1 : 0..N | Uzmanlaşmış serialized sayım satırı. |
@@ -815,7 +815,7 @@ Broader RETURN ve controlled correction semantics kesinleşmeden DB'ye ek zorunl
 | `stock_balances` | SYSTEM-REBUILDABLE | Projection; kullanıcı düzenleme/silme yetkisi yok. |
 | `issue_contexts` | IMMUTABLE / NO DELETE | Tarihsel alıcı ve kullanım snapshot'ı. |
 | `correction_requests` | NO HARD DELETE AFTER SUBMISSION | Talep ve karar izi korunur. |
-| `attachments` | RETENTION TBD / NO DELETE UNTIL POLICY | Kanıt fotoğrafı. |
+| `correction_evidence` | IMMUTABLE / NO HARD DELETE | Kanıt fotoğrafı metadata'sı; V1 otomatik silme yok (`DEC-034`). |
 | `physical_count_sessions` | RETAIN / NO HARD DELETE | Mutabakat kanıtı. |
 | `physical_count_quantity_lines` | RETAIN / NO HARD DELETE | Sayım snapshot ve fark izi. |
 | `physical_count_asset_lines` | RETAIN / NO HARD DELETE | Tekil sayım izi. |
@@ -991,7 +991,7 @@ erDiagram
     LOCATION o|--o{ INVENTORY_TRANSACTION_LINE : target
     INVENTORY_TRANSACTION ||--o| ISSUE_CONTEXT : issue_details
     INVENTORY_TRANSACTION ||--o{ CORRECTION_REQUEST : corrected_by
-    CORRECTION_REQUEST ||--o{ ATTACHMENT : evidenced_by
+    CORRECTION_REQUEST ||--o{ CORRECTION_EVIDENCE : evidenced_by
     PHYSICAL_COUNT_SESSION ||--o{ PHYSICAL_COUNT_QUANTITY_LINE : counts
     PHYSICAL_COUNT_SESSION ||--o{ PHYSICAL_COUNT_ASSET_LINE : counts
     IMPORT_BATCH ||--|{ IMPORT_ROW : stages

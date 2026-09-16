@@ -3,6 +3,7 @@ from decimal import Decimal
 import pytest
 from django.urls import reverse
 
+from corrections.conftest import jpeg_upload
 from corrections.models import CorrectionRequest
 from corrections.test_services import make_request
 from corrections.services import approve_correction_request
@@ -35,6 +36,7 @@ def test_request_entry_from_transaction_detail_and_creation(client, correction_o
             "effect_type": "QUANTITY",
             "quantity_effect": "-2.000",
             "explanation": "Yanlış miktar iki adet fazla",
+            "evidence": jpeg_upload(),
         },
     )
     request_record = CorrectionRequest.objects.get()

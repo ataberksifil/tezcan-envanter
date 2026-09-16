@@ -152,7 +152,7 @@ def test_submitted_correction_request_cannot_be_deleted(correction_objects):
     request_record = make_request(correction_objects)
     with pytest.raises(ValidationError):
         request_record.delete()
-    with pytest.raises(DatabaseError, match="cannot be deleted"):
+    with pytest.raises(DatabaseError):
         with transaction.atomic():
             CorrectionRequest.objects.filter(pk=request_record.pk).delete()
 

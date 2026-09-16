@@ -150,7 +150,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | COR-002 | CONFIRMED | İşlemi yapan veya hatayı tespit eden yetkili kullanıcı düzeltme talebi oluşturabilmelidir. | Talep hakkı yalnızca ilk işlemi yapan kişiyle sınırlı değildir. |
 | COR-003 | CONFIRMED | Düzeltme talebi, talebi oluşturan kullanıcıyı içermelidir. | İstek sahibi kimliği olmadan talep oluşturulamamalıdır. |
 | COR-004 | CONFIRMED | Düzeltme talebi açıklama içermelidir. | Boş açıklamayla talep oluşturulamamalıdır. |
-| COR-005 | CONFIRMED, DEFERRED FOR FIRST SLICE | Düzeltme talebi için güncel supporting photo gelecekteki sözleşmede korunur; `DEC-031` ilk quantity controlled-correction dilimini bu alandan muaf tutar. | İlk dilimde upload/evidence modeli yoktur; sonraki evidence fazı gereksinimi yeniden ele almalıdır. |
+| COR-005 | DECIDED | Yeni `CorrectionRequest` en az bir destekleyici fotoğraf olmadan geçerli `PENDING` talep olamaz (`DEC-034`). Phase 5.5 öncesi historical kayıtlar grandfathered'dır. | `DEC-031` Phase 5.2 deferral'ını kapatır; serialized correction deferred kalır. |
 | COR-006 | CONFIRMED | Düzeltme talebi Yönetici/Müdür kararı olmadan stok üzerinde onaylanmış düzeltme etkisi oluşturamaz. | Bekleyen talep stok geçmişini kendiliğinden değiştiremez. |
 | COR-007 | CONFIRMED | Yönetici/Müdür düzeltme talebini onaylayabilir veya reddedebilir. | Teknisyen ve ayrıca yetkilendirilmemiş Depo Görevlisi karar veremez. |
 | COR-008 | CONFIRMED | Düzeltme kararında onaylayan veya reddeden kullanıcı ile karar zamanı kaydedilmelidir. | Kararın sahibi ve zamanı denetlenebilmelidir. |
@@ -158,7 +158,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | COR-010 | PROPOSED | Reddedilen düzeltme talebi için ret gerekçesi zorunlu olmalıdır. | Ürün belgesi ret gerekçesini zorunlu kılmamaktadır; iş birimi onayı gereklidir. |
 | COR-011 | DECIDED FOR QUANTITY FIRST SLICE | `DEC-030`: Düzeltme original line'ı değiştirmez; signed one-line quantity effect veya two-line identity restatement ile `CONTROLLED_CORRECTION` ledger ekler. Partial/repeated mümkündür; current stock lock altında doğrulanır. | Serialized/non-stock correction deferred kalır. |
 | COR-012 | DECIDED | Requester kendi talebini approve/reject edemez. Status yalnız `PENDING`, `APPROVED`, `REJECTED`; terminal request yeniden açılmaz, daha sonra yeni request oluşturulabilir. | Pilot öncesi en az iki approval-capable user gerekir. |
-| COR-013 | TBD DEPENDENCY, DEFERRED | Fotoğrafın “güncel” sayılma ölçütü, HEIC/device formatları, dosya koşulları ve saklama süresi belirlenmemiştir. Gelecekte correction-view-authorized kullanıcı visibility'si ve authenticated retrieval uygulanır. | `DEC-031`: ilk quantity diliminde evidence uygulanmaz; gereksinim silinmez. |
+| COR-013 | DECIDED FOR V1 | `DEC-034`: kabul edilen biçimler JPEG/PNG/WebP; HEIC/HEIF V1'de desteksiz (dönüştürme yok); dosya başına 10 MiB; create-time mandatory; otomatik silme yok; onay/ret kanıtı korunur; visibility `corrections.view_correctionrequest`; public `MEDIA_URL` yok. | Uzun dönem archive/silme süresi `DEC-OPEN-018` açık kalır. |
 
 ## 12. Kullanıcı ve Yetki Kuralları
 
@@ -298,7 +298,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | OD-015 | Eksik karar | Aktif stok/hareket geçmişi bulunan malzemenin takip modu değiştirilebilir mi bilinmiyor. | Değişiklik koşulu kesinleştirilemez. |
 | OD-016 | Kararlı | İçinde stok bulunan lokasyonun pasifleştirme/silme süreci `DEC-023` ile kararlıdır. Hard delete yoktur. Non-zero stock pasifleştirilemez ve `can_hold_stock` True→False yapılamaz. Inventory entegrasyonu aynı kuralı otoritatif uygular. | Geçmiş referans korunur; mevcut stok sahipsiz kalmaz. |
 | OD-017 | Eksik karar | Düzeltme talep eden ile karar veren aynı kişi olabilir mi; iptal/yeniden gönderim nasıl işler bilinmiyor. | Görev ayrılığı varsayılmaz. |
-| OD-018 | Eksik karar | Düzeltme fotoğrafının güncellik, biçim/HEIC, boyut ve saklama koşulları bilinmiyor. | `DEC-031` ilk dilim deferral'ı; gelecekte authenticated correction-view visibility korunur. |
+| OD-018 | Kararlı (V1) | `DEC-034`: JPEG/PNG/WebP, HEIC/HEIF yok, 10 MiB/dosya, create-time mandatory evidence, no auto-delete, protected retrieval. | Uzun dönem retention/silme `DEC-OPEN-018` açık kalır. |
 | OD-019 | Eksik karar | Rapor hafta sınırları, kullanım tanımı, azalış hesabı, filtre ve gruplamalar bilinmiyor. | Rapor türleri zorunlu, hesap ayrıntıları TBD'dir. |
 | OD-020 | Eksik karar | Excel dosya yapısı, eşlemeler, temizleme ve hata çözüm süreci bilinmiyor. | Kaynak dosya analizi gereklidir. |
 | OD-021 | Eksik karar | QR/barkod yükü, standardı ve yazıcı/etiket entegrasyonu bilinmiyor. | Benzersiz nesne çözümleme kuralı korunur. |

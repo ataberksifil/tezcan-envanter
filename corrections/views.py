@@ -1,13 +1,14 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import Http404
-from django.shortcuts import redirect, render
+from django.http import FileResponse, Http404
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import DetailView, ListView
 
+from core.storage import open_private_file, private_file_exists
 from corrections.forms import CorrectionRejectionForm, CorrectionRequestForm
-from corrections.models import CorrectionRequest
+from corrections.models import CorrectionEvidence, CorrectionRequest
 from corrections.services import (
     approve_correction_request,
     create_correction_request,
@@ -63,7 +64,9 @@ class CorrectionRequestCreateView(
     def post(self, request, transaction_pk):
         transaction_record = self._transaction(transaction_pk)
         form = CorrectionRequestForm(
-            request.POST, original_transaction=transaction_record
+            request.POST,
+            request.FILES,
+            original_transaction=transaction_record,
         )
         if not form.is_valid():
             return self._render(request, transaction_record, form)
@@ -76,6 +79,7 @@ class CorrectionRequestCreateView(
                 explanation=form.cleaned_data["explanation"],
                 effect_type=form.cleaned_data["effect_type"],
                 quantity_effect=form.cleaned_data["quantity_effect"],
+                evidence_files=form.cleaned_data["evidence"],
                 corrected_material_id=(
                     form.cleaned_data["corrected_material"].pk
                     if form.cleaned_data.get("corrected_material")
@@ -149,7 +153,7 @@ class CorrectionRequestDetailView(
             "corrected_material__unit",
             "corrected_location",
             "corrected_condition",
-        )
+        ).prefetch_related("evidence")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -200,3 +204,23 @@ class CorrectionRejectView(LoginRequiredMixin, PermissionRequiredMixin, View):
             return redirect("corrections:request-detail", pk=pk)
         messages.success(request, "Düzeltme talebi reddedildi.")
         return redirect("corrections:request-detail", pk=pk)
+
+
+class CorrectionEvidenceView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "corrections.view_correctionrequest"
+    http_method_names = ["get"]
+
+    def get(self, request, pk):
+        evidence = get_object_or_404(CorrectionEvidence, pk=pk)
+        if not private_file_exists(evidence.storage_key):
+            raise Http404("Kanıt dosyası bulunamadı.")
+        handle = open_private_file(evidence.storage_key)
+        response = FileResponse(
+            handle,
+            as_attachment=False,
+            filename=evidence.original_filename,
+            content_type=evidence.content_type,
+        )
+        response["Content-Length"] = str(evidence.size_bytes)
+        response["X-Content-Type-Options"] = "nosniff"
+        return response

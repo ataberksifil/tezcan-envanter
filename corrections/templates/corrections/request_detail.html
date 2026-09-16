@@ -25,6 +25,23 @@
     {% if correction_request.rejection_reason %}<dt class="col-sm-3">Ret gerekçesi</dt><dd class="col-sm-9">{{ correction_request.rejection_reason }}</dd>{% endif %}
     <dt class="col-sm-3">Sonuç işlemi</dt><dd class="col-sm-9">{% if correction_request.resulting_transaction %}<a href="{% url 'inventory:transaction-history-detail' correction_request.resulting_transaction_id %}">{{ correction_request.resulting_transaction_id }}</a>{% else %}—{% endif %}</dd>
 </dl>
+<section class="mb-4">
+    <h2 class="h5">Kanıt fotoğrafları</h2>
+    {% with evidence_items=correction_request.evidence.all %}
+        {% if evidence_items %}
+            <ul class="list-unstyled">
+                {% for item in evidence_items %}
+                    <li class="mb-2">
+                        <a href="{% url 'corrections:evidence-download' item.pk %}">{{ item.original_filename }}</a>
+                        <span class="text-body-secondary">({{ item.content_type }}, {{ item.size_bytes }} bayt)</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-body-secondary mb-0">Bu talepte kayıtlı kanıt fotoğrafı yoktur.</p>
+        {% endif %}
+    {% endwith %}
+</section>
 {% if correction_request.status == "PENDING" and perms.corrections.decide_correctionrequest %}
     {% if correction_request.requester_id == user.id %}
         <div class="alert alert-warning">Kendi talebinizde karar veremezsiniz.</div>

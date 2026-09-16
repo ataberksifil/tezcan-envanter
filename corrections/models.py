@@ -167,3 +167,65 @@ class CorrectionRequest(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValidationError("Düzeltme talebi silinemez.")
+
+
+class CorrectionEvidence(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    correction_request = models.ForeignKey(
+        CorrectionRequest,
+        on_delete=models.RESTRICT,
+        related_name="evidence",
+    )
+    storage_key = models.CharField(max_length=255, unique=True)
+    original_filename = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=64)
+    size_bytes = models.PositiveBigIntegerField()
+    sha256 = models.CharField(max_length=64)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.RESTRICT,
+        related_name="uploaded_correction_evidence",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        default_permissions = ()
+        ordering = ("created_at", "id")
+        indexes = [
+            models.Index(
+                fields=["correction_request", "created_at"],
+                name="correction_evidence_req_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(size_bytes__gt=0),
+                name="correction_evidence_size_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    content_type__in=["image/jpeg", "image/png", "image/webp"]
+                ),
+                name="correction_evidence_content_type_supported",
+            ),
+            models.CheckConstraint(
+                condition=Q(sha256__regex=r"^[0-9a-f]{64}$"),
+                name="correction_evidence_sha256_hex",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(storage_key__startswith="corrections/evidence/")
+                    & ~Q(storage_key__contains="..")
+                    & ~Q(storage_key__contains="\\")
+                ),
+                name="correction_evidence_storage_key_safe",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Düzeltme kanıtı değiştirilemez.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Düzeltme kanıtı silinemez.")

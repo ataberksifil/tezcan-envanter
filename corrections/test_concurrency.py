@@ -12,6 +12,7 @@ from django.test import TransactionTestCase
 from accounts.models import Employee
 from audit.models import AuditEvent
 from catalog.models import Category, Material, MaterialCondition, UnitOfMeasure
+from corrections.conftest import jpeg_upload
 from corrections.models import CorrectionRequest
 from corrections.services import approve_correction_request, create_correction_request
 from inventory.models import InventoryTransaction, ProductionLine, StockBalance
@@ -100,6 +101,7 @@ class ControlledCorrectionConcurrencyTests(TransactionTestCase):
                     counting_physicalcountquantityline,
                     counting_physicalcountsession,
                     audit_auditevent,
+                    corrections_correctionevidence,
                     corrections_correctionrequest,
                     inventory_issuecontext,
                     inventory_inventorytransactionline,
@@ -127,6 +129,7 @@ class ControlledCorrectionConcurrencyTests(TransactionTestCase):
             explanation="Concurrent correction request",
             effect_type="QUANTITY",
             quantity_effect=quantity,
+            evidence_files=[jpeg_upload()],
         )
 
     @staticmethod

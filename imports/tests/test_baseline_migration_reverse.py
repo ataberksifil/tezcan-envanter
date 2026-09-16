@@ -93,6 +93,7 @@ class BaselineMigrationReverseTests(TransactionTestCase):
                     counting_physicalcountquantityrejection,
                     counting_physicalcountquantityline,
                     counting_physicalcountsession,
+                    corrections_correctionevidence,
                     corrections_correctionrequest,
                     inventory_issuecontext,
                     inventory_inventorytransactionline,

@@ -306,7 +306,7 @@ Employee master değişse bile receiver snapshot okunabilir kalır. Normal kulla
 
 Status yalnız `PENDING`, `APPROVED`, `REJECTED`dır; bir original transaction için aynı anda en fazla bir `PENDING` request vardır. Açıklama trim edilmiş 10..2000 karakterdir. Rejection reason yalnız **PROPOSED**'dır; mandatory yapma.
 
-`DEC-031`: supporting photo/evidence ilk Phase 5.2 quantity diliminden bilinçli olarak deferred'dır. Upload/model/storage/HEIC/retention/retrieval şimdi uygulanmaz. Gelecekte correction-view yetkili kullanıcı visibility'si, authenticated object-level retrieval ve `DEC-OPEN-013`/`018` kararları korunur.
+`DEC-031` Phase 5.2 first slice'ta evidence'ı erteledi. `DEC-034` (Phase 5.5) V1 quantity controlled correction evidence kapanışını uygular: yeni `CorrectionRequest` en az bir JPEG/PNG/WebP kanıt fotoğrafı olmadan `PENDING` olamaz; HEIC/HEIF desteklenmez ve dönüştürülmez; dosya başına en fazla 10 MiB; otomatik retention silme yoktur; onaylanan ve reddedilen kanıt korunur; Phase 5.5 öncesi historical request'ler grandfathered'dır; görünürlük `corrections.view_correctionrequest` ile authenticated application path üzerinden sağlanır; public `MEDIA_URL` kanıt erişim yolu değildir. Serialized correction deferred kalır.
 
 ## 15. Physical Count, Import ve Baseline
 
@@ -395,18 +395,19 @@ Master data kontrollü admin ekranlarıyla yönetilebilir. Admin action/save sto
 
 Correction photo:
 
-- metadata DB'de
-- binary Django storage abstraction ile
-- type/content/size validation
-- randomized internal storage key
-- user-controlled filesystem path yok
+- metadata DB'de (`corrections.CorrectionEvidence`)
+- binary Django storage abstraction (`core.storage` private filesystem) ile
+- type/content/size validation (JPEG/PNG/WebP; HEIC/HEIF reddedilir)
+- randomized internal storage key (`corrections/evidence/<uuid>.<ext>`)
+- kullanıcı-controlled filesystem path yok
 - executable upload yok
-- sensitive evidence için public `MEDIA_URL` değil authenticated, object-level permission-checked application path
-- media backup kapsamına dahil
+- sensitive evidence için public `MEDIA_URL` değil authenticated, permission-checked application path (`/corrections/evidence/<uuid>/`)
+- media/private-media backup kapsamına dahil
+- V1'de otomatik silme yoktur; onaylanan ve reddedilen kanıt historical record ile tutulur
 
-Büyük image binary'sini PostgreSQL'e koyma. Retention **TBD**'dir.
+Büyük image binary'sini PostgreSQL'e koyma. V1 retention: no automatic deletion; future archive/deletion yalnız explicit policy/migration ile değişir (`DEC-034`; uzun dönem saklama süresi `DEC-OPEN-018`).
 
-File/DB commit sırası: validate/upload → persistent storage'da finalize → DB metadata/reference commit. DB rollback orphan file bırakabilir; reconciliation/cleanup bunu yönetir. Committed DB row'un hiç oluşmamış file'a işaret ettiği ters sırayı kullanma.
+File/DB commit sırası: validate/upload → persistent storage'da finalize → DB metadata/reference commit. DB rollback orphan file bırakabilir; V1'de otomatik cleanup worker yoktur. Committed DB row'un hiç oluşmamış file'a işaret ettiği ters sırayı kullanma.
 
 QR yalnız `Material`, `SerializedAsset` veya `Location`a çözülür. Scan authentication, permission veya inventory validation'ı bypass edemez. Unknown/invalid QR state değiştirmez ve anlaşılır hata verir. Payload formatı **TBD**'dir; vendor lock-in oluşturma.
 
