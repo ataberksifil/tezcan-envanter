@@ -93,6 +93,8 @@ Kararlar ve açık hard gate'ler [docs/06-DECISION-REGISTER.md](docs/06-DECISION
 | [docs/04-USER-FLOWS.md](docs/04-USER-FLOWS.md) | Operasyonel kullanıcı akışları ve yetki beklentileri |
 | [docs/05-ARCHITECTURE.md](docs/05-ARCHITECTURE.md) | Üretim odaklı teknik mimari ve modül sınırları |
 | [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) | Karar durumları, hard gate'ler ve Gate 0 audit disposition'ları |
+| [docs/PROJECT-SNAPSHOT.md](docs/PROJECT-SNAPSHOT.md) | Güncel proje snapshot (HEAD, faz durumu, kalan kapsam) |
+| [docs/DEMO-ENVIRONMENT.md](docs/DEMO-ENVIRONMENT.md) | Boss demo ortamı kurulumu ve walkthrough |
 
 ## Geliştirme ve Test Kurulumu
 
@@ -136,9 +138,13 @@ PostgreSQL kimlik bilgileri process ortamında hazır olduktan sonra:
 ```bash
 python manage.py migrate
 python manage.py setup_roles
+python manage.py seed_demo_environment   # isteğe bağlı boss demo verisi
+python manage.py runserver
 ```
 
 `setup_roles` eksik varsayılan rolleri (`TECHNICIAN`, `STOREKEEPER`, `ADMIN_MANAGER`) başlangıç catalog permission şablonlarıyla bootstrap eder. Mevcut roller ve yönetici permission değişiklikleri korunur; komut zaten var olan gruplarda permission ekleme/çıkarma/reconcile yapmaz. Deployment/bootstrap provisioning'dir ve `AuditEvent` satırı yazmaz.
+
+Boss demo ortamı ayrıntıları için bkz. [docs/DEMO-ENVIRONMENT.md](docs/DEMO-ENVIRONMENT.md). Güncel proje durumu için bkz. [docs/PROJECT-SNAPSHOT.md](docs/PROJECT-SNAPSHOT.md).
 
 ## Geliştirme İş Akışı
 
@@ -216,7 +222,7 @@ Broader TRANSFER senaryoları deferred: serialized, condition-changing, multi-so
 
 **Son doğrulanmış test suite:** 1568 passed
 
-**Managed permission count:** 23
+**Managed permission count:** 28
 
 **Gate 3:** PASS (2026-09-12; audited HEAD `4cf89525`; bkz. [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) §4.5). Tarihsel kapsam: Phase 3 (Location, Employee, ProductionLine) ve quantity-only RECEIPT slice (4.0A–4.1). Phase 4.2 ISSUE, Phase 4.3 history, Phase 4.4 RETURN first slice ve Phase 4.5 quantity TRANSFER first slice sonradan implement edilmiştir; Gate 3 bunları audit etmemiştir. Serialized inventory, correction ve count/baseline sonradan Phase 5.3–5.4D-B backend dilimlerinde implement edilmiştir; Gate 3 bunları audit etmemiştir. Count/baseline UI ve sonraki fazlar başlamamıştır.
 

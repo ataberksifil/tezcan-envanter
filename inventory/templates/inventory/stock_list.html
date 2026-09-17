@@ -74,7 +74,7 @@
                             <a href="{% url 'catalog:material-detail' balance.material.pk %}">{{ balance.material.name }}</a>
                         </td>
                         <td>
-                            <span title="{{ balance.location.id }}">{{ balance.location.code }} ({{ balance.location.name }})</span>
+                            <span title="{{ balance.location.id }}">{{ balance.location.code }}</span>
                         </td>
                         <td>{{ balance.condition.name }}</td>
                         <td class="text-nowrap">{{ balance.quantity }}</td>

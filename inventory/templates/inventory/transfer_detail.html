@@ -46,18 +46,18 @@
     <dt class="col-sm-3">Kaynak konum</dt>
     <dd class="col-sm-9">
         {% if perms.locations.view_location %}
-            <a href="{% url 'locations:location-detail' line.source_location.pk %}">{{ line.source_location.code }} ({{ line.source_location.name }})</a>
+            <a href="{% url 'locations:location-detail' line.source_location.pk %}">{{ line.source_location.code }}</a>
         {% else %}
-            {{ line.source_location.code }} ({{ line.source_location.name }})
+            {{ line.source_location.code }}
         {% endif %}
     </dd>
 
     <dt class="col-sm-3">Hedef konum</dt>
     <dd class="col-sm-9">
         {% if perms.locations.view_location %}
-            <a href="{% url 'locations:location-detail' line.target_location.pk %}">{{ line.target_location.code }} ({{ line.target_location.name }})</a>
+            <a href="{% url 'locations:location-detail' line.target_location.pk %}">{{ line.target_location.code }}</a>
         {% else %}
-            {{ line.target_location.code }} ({{ line.target_location.name }})
+            {{ line.target_location.code }}
         {% endif %}
     </dd>
 </dl>

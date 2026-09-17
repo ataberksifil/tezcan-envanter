@@ -22,10 +22,9 @@ from locations.models import Location
 
 
 def production_line_choice_label(production_line: ProductionLine) -> str:
-    parts = [production_line.code, f"({production_line.name})"]
+    parts = [production_line.code]
     if not production_line.active:
         parts.append("[Pasif]")
-    parts.append(f"— {production_line.pk}")
     return " ".join(parts)
 
 
@@ -58,10 +57,9 @@ def condition_choice_label(condition: MaterialCondition) -> str:
 
 
 def stock_location_choice_label(location: Location) -> str:
-    parts = [location.code, f"({location.name})"]
+    parts = [location.code]
     if not location.active:
         parts.append("[Pasif]")
-    parts.append(f"— {location.pk}")
     return " ".join(parts)
 
 
