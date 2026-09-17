@@ -224,9 +224,9 @@ Broader TRANSFER senaryoları deferred: serialized, condition-changing, multi-so
 
 **Phase 5.7:** State-aware normal Django web workflow/UI entegrasyonu commit `22c29deacb9247b3921a6f36a802ebe63ad9c341` üzerinde tamamlanmıştır. Kanonik tekil varlık detayı yalnız geçerli state + permission aksiyonlarını gösterir; quantity/unit veya condition transformation yüzeyi yoktur.
 
-**Phase 5.8:** `DEC-036` Machine-Readable Identification & Scanning katmanı uygulanmış ve review için uncommitted bırakılmıştır; henüz COMPLETE işaretlenmemiştir. Compact `TZ1M|A|L:<22-char-base64url-uuid>` payload, Code128 standart 100 mm-sınıfı etiket, kompakt QR, USB HID/klavye-wedge, yerel kamera tarayıcı, manuel fallback ve mevcut state-aware movement aksiyonlarına güvenli navigation sağlar; şema/migration ve scan mutation engine yoktur.
+**Phase 5.8:** `DEC-036` Machine-Readable Identification & Scanning katmanı COMPLETE at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`). Canonical payload `TZ1M:<22-char-base64url-uuid>`, `TZ1A:<22-char-base64url-uuid>`, `TZ1L:<22-char-base64url-uuid>`; Code128 standart 100 mm-sınıfı etiket / kompakt QR committed; USB HID/klavye-wedge, yerel kamera tarayıcı, manuel fallback ve mevcut state-aware movement aksiyonlarına güvenli navigation; şema/migration ve scan mutation engine yoktur.
 
-**Son doğrulanmış test suite:** 1746 passed (Phase 5.8 uncommitted working tree; reused test DB MaterialCondition seeds restored via committed `0004_seed_material_conditions`)
+**Son doğrulanmış test suite:** 1746 passed (Phase 5.8 committed at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0`; reused test DB MaterialCondition seeds restored via committed `0004_seed_material_conditions`)
 
 **Managed permission count:** 28
 

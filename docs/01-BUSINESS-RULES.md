@@ -310,7 +310,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | OD-026 | Kısmen kararlı | Rol atama/onay süreci Phase 2 için `DEC-022` ile kararlıdır. Kullanıcı–Employee ilişkisi `DEC-024` ile kararlıdır: nullable one-to-one, ownership Employee, delete `SET_NULL`; sicil string/global unique/editable. | Employee foundation implementation Phase 3.2 COMPLETE; retention pilot öncesi kararları açık kalır. |
 | OD-027 | Eksik karar | Kondisyon değişikliğinin kendisinin hangi kayıtlı iş olayıyla yapılacağı bilinmiyor. | Kondisyon sessizce değiştirilemez; olay türü varsayılmaz. |
 | OD-028 | Eksik karar | Nicel stok doğruluğu hedefi ve kabul edilebilir sapma yaklaşımı bilinmiyor. | Fiziksel bulunabilirlik temel başarı yönüdür. |
-| OD-029 | Kararlı | Phase 5.8 Machine-Readable Identification `DEC-036` ile V1 yazılım teslimini tanımlar; review/commit öncesi COMPLETE işaretlenmez. | Yazıcı sürücüsü/SDK V1 dışıdır. |
+| OD-029 | Kararlı | Phase 5.8 Machine-Readable Identification `DEC-036` COMPLETE at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`). Canonical payload `TZ1M:<22-char-base64url-uuid>`, `TZ1A:<22-char-base64url-uuid>`, `TZ1L:<22-char-base64url-uuid>`; Code128 standart / QR kompakt committed. | Yazıcı sürücüsü/SDK V1 dışıdır. |
 
 Doğrudan çözülemez bir çelişki tespit edilmemiştir. QR/barkod yazılım kimlik politikası `DEC-036` ile kapanmıştır.
 

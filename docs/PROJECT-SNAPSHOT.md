@@ -5,13 +5,13 @@
 **Canonical inventory base:** `22c29deacb9247b3921a6f36a802ebe63ad9c341` (`feat: add serialized movement workflows`)
 **Phase 5.6 backend:** implemented/committed (`DEC-035`)
 **Phase 5.7 web workflows:** implemented/committed at `22c29de`
-**Phase 5.8 identification:** implemented in working tree under `DEC-036`, uncommitted pending review; not COMPLETE
+**Phase 5.8 identification:** COMPLETE at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`, `DEC-036`)
 
 ---
 
 ## 1. Özet
 
-Modüler monolit Django 5.2 envanter sistemi; quantity envanter hareketleri, kontrollü düzeltme (kanıtlı), serialized RECEIVE, fiziksel sayım + combined baseline backend ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER akışları mevcuttur. Phase 5.7 state-aware normal Django web workflow'larını tamamlamıştır. Phase 5.8 carrier-neutral Machine-Readable Identification (Code128 standart 100 mm-sınıfı etiket, kompakt QR, compact `TZ1M|A|L:<22-char-base64url-uuid>` payload, USB HID + kamera tarama, tek resolver) katmanını eklemiştir; çalışma ağacı review için uncommitted bırakılmış ve faz henüz COMPLETE işaretlenmemiştir.
+Modüler monolit Django 5.2 envanter sistemi; quantity envanter hareketleri, kontrollü düzeltme (kanıtlı), serialized RECEIVE, fiziksel sayım + combined baseline backend ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER akışları mevcuttur. Phase 5.7 state-aware normal Django web workflow'larını tamamlamıştır. Phase 5.8 carrier-neutral Machine-Readable Identification (Code128 standart 100 mm-sınıfı etiket, kompakt QR, canonical `TZ1M:<22-char-base64url-uuid>` / `TZ1A:<22-char-base64url-uuid>` / `TZ1L:<22-char-base64url-uuid>` payload, USB HID + kamera tarama, tek resolver) katmanı commit `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`) üzerinde COMPLETE'tir.
 
 **Son doğrulanmış full suite:** 1746 passed
 **Collected test count:** 1746
@@ -84,25 +84,25 @@ Aşağıdaki sayılar **git object `5ec22eefc3cb80a355ce32d88170feef174d8a35`** 
 | **Phase 5.5** | **COMPLETE** — correction evidence (`DEC-034`) |
 | Phase 5.6 | Backend implemented/committed at `1947b8a` — serialized ISSUE / linked unused RETURN / in-stock TRANSFER (`DEC-035`) |
 | Phase 5.7 | Web workflows committed at `22c29de` |
-| Phase 5.8 | Machine-Readable Identification implemented in uncommitted working tree; pending review, not COMPLETE |
+| Phase 5.8 | **COMPLETE** — Code128 + QR machine-readable identification (`DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` |
 | Gate 3 | PASS (tarihsel; qty RECEIPT scope) |
 
 ---
 
-## 4. Phase 5.8 — Review Bekleyen Kapsam
+## 4. Phase 5.8 — Tamamlanan Kapsam
 
 | Özellik | Durum |
 |---|---|
-| Canonical payload | `TZ1M\|A\|L:<22-char-base64url-uuid>`; carrier-independent; UUID authoritative; no DB persistence |
-| Standard label | Code128 SVG + human-readable identity; default workshop profile |
-| Compact label | QR PNG + human-readable identity; small labels / phone camera |
+| Canonical payload | `TZ1M:<22-char-base64url-uuid>`, `TZ1A:<22-char-base64url-uuid>`, `TZ1L:<22-char-base64url-uuid>`; carrier-independent; UUID authoritative; no DB persistence |
+| Standard label | Code128 SVG + human-readable identity; default workshop profile; committed |
+| Compact label | QR PNG + human-readable identity; small labels / phone camera; committed |
 | Scanner / resolver | Local ZXing multi-format camera (Code128 + QR) + USB HID/manual field; one authenticated POST resolver |
 | Canonical navigation | Material, SerializedAsset ve Location detail; inactive records remain visible to authorized users |
 | Quick actions | Existing Phase 5.7 asset ISSUE/RETURN/TRANSFER surfaces; no scanner mutation |
 | Schema/kernel changes | None; existing inventory services remain authoritative |
 | V1 exclusions | DataMatrix, RFID/NFC, printer driver, stored barcode token |
 
-Review/commit öncesi bu kapsam `COMPLETE` değildir.
+Phase 5.8 / `DEC-036` COMPLETE at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`).
 
 ## 4A. Phase 5.5 — Tamamlanan Kapsam
 
@@ -118,12 +118,11 @@ Review/commit öncesi bu kapsam `COMPLETE` değildir.
 
 ## 5. Kalan Backend İşi
 
-Correction evidence closure ve Phase 5.6 serialized movement backend'i uygulanmıştır; kalan ürün işi:
+Correction evidence closure, Phase 5.6 serialized movement backend ve Phase 5.8 identification uygulanmıştır; kalan ürün işi:
 
 - Serialized correction
 - Real Excel import workflow (UI)
 - Reporting
-- Identification review/commit (Phase 5.8 dirty tree; not COMPLETE)
 - Count / baseline UI + remaining polish
 
 ---

@@ -530,8 +530,8 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   8. **No mutation / no read audit:** Scan, render ve print `InventoryTransaction`, line, `StockBalance`, `SerializedAsset` current state, `IssueContext`, count/baseline state değiştirmez. Yalnız etiket tarama/yazdırma için `AuditEvent` üretilmez.
   9. **No DataMatrix:** V1 carrier seti Code128 + QR'dır. DataMatrix, RFID/NFC ve native app yoktur.
   10. **Print path:** V1 yazdırma tarayıcı HTML/CSS print'tir. Yazıcı sürücüsü/SDK entegrasyonu V1 dışıdır. Compact payload Code128 (0.25 mm module, 15 mm bar height, 2.5 mm quiet zone) renderer ölçümüyle 88.000 mm × 17.000 mm'dir; 100 mm-sınıfı standart atölye etiketine yatay bozulma olmadan sığar. 50 mm Code128 iddia edilmez; daha küçük etiketler kompakt QR profilini kullanır. UUID kısaltılmaz, hash'lenmez, stored short-id yoktur; token yalnız mevcut UUID'nin tersinir temsilidir.
-- **Consequence:** Phase 5.8 `identification` app bu sözleşmeyi uygular. Implementation review/commit öncesi COMPLETE işaretlenmez.
-- **Implementation status:** Uncommitted working tree on parent `22c29deacb9247b3921a6f36a802ebe63ad9c341`; COMPLETE değildir.
+- **Consequence:** Phase 5.8 `identification` app bu sözleşmeyi uygular. Code128 standart / QR kompakt policy committed'tir. Canonical payload `TZ1M:<22-char-base64url-uuid>`, `TZ1A:<22-char-base64url-uuid>`, `TZ1L:<22-char-base64url-uuid>` biçimindedir.
+- **Implementation status:** Phase 5.8 COMPLETE at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`). `DEC-036` implemented.
 
 ## 3. Açık İş Kararları
 
@@ -602,7 +602,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Counting/reconciliation | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout, `DEC-033`). Serialized `COUNT_RECONCILIATION` ve count/baseline UI sonraki ayrı görevlerdir. |
 | Baseline schema/cutover | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout). `InventoryBaseline`, scoped `INITIAL_BALANCE`, combined QUANTITY+SERIALIZED establishment. Count/baseline UI yoktur. `DEC-002` / `DEC-015` / `DEC-032` / `DEC-033` korunur. |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |
-| Machine-readable identification | `DEC-036` (`DEC-OPEN-016` DECIDED); `DEC-IT-006` mobile/tablet intranet; ownership `DEC-011` |
+| Machine-readable identification | **COMPLETE** (Phase 5.8, `DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0`. Code128 standart / QR kompakt; canonical `TZ1M`/`TZ1A`/`TZ1L` payload. `DEC-IT-006` mobile/tablet intranet; ownership `DEC-011` |
 | Deployment/pilot | `DEC-IT-001`–`DEC-IT-005`, restore drill; uzun dönem retention için `DEC-OPEN-018` |
 | Phase 2 catalog/configuration UI | `DEC-021`: dynamic configuration principle, seed≠whitelist, UoM/role/technical-spec boundaries |
 | Phase 2.9B-0 access management policy | `DEC-022`: management capability, allowlist, anti-escalation, audit identity, Admin/UI boundary |
@@ -628,6 +628,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 5.1 current-stock visibility | **COMPLETE** at `44f1d30b7b8a72b768293de3ecbff32769e3f454`. |
 | Phase 5.2 quantity controlled correction | **COMPLETE** (`DEC-030`, `DEC-031`, 2026-09-13; 1242 test passed). Evidence Phase 5.5 / `DEC-034` ile kapanmıştır. |
 | Phase 5.5 correction evidence | **COMPLETE** (`DEC-034`). Quantity controlled correction V1 photographic evidence kapanmıştır. Serialized correction deferred. |
+| Phase 5.8 machine-readable identification | **COMPLETE** (`DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`). Code128 + QR; canonical `TZ1M:<22-char-base64url-uuid>`, `TZ1A:<22-char-base64url-uuid>`, `TZ1L:<22-char-base64url-uuid>`. |
 | Phase 5.3 serialized inventory foundation + serialized RECEIVE | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; `DEC-OPEN-004` kapandı. |
 | Phase 5.4 decision pack | **COMPLETE** (`DEC-033`). 5.4A–5.4E uygulanmıştır; serialized `COUNT_RECONCILIATION`, serialized mutation workflow'ları ve count/baseline UI uygulanmamıştır. `DEC-OPEN-010` OPEN kalır. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |
