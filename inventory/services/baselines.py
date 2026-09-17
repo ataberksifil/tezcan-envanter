@@ -20,6 +20,7 @@ from inventory.models import (
     SerializedAsset,
     StockBalance,
 )
+from inventory.services.projections import next_serialized_asset_event_seq
 from inventory.services.receipts import (
     ASSET_CODE_UNIQUE_CONSTRAINT,
     ASSET_MATERIAL_SERIAL_UNIQUE_CONSTRAINT,
@@ -35,6 +36,7 @@ from inventory.services.receipts import (
     _locked_condition,
     _locked_location,
     _locked_material,
+    _locked_serialized_asset,
     _locked_or_created_balance,
     _normalize_uuid,
     _raise_validation,
@@ -278,6 +280,7 @@ def establish_initial_balance(
                         "Üretici seri numarası bu malzeme için zaten kullanılıyor.",
                     )
                 raise
+            asset = _locked_serialized_asset(asset.pk, using)
             line = InventoryTransactionLine.objects.using(using).create(
                 transaction=header,
                 line_number=line_number,
@@ -290,6 +293,9 @@ def establish_initial_balance(
                 target_location=location,
                 original_issue_line=None,
                 corrected_line=None,
+                asset_event_seq=next_serialized_asset_event_seq(
+                    asset.pk, using=using
+                ),
             )
             created_lines.append(line)
             created_assets.append(asset)

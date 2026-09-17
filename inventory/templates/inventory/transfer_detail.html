@@ -37,8 +37,14 @@
         {% endif %}
     </dd>
 
-    <dt class="col-sm-3">Miktar</dt>
-    <dd class="col-sm-9">{{ line.quantity }} {{ line.unit.code }} ({{ line.unit.name }})</dd>
+    <dt class="col-sm-3">{% if line.serialized_asset_id %}Tekil varlık{% else %}Miktar{% endif %}</dt>
+    <dd class="col-sm-9">
+        {% if line.serialized_asset_id %}
+            {{ line.serialized_asset.internal_asset_code }}{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
+        {% else %}
+            {{ line.quantity }} {{ line.unit.code }} ({{ line.unit.name }})
+        {% endif %}
+    </dd>
 
     <dt class="col-sm-3">Kondisyon</dt>
     <dd class="col-sm-9">{{ line.condition.name }}</dd>

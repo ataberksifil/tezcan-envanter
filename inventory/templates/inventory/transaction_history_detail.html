@@ -68,8 +68,14 @@
             <a href="{% url 'inventory:transaction-history-detail' original_issue_line.transaction_id %}">{{ original_issue_line.transaction_id }}</a>
         </dd>
 
-        <dt class="col-sm-3">Orijinal çıkış miktarı</dt>
-        <dd class="col-sm-9">{{ original_issue_line.quantity }} {{ original_issue_line.unit.code }}</dd>
+        <dt class="col-sm-3">{% if original_issue_line.serialized_asset_id %}Orijinal çıkış varlığı{% else %}Orijinal çıkış miktarı{% endif %}</dt>
+        <dd class="col-sm-9">
+            {% if original_issue_line.serialized_asset_id %}
+                {{ original_issue_line.serialized_asset.internal_asset_code }}
+            {% else %}
+                {{ original_issue_line.quantity }} {{ original_issue_line.unit.code }}
+            {% endif %}
+        </dd>
     {% endif %}
 </dl>
 

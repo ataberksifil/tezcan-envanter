@@ -320,7 +320,7 @@ flowchart TD
 - Acting user, `occurred_at`, işlem detayı ledger'da.
 
 **Scope Boundary**
-- `DEC-032` yalnız serialized RECEIVE'i authorize eder. Serialized ISSUE/RETURN/TRANSFER/correction, QR, serialized `COUNT_RECONCILIATION` ve broader lifecycle deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve establishment öncesi non-authoritative'tir. Phase 5.4D-B COMPLETE: combined QUANTITY+SERIALIZED baseline establishment backend uygulanmıştır; count/baseline UI yoktur.
+- `DEC-032` identity + serialized RECEIVE korunur. `DEC-035` V1 states `IN_STOCK`/`ISSUED` ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend'ini tanımlar; movement UI, serialized correction, QR, serialized `COUNT_RECONCILIATION` ve broader lifecycle deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve establishment öncesi non-authoritative'tir. Phase 5.4D-B COMPLETE: combined QUANTITY+SERIALIZED baseline establishment backend uygulanmıştır; count/baseline UI yoktur.
 
 ### UF-INT-001 — Saha / Atölye Malzeme Alım Talebi
 
@@ -889,7 +889,7 @@ flowchart TD
 
 **Phase 5.4D-A implementation note:** Counting-owned `PhysicalCountSerializedLine` ve mevcut START içindeki serialized expected snapshot uygulanmıştır. Bir oturum QUANTITY + SERIALIZED kanıt taşıyabilir. Expected asset'ler authoritative `SerializedAsset` snapshot referansıdır; unexpected existing asset gözlemlenebilir; candidate item staging-only kaydedilir ve counting sırasında `SerializedAsset` oluşturmaz. Untouched expected ≠ explicit missing; routine `NOT_COUNTED` vardır; baseline-candidate completion serialized `NOT_COUNTED` reddeder. Counting establishment öncesi non-authoritative kalır. Serialized `COUNT_RECONCILIATION` yoktur.
 
-**Phase 5.4 implementation note:** Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Phase 5.4E default-role permission rollout tamamlanmıştır: fresh TECHNICIAN/STOREKEEPER `counting.view/add/change_physicalcountsession`; fresh ADMIN_MANAGER ayrıca `counting.decide_discrepancy` ve `imports.establish_baseline`. Count/baseline UI, serialized ISSUE/RETURN/TRANSFER/controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode yoktur.
+**Phase 5.4 implementation note:** Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Phase 5.4E default-role permission rollout tamamlanmıştır: fresh TECHNICIAN/STOREKEEPER `counting.view/add/change_physicalcountsession`; fresh ADMIN_MANAGER ayrıca `counting.decide_discrepancy` ve `imports.establish_baseline`. Count/baseline UI, serialized controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode yoktur. Phase 5.6 serialized movement backend `DEC-035` ile uygulanmıştır; COMPLETE ve action UI commit-gate sonrasınadır.
 
 **Audit Effect**
 - Sayım aktörü ve zamanları.

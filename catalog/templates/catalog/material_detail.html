@@ -146,7 +146,7 @@
                             <tr>
                                 <td>{{ asset.internal_asset_code }}</td>
                                 <td>{% if asset.serial_number %}{{ asset.serial_number }}{% else %}—{% endif %}</td>
-                                <td>{{ asset.current_location.code }} ({{ asset.current_location.name }})</td>
+                                <td>{% if asset.current_location %}{{ asset.current_location.code }} ({{ asset.current_location.name }}){% else %}—{% endif %}</td>
                                 <td>{{ asset.current_condition.name }}</td>
                                 <td>{{ asset.get_current_state_display }}</td>
                             </tr>

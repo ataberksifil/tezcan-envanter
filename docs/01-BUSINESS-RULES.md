@@ -288,7 +288,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | OD-005 | Eksik karar | Miktar bazlı malzemenin çoklu lokasyona dağıtım, toplama ve seçim kuralları bilinmiyor. | Çoklu lokasyon kapasitesi korunur; dağıtım kuralı konmaz. |
 | OD-006 | Eksik karar | Minimum stok toplam stokla mı, lokasyonla mı ve hangi kondisyonlarla mı karşılaştırılacak bilinmiyor. | Düşük stok hesabı kesinleştirilemez. |
 | OD-007 | Eksik karar | Üretim hattı ile fiili kullanım yeri arasındaki hiyerarşi ve veri kaynağı bilinmiyor. | İki alan da zorunlu kalır. |
-| OD-008 | Kararlı | `DEC-032`: UUID teknik kimlik; zorunlu/global unique dahili varlık kodu; optional/material içinde unique üretici seri numarası. | Phase 5.3 serialized foundation + RECEIVE authorize edilmiştir; diğer serialized movement'lar deferred kalır. |
+| OD-008 | Kararlı | `DEC-032` identity; `DEC-035` V1 `IN_STOCK`/`ISSUED` + serialized ISSUE/linked unused RETURN/in-stock TRANSFER. | Serialized correction, custody ve broader lifecycle deferred kalır. |
 | OD-009 | Eksik karar | Depo Görevlisinin “operasyonel depo işleri” ayrıntılı izin listesi bilinmiyor. | Yetki genişletilerek yorumlanamaz. |
 | OD-010 | Öneri bekliyor | Ret gerekçesinin zorunluluğu ürün belgesinde onaylanmamıştır. | COR-010 PROPOSED olarak kalır. |
 | OD-011 | Kararlı | `DEC-033`: zero tolerance, blind count, self-approval yasağı, explicit ADMIN_MANAGER-sensitive approval ve 10–2000 açıklama. | Routine fark `COUNT_RECONCILIATION`dır; CorrectionRequest değildir. |

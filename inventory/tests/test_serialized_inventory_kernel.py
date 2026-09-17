@@ -8,12 +8,16 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, IntegrityError, connection, transaction
+from django.db.models import Max
 from django.db.models.deletion import RestrictedError
 
+from accounts.models import Employee
 from catalog.models import Category, Material, MaterialCondition, UnitOfMeasure
 from inventory.models import (
     InventoryTransaction,
     InventoryTransactionLine,
+    IssueContext,
+    ProductionLine,
     SerializedAsset,
     StockBalance,
 )
@@ -53,7 +57,18 @@ def kernel_objects():
     location = Location.objects.create(
         code=f"SK-L-{suffix}", name="Raf", active=True, can_hold_stock=True
     )
+    other_location = Location.objects.create(
+        code=f"SK-L2-{suffix}", name="Diğer raf", active=True, can_hold_stock=True
+    )
     user = get_user_model().objects.create_user(username=f"sk-{suffix}")
+    employee = Employee.objects.create(
+        employee_number=f"SK-E-{suffix}",
+        first_name="Ayşe",
+        last_name="Yılmaz",
+    )
+    production_line = ProductionLine.objects.create(
+        code=f"SK-PL-{suffix}", name="Kernel hat"
+    )
     return {
         "category": category,
         "unit": unit,
@@ -62,7 +77,10 @@ def kernel_objects():
         "quantity_material": quantity_material,
         "condition": condition,
         "location": location,
+        "other_location": other_location,
         "user": user,
+        "employee": employee,
+        "production_line": production_line,
     }
 
 
@@ -88,9 +106,16 @@ def _header(objects, transaction_type="RECEIPT"):
     )
 
 
+def _next_asset_event_seq(asset):
+    current = (
+        InventoryTransactionLine.objects.filter(serialized_asset=asset)
+        .aggregate(max_seq=Max("asset_event_seq"))["max_seq"]
+    )
+    return 1 if current is None else current + 1
+
+
 def _serialized_line(objects, asset, **overrides):
     values = {
-        "transaction": _header(objects),
         "line_number": 1,
         "material": asset.material,
         "serialized_asset": asset,
@@ -99,9 +124,49 @@ def _serialized_line(objects, asset, **overrides):
         "condition": asset.current_condition,
         "source_location": None,
         "target_location": asset.current_location,
+        "asset_event_seq": _next_asset_event_seq(asset),
     }
     values.update(overrides)
     with transaction.atomic():
+        values.setdefault("transaction", _header(objects))
+        line = InventoryTransactionLine.objects.create(**values)
+    return line
+
+
+def _issue_context(objects, header):
+    return IssueContext.objects.create(
+        transaction=header,
+        receiver_employee=objects["employee"],
+        receiver_first_name_snapshot=objects["employee"].first_name,
+        receiver_last_name_snapshot=objects["employee"].last_name,
+        receiver_employee_number_snapshot=objects["employee"].employee_number,
+        production_line=objects["production_line"],
+        production_line_code_snapshot=objects["production_line"].code,
+        production_line_name_snapshot=objects["production_line"].name,
+        usage_location_text="Pano 7",
+    )
+
+
+def _serialized_issue_line(objects, asset, **overrides):
+    values = {
+        "line_number": 1,
+        "material": asset.material,
+        "serialized_asset": asset,
+        "quantity": None,
+        "unit": None,
+        "condition": asset.current_condition or objects["condition"],
+        "source_location": asset.current_location or objects["location"],
+        "target_location": None,
+        "asset_event_seq": _next_asset_event_seq(asset),
+    }
+    values.update(overrides)
+    with transaction.atomic():
+        header = values.get("transaction")
+        if header is None:
+            header = _header(objects, "ISSUE")
+            values["transaction"] = header
+        if not hasattr(header, "_issue_context"):
+            header._issue_context = _issue_context(objects, header)
         line = InventoryTransactionLine.objects.create(**values)
     return line
 
@@ -176,10 +241,30 @@ def test_serialized_asset_requires_active_condition(kernel_objects):
             _asset(kernel_objects, current_condition=condition)
 
 
-def test_serialized_asset_state_is_in_stock_only(kernel_objects):
+def test_serialized_asset_state_shape_allows_issued_without_location(kernel_objects):
     with pytest.raises(IntegrityError):
         with transaction.atomic():
-            _asset(kernel_objects, current_state="ISSUED")
+            _asset(kernel_objects, current_state="SCRAP")
+    with pytest.raises(IntegrityError):
+        with transaction.atomic():
+            _asset(
+                kernel_objects,
+                current_state=SerializedAsset.CurrentState.ISSUED,
+                current_location=kernel_objects["location"],
+            )
+    issued = _asset(
+        kernel_objects,
+        current_state=SerializedAsset.CurrentState.ISSUED,
+        current_location=None,
+    )
+    assert issued.current_state == SerializedAsset.CurrentState.ISSUED
+    assert issued.current_location_id is None
+    assert issued.current_condition_id == kernel_objects["condition"].pk
+    with pytest.raises(IntegrityError):
+        with transaction.atomic():
+            SerializedAsset.objects.filter(pk=issued.pk).update(
+                current_state=SerializedAsset.CurrentState.IN_STOCK
+            )
 
 
 def test_valid_serialized_receive_line_shape(kernel_objects):
@@ -266,6 +351,7 @@ def test_quantity_and_serialized_lines_cannot_share_receipt(kernel_objects):
             unit=None,
             condition=asset.current_condition,
             target_location=asset.current_location,
+            asset_event_seq=1,
         )
 
     with pytest.raises(IntegrityError, match="cannot share a RECEIVE"):
@@ -281,16 +367,147 @@ def test_quantity_and_serialized_lines_cannot_share_receipt(kernel_objects):
             )
 
 
-def test_serialized_issue_is_not_authorized(kernel_objects):
+def test_valid_serialized_issue_return_and_transfer_line_shapes(kernel_objects):
     asset = _asset(kernel_objects)
-    with pytest.raises(IntegrityError, match="only a source-null RECEIVE"):
+    _serialized_line(kernel_objects, asset)
+    issue_line = _serialized_issue_line(kernel_objects, asset)
+    assert issue_line.quantity is None
+    assert issue_line.unit_id is None
+    assert issue_line.source_location_id == asset.current_location_id
+    assert issue_line.target_location_id is None
+
+    SerializedAsset.objects.filter(pk=asset.pk).update(
+        current_state=SerializedAsset.CurrentState.ISSUED,
+        current_location=None,
+    )
+    asset.refresh_from_db()
+    return_header = _header(kernel_objects, "RETURN")
+    with transaction.atomic():
+        return_line = InventoryTransactionLine.objects.create(
+            transaction=return_header,
+            line_number=1,
+            material=asset.material,
+            serialized_asset=asset,
+            quantity=None,
+            unit=None,
+            condition=asset.current_condition,
+            source_location=None,
+            target_location=kernel_objects["other_location"],
+            original_issue_line=issue_line,
+            asset_event_seq=_next_asset_event_seq(asset),
+        )
+    assert return_line.original_issue_line_id == issue_line.pk
+
+    SerializedAsset.objects.filter(pk=asset.pk).update(
+        current_state=SerializedAsset.CurrentState.IN_STOCK,
+        current_location=kernel_objects["other_location"],
+    )
+    asset.refresh_from_db()
+    transfer_header = _header(kernel_objects, "TRANSFER")
+    with transaction.atomic():
+        transfer_line = InventoryTransactionLine.objects.create(
+            transaction=transfer_header,
+            line_number=1,
+            material=asset.material,
+            serialized_asset=asset,
+            quantity=None,
+            unit=None,
+            condition=asset.current_condition,
+            source_location=kernel_objects["other_location"],
+            target_location=kernel_objects["location"],
+            asset_event_seq=_next_asset_event_seq(asset),
+        )
+    assert transfer_line.source_location_id == kernel_objects["other_location"].pk
+    assert transfer_line.target_location_id == kernel_objects["location"].pk
+
+
+def test_serialized_issue_without_genesis_is_rejected(kernel_objects):
+    asset = _asset(kernel_objects)
+    with pytest.raises(IntegrityError, match="established RECEIVE or INITIAL_BALANCE"):
         with transaction.atomic():
-            _serialized_line(
+            _serialized_issue_line(kernel_objects, asset)
+
+
+def test_malformed_serialized_issue_and_transfer_shapes_are_rejected(kernel_objects):
+    asset = _asset(kernel_objects)
+    _serialized_line(kernel_objects, asset)
+    with pytest.raises(IntegrityError, match="serialized ISSUE"):
+        with transaction.atomic():
+            _serialized_issue_line(
                 kernel_objects,
                 asset,
-                transaction=_header(kernel_objects, "ISSUE"),
+                target_location=kernel_objects["other_location"],
+            )
+    with pytest.raises(IntegrityError):
+        with transaction.atomic():
+            InventoryTransactionLine.objects.create(
+                transaction=_header(kernel_objects, "TRANSFER"),
+                line_number=1,
+                material=asset.material,
+                serialized_asset=asset,
+                quantity=None,
+                unit=None,
+                condition=asset.current_condition,
                 source_location=kernel_objects["location"],
-                target_location=None,
+                target_location=kernel_objects["location"],
+                asset_event_seq=_next_asset_event_seq(asset),
+            )
+
+
+def test_serialized_return_requires_same_asset_and_rejects_duplicates(kernel_objects):
+    asset = _asset(kernel_objects)
+    other = _asset(kernel_objects)
+    _serialized_line(kernel_objects, asset)
+    _serialized_line(kernel_objects, other)
+    issue_line = _serialized_issue_line(kernel_objects, asset)
+    SerializedAsset.objects.filter(pk=asset.pk).update(
+        current_state=SerializedAsset.CurrentState.ISSUED,
+        current_location=None,
+    )
+    asset.refresh_from_db()
+    with pytest.raises(IntegrityError, match="original ISSUE asset"):
+        with transaction.atomic():
+            InventoryTransactionLine.objects.create(
+                transaction=_header(kernel_objects, "RETURN"),
+                line_number=1,
+                material=other.material,
+                serialized_asset=other,
+                quantity=None,
+                unit=None,
+                condition=asset.current_condition,
+                source_location=None,
+                target_location=kernel_objects["location"],
+                original_issue_line=issue_line,
+                asset_event_seq=_next_asset_event_seq(other),
+            )
+    with transaction.atomic():
+        InventoryTransactionLine.objects.create(
+            transaction=_header(kernel_objects, "RETURN"),
+            line_number=1,
+            material=asset.material,
+            serialized_asset=asset,
+            quantity=None,
+            unit=None,
+            condition=asset.current_condition,
+            source_location=None,
+            target_location=kernel_objects["location"],
+            original_issue_line=issue_line,
+            asset_event_seq=_next_asset_event_seq(asset),
+        )
+    with pytest.raises(IntegrityError):
+        with transaction.atomic():
+            InventoryTransactionLine.objects.create(
+                transaction=_header(kernel_objects, "RETURN"),
+                line_number=1,
+                material=asset.material,
+                serialized_asset=asset,
+                quantity=None,
+                unit=None,
+                condition=asset.current_condition,
+                source_location=None,
+                target_location=kernel_objects["other_location"],
+                original_issue_line=issue_line,
+                asset_event_seq=_next_asset_event_seq(asset),
             )
 
 
@@ -333,18 +550,101 @@ def test_location_condition_and_tracking_mode_cannot_invalidate_current_asset(
             )
 
 
+def test_serialized_line_helpers_assign_monotonic_event_seq(kernel_objects):
+    asset = _asset(kernel_objects)
+    genesis = _serialized_line(kernel_objects, asset)
+    assert genesis.asset_event_seq == 1
+    issue = _serialized_issue_line(kernel_objects, asset)
+    assert issue.asset_event_seq == 2
+
+
+def test_serialized_line_null_event_seq_is_rejected(kernel_objects):
+    asset = _asset(kernel_objects)
+    with pytest.raises(IntegrityError):
+        with transaction.atomic():
+            InventoryTransactionLine.objects.create(
+                transaction=_header(kernel_objects),
+                line_number=1,
+                material=asset.material,
+                serialized_asset=asset,
+                quantity=None,
+                unit=None,
+                condition=asset.current_condition,
+                target_location=asset.current_location,
+                asset_event_seq=None,
+            )
+
+
+def test_quantity_line_non_null_event_seq_is_rejected(kernel_objects):
+    with pytest.raises(IntegrityError):
+        with transaction.atomic():
+            InventoryTransactionLine.objects.create(
+                transaction=_header(kernel_objects),
+                line_number=1,
+                material=kernel_objects["quantity_material"],
+                serialized_asset=None,
+                quantity=Decimal("1.000"),
+                unit=kernel_objects["unit"],
+                condition=kernel_objects["condition"],
+                target_location=kernel_objects["location"],
+                asset_event_seq=1,
+            )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_duplicate_asset_event_seq_is_rejected(kernel_objects):
+    asset = _asset(kernel_objects)
+    _serialized_line(kernel_objects, asset)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "ALTER TABLE inventory_inventorytransactionline "
+            "DISABLE TRIGGER inventory_line_quantity_guard_trg"
+        )
+    try:
+        with pytest.raises(IntegrityError):
+            with transaction.atomic():
+                InventoryTransactionLine.objects.create(
+                    transaction=_header(kernel_objects, "TRANSFER"),
+                    line_number=1,
+                    material=asset.material,
+                    serialized_asset=asset,
+                    quantity=None,
+                    unit=None,
+                    condition=asset.current_condition,
+                    source_location=kernel_objects["location"],
+                    target_location=kernel_objects["other_location"],
+                    asset_event_seq=1,
+                )
+    finally:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "ALTER TABLE inventory_inventorytransactionline "
+                "ENABLE TRIGGER inventory_line_quantity_guard_trg"
+            )
+
+
+def test_gap_and_out_of_order_event_seq_are_rejected(kernel_objects):
+    asset = _asset(kernel_objects)
+    _serialized_line(kernel_objects, asset)
+    with pytest.raises(IntegrityError, match="next causal event"):
+        with transaction.atomic():
+            _serialized_issue_line(kernel_objects, asset, asset_event_seq=3)
+    with pytest.raises(IntegrityError, match="next causal event"):
+        with transaction.atomic():
+            _serialized_issue_line(kernel_objects, asset, asset_event_seq=1)
+
+
 def test_serialized_migration_reverse_fails_closed_when_history_exists(
     kernel_objects,
 ):
     asset = _asset(kernel_objects)
     _serialized_line(kernel_objects, asset)
+    _serialized_issue_line(kernel_objects, asset)
     migration = importlib.import_module(
-        "inventory.migrations.0009_serialized_inventory_foundation"
+        "inventory.migrations.0012_serialized_inventory_movements"
     )
-    reverse_precondition = migration.SERIALIZED_GUARD_REVERSE_SQL.split(
-        "CREATE OR REPLACE FUNCTION", 1
-    )[0]
+    reverse_precondition = migration.REVERSE_PRECHECK_SQL
 
-    with pytest.raises(IntegrityError, match="cannot reverse serialized inventory"):
+    with pytest.raises(IntegrityError, match="cannot reverse serialized movements"):
         with transaction.atomic(), connection.cursor() as cursor:
             cursor.execute(reverse_precondition)

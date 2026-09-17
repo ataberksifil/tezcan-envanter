@@ -20,12 +20,15 @@ from counting.services import (
     record_serialized_asset_count,
     start_physical_count_session,
 )
+from accounts.models import Employee
 from inventory.models import (
     InventoryTransaction,
     InventoryTransactionLine,
+    ProductionLine,
     SerializedAsset,
     StockBalance,
 )
+from inventory.services.issues import issue_serialized
 from inventory.services.receipts import receive_serialized
 from locations.models import Location
 
@@ -331,3 +334,130 @@ class SerializedPhysicalCountConcurrencyTests(TransactionTestCase):
         self.assertEqual(asset.current_location_id, self.location.pk)
         self.assertEqual(InventoryTransaction.objects.count(), 1)
         self.assertEqual(SerializedAsset.objects.count(), 1)
+
+
+class SerializedIssueCountStartLockTests(TransactionTestCase):
+    """Serialized ISSUE must not invert the count START lock order."""
+
+    databases = {"default"}
+
+    def setUp(self):
+        suffix = uuid.uuid4().hex[:8]
+        self.actor = get_user_model().objects.create_user(username=f"sic-{suffix}")
+        for codename in ("receive_stock", "issue_stock"):
+            self.actor.user_permissions.add(
+                Permission.objects.get(
+                    content_type__app_label="inventory",
+                    content_type__model="inventorytransaction",
+                    codename=codename,
+                )
+            )
+        self.actor = get_user_model().objects.get(pk=self.actor.pk)
+        self.category = Category.objects.create(code=f"SIC-CAT-{suffix}", name="Kat")
+        self.unit = UnitOfMeasure.objects.create(code=f"SIC-U-{suffix}", name="Adet")
+        self.material = Material.objects.create(
+            material_code=f"SIC-S-{suffix}",
+            name="Tekil malzeme",
+            category=self.category,
+            tracking_mode=Material.TrackingMode.SERIALIZED,
+        )
+        self.condition = MaterialCondition.objects.create(
+            code=f"SIC-C-{suffix}", name="Kondisyon", sort_order=941
+        )
+        self.location = Location.objects.create(
+            code=f"SIC-L-{suffix}",
+            name="Raf",
+            active=True,
+            can_hold_stock=True,
+        )
+        self.employee = Employee.objects.create(
+            employee_number=f"SIC-E-{suffix}", first_name="Ayşe", last_name="Yılmaz"
+        )
+        self.production_line = ProductionLine.objects.create(
+            code=f"SIC-PL-{suffix}", name="Hat"
+        )
+        self.asset = receive_serialized(
+            actor=self.actor,
+            operation_id=uuid.uuid4(),
+            material_id=self.material.pk,
+            internal_asset_code=f"SIC-A-{suffix}",
+            serial_number=None,
+            condition_id=self.condition.pk,
+            target_location_id=self.location.pk,
+        ).serialized_asset
+
+    def _fixture_teardown(self):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                TRUNCATE TABLE
+                    inventory_baseline_transaction_links,
+                    inventory_baseline_count_session_links,
+                    inventory_baselines,
+                    counting_physicalcountserializedline,
+                    counting_physicalcountquantityrejection,
+                    counting_physicalcountquantityline,
+                    counting_physicalcountsession,
+                    corrections_correctionevidence,
+                    corrections_correctionrequest,
+                    inventory_issuecontext,
+                    inventory_inventorytransactionline,
+                    inventory_inventorytransaction,
+                    inventory_stockbalance,
+                    inventory_serializedasset
+                """
+            )
+        Material.objects.filter(pk=self.material.pk).delete()
+        Location.objects.filter(pk=self.location.pk).delete()
+        MaterialCondition.objects.filter(pk=self.condition.pk).delete()
+        UnitOfMeasure.objects.filter(pk=self.unit.pk).delete()
+        Category.objects.filter(pk=self.category.pk).delete()
+        ProductionLine.objects.filter(pk=self.production_line.pk).delete()
+        Employee.objects.filter(pk=self.employee.pk).delete()
+        get_user_model().objects.filter(pk=self.actor.pk).delete()
+
+    @staticmethod
+    def _run_concurrently(*calls):
+        ready = threading.Barrier(len(calls))
+
+        def worker(call):
+            close_old_connections()
+            try:
+                ready.wait(timeout=10)
+                try:
+                    return call()
+                except Exception as exc:
+                    return exc
+            finally:
+                connections["default"].close()
+
+        with ThreadPoolExecutor(max_workers=len(calls)) as executor:
+            futures = [executor.submit(worker, call) for call in calls]
+            return [future.result(timeout=20) for future in futures]
+
+    def test_serialized_issue_and_count_start_do_not_deadlock(self):
+        session = create_physical_count_session(
+            actor=self.actor,
+            scope_location_id=self.location.pk,
+            reference_number=f"SIC-{uuid.uuid4().hex[:8]}",
+        )
+        results = self._run_concurrently(
+            lambda: issue_serialized(
+                actor=self.actor,
+                operation_id=uuid.uuid4(),
+                serialized_asset_id=self.asset.pk,
+                source_location_id=self.location.pk,
+                condition_id=self.condition.pk,
+                receiver_employee_id=self.employee.pk,
+                production_line_id=self.production_line.pk,
+                usage_location_text="Pano 7",
+            ),
+            lambda: start_physical_count_session(
+                actor=self.actor, session_id=session.pk
+            ),
+        )
+        self.assertTrue(all(not isinstance(result, Exception) for result in results))
+        self.asset.refresh_from_db()
+        session = PhysicalCountSession.objects.get(pk=session.pk)
+        self.assertEqual(session.status, PhysicalCountSession.Status.STARTED)
+        self.assertEqual(self.asset.current_state, SerializedAsset.CurrentState.ISSUED)

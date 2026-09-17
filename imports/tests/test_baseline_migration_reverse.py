@@ -24,6 +24,7 @@ from locations.models import Location
 
 
 INVENTORY_0011 = "0011_initial_balance_kernel"
+INVENTORY_0012 = "0012_serialized_inventory_movements"
 IMPORTS_0001 = "0001_inventory_baseline"
 
 
@@ -79,7 +80,7 @@ class BaselineMigrationReverseTests(TransactionTestCase):
     def _fixture_teardown(self):
         if not _applied("imports", IMPORTS_0001):
             call_command("migrate", "imports", verbosity=0)
-        if not _applied("inventory", INVENTORY_0011):
+        if not _applied("inventory", INVENTORY_0012):
             call_command("migrate", "inventory", verbosity=0)
         with connection.cursor() as cursor:
             cursor.execute(
@@ -124,10 +125,14 @@ class BaselineMigrationReverseTests(TransactionTestCase):
                 )
             ],
         )
-        with self.assertRaises(IntegrityError) as exc:
-            call_command("migrate", "inventory", "0010", verbosity=0)
-        self.assertIn("cannot reverse INITIAL_BALANCE", str(exc.exception))
-        self.assertTrue(_applied("inventory", INVENTORY_0011))
+        try:
+            with self.assertRaises(IntegrityError) as exc:
+                call_command("migrate", "inventory", "0010", verbosity=0)
+            self.assertIn("cannot reverse INITIAL_BALANCE", str(exc.exception))
+            self.assertTrue(_applied("inventory", INVENTORY_0011))
+        finally:
+            call_command("migrate", verbosity=0)
+            self.assertTrue(_applied("inventory", INVENTORY_0012))
 
     def test_imports_reverse_refuses_while_established_history_exists(self):
         session = create_physical_count_session(
@@ -168,4 +173,5 @@ class BaselineMigrationReverseTests(TransactionTestCase):
         self.assertFalse(_applied("inventory", INVENTORY_0011))
         call_command("migrate", verbosity=0)
         self.assertTrue(_applied("inventory", INVENTORY_0011))
+        self.assertTrue(_applied("inventory", INVENTORY_0012))
         self.assertTrue(_applied("imports", IMPORTS_0001))

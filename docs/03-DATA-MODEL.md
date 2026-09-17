@@ -222,19 +222,19 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 | `material_id` | UUID | Hayır | FK | Ait olduğu material. |
 | `internal_asset_code` | VARCHAR(64) | Hayır | UNIQUE, nonblank | Zorunlu insan-facing operasyonel varlık kodu. |
 | `serial_number` | VARCHAR(255) | Evet | `(material_id, serial_number)` partial UNIQUE | Optional üretici seri numarası; boş input `NULL`. |
-| `current_location_id` | UUID | Hayır | FK + DB guard | Ledger'dan türetilen active stock-holding fiziksel lokasyon. |
-| `current_condition_id` | UUID | Hayır | FK + DB guard | Ledger'dan türetilen active kondisyon. |
-| `current_state` | VARCHAR(16) | Hayır | `IN_STOCK` | İlk dilimin tek projection state'i. |
+| `current_location_id` | UUID | `IN_STOCK` Hayır; `ISSUED` Evet | FK + DB guard | `IN_STOCK` için active stock-holding lokasyon; `ISSUED` iken `NULL`. |
+| `current_condition_id` | UUID | Hayır | FK + DB guard | Ledger'dan türetilen active kondisyon; ISSUE sonrası da korunur. |
+| `current_state` | VARCHAR(16) | Hayır | `IN_STOCK` \| `ISSUED` | V1 projection vocabulary (`DEC-035`). |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Oluşturma zamanı. |
 | `updated_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Projection/master son değişiklik zamanı. |
 
 - **Primary Key:** `id`
 - **Foreign Keys:** `material_id → materials.id`; `current_location_id → locations.id`; `current_condition_id → material_conditions.id`; delete restricted.
 - **Unique Constraints:** `internal_asset_code` global unique; non-null `serial_number` aynı material içinde unique, farklı material'larda tekrar kullanılabilir.
-- **Check Constraints / Guards:** `internal_asset_code` nonblank ve outer-trimmed persisted identity; `serial_number` null veya outer-trimmed nonblank; `current_state = IN_STOCK`; material `SERIALIZED`; current location active + stock-holding; current condition active. Phase 5.4D-B, ikinci authoritative writer (baseline candidate promotion) için bu trim/nonblank DB integrity'yi kapatır; case-insensitive uniqueness yoktur.
+- **Check Constraints / Guards:** `internal_asset_code` nonblank ve outer-trimmed persisted identity; `serial_number` null veya outer-trimmed nonblank; `inventory_asset_state_shape`: `IN_STOCK` ⇒ location+condition NOT NULL, `ISSUED` ⇒ location NULL + condition NOT NULL; material `SERIALIZED`; IN_STOCK current location active + stock-holding; current condition active. Phase 5.4D-B, ikinci authoritative writer (baseline candidate promotion) için bu trim/nonblank DB integrity'yi kapatır; case-insensitive uniqueness yoktur. Custody/current-holder kolonu yoktur.
 - **Recommended Indexes:** `material_id`, unique `internal_asset_code`, `serial_number`, `current_location_id`, `current_condition_id`.
 - **Delete Policy:** Ledger history sonrası `IMMUTABLE IDENTITY / NO HARD DELETE`; Phase 5.3 generic rename/material/serial mutation workflow'u yoktur.
-- **Notes:** `DEC-032`: güncel state/lokasyon/kondisyon projection olarak persisted tutulur ve serialized RECEIVE ledger işlemiyle aynı DB transaction içinde atomik oluşturulur. Ledger her zaman yetkilidir; projection read-only verifier ile doğrulanır. State, condition, location ve future custody ayrı kavramlardır.
+- **Notes:** `DEC-032` identity + `DEC-035` V1 states: güncel state/lokasyon/kondisyon projection olarak persisted tutulur. Genesis serialized RECEIVE veya scoped `INITIAL_BALANCE` ile atomik oluşur; ISSUE `ISSUED`/location NULL, linked unused RETURN `IN_STOCK`/explicit target, TRANSFER yalnız `IN_STOCK` location değişimi üretir. Ledger her zaman yetkilidir; projection read-only verifier `asset_event_seq` causal order ile ledger history reducer kullanır. Alıcı/üretim hattı/kullanım yeri `IssueContext`tedir. Serialized correction ve custody deferred'dır.
 
 ## 8. Inventory Ledger Tabloları
 
@@ -281,15 +281,16 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 | `target_location_id` | UUID | Evet | FK | Hedef fiziksel lokasyon. |
 | `original_issue_line_id` | UUID | Evet | self-FK, RESTRICT | Yalnız RETURN line için zorunlu immutable original ISSUE lineage'i (`DEC-028`). |
 | `corrected_line_id` | UUID | Evet | self-FK, RESTRICT | Yalnız CONTROLLED_CORRECTION line için zorunlu canonical original-line lineage (`DEC-030`). |
+| `asset_event_seq` | INTEGER | Evet | serialized satırda `>= 1` | Serialized satırın asset-scope nedensel ledger sırası. Quantity satırda `NULL`. |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Immutable satır kayıt zamanı. |
 
 - **Primary Key:** `id`
 - **Foreign Keys:** Başlık, material, asset, unit, condition, source/target location, nullable `original_issue_line_id` ve `corrected_line_id → inventory_transaction_lines.id`; tamamı historical delete restricted.
-- **Unique Constraints:** `(transaction_id, line_number)`; non-null asset için `(transaction_id, serialized_asset_id)` koşullu unique.
-- **Check Constraints:** Ya `(serialized_asset_id IS NULL AND quantity > 0 AND unit_id IS NOT NULL)` ya da `(serialized_asset_id IS NOT NULL AND quantity IS NULL AND unit_id IS NULL)`; ikisi birlikte olamaz. `(source_location_id IS NULL OR target_location_id IS NULL OR source_location_id <> target_location_id)`.
+- **Unique Constraints:** `(transaction_id, line_number)`; non-null asset için `(transaction_id, serialized_asset_id)` koşullu unique; serialized satır için `(serialized_asset_id, asset_event_seq)` koşullu unique.
+- **Check Constraints:** Ya `(serialized_asset_id IS NULL AND quantity > 0 AND unit_id IS NOT NULL)` ya da `(serialized_asset_id IS NOT NULL AND quantity IS NULL AND unit_id IS NULL)`; ikisi birlikte olamaz. `(source_location_id IS NULL OR target_location_id IS NULL OR source_location_id <> target_location_id)`. Quantity satırda `asset_event_seq IS NULL`; serialized satırda `asset_event_seq >= 1`.
 - **Recommended Indexes:** `transaction_id`, `material_id`, `serialized_asset_id`, `source_location_id`, `target_location_id`, `condition_id`, `original_issue_line_id`, `corrected_line_id`.
 - **Delete Policy:** `IMMUTABLE / NO DELETE`.
-- **Notes:** `DEC-032`: serialized satırda `quantity` ve `unit` kesin olarak `NULL`, asset zorunludur; `1 adet` saklanmaz. Phase 5.3 yalnız source-null/target-required serialized RECEIVE ve asset başına exactly one establishing RECEIVE kabul eder. Line material = asset material ve tracking mode kuralları targeted PostgreSQL guard ile korunur. Diğer serialized movement'lar deferred'dır.
+- **Notes:** `DEC-032`/`DEC-035`: serialized satırda `quantity` ve `unit` kesin olarak `NULL`, asset zorunludur; `1 adet` saklanmaz. Genesis: source-null/target-required serialized RECEIVE veya `INITIAL_BALANCE`; asset başına exactly one establishing genesis. Serialized ISSUE: source required, target NULL, IssueContext required. Serialized RETURN: source NULL, target required, `original_issue_line` serialized ISSUE, same asset/material/condition, unique lineage. Serialized TRANSFER: source+target required ve farklı, lineage/IssueContext yok. Line material = asset material; parent-aware PostgreSQL guard fail-closed kalır. `asset_event_seq` SerializedAsset satır kilidi altında `max(existing)+1` (genesis=1) atanır; verifier `serialized_asset_id → asset_event_seq` ile replay eder ve wall-clock/`occurred_at`/`created_at`/UUID sıralamasına güvenmez. Fingerprint'e girmez. Serialized correction deferred'dır. Unique `inventory_serialized_return_original_uniq` bir serialized ISSUE line'ın ikinci RETURN'ünü reddeder.
 
 ## 9. Stock Balance Projection
 
@@ -849,7 +850,15 @@ Phase 5.4C routine QUANTITY mutabakatında toplam kilit sırası `PhysicalCountS
 
 Phase 5.4D-A START, mevcut quantity snapshot kilitlerinden sonra in-scope `SerializedAsset` satırlarını kilitler ve expected serialized satırları oluşturur; candidate satırlar authoritative asset yazmaz.
 
-Phase 5.4D-B establishment kilit sırası `InventoryBaseline → PhysicalCountSession → PhysicalCountQuantityLine → PhysicalCountSerializedLine → Material → Location → MaterialCondition → StockBalance → LOCK TABLE inventory_serializedasset IN EXCLUSIVE MODE → SerializedAsset`tır; child `INITIAL_BALANCE` kernel ardından operation-id reservation ve mevcut inventory lock sırasını izler. İki farklı baseline'ın eşzamanlı candidate promotion'ı EXCLUSIVE table lock ile serialize edilir; serialized RECEIVE lock yolu değişmez.
+Phase 5.4D-B establishment kilit sırası `InventoryBaseline → PhysicalCountSession → PhysicalCountQuantityLine → PhysicalCountSerializedLine → Material → Location → MaterialCondition → StockBalance → LOCK TABLE inventory_serializedasset IN EXCLUSIVE MODE → SerializedAsset`tır; child `INITIAL_BALANCE` kernel ardından operation-id reservation ve mevcut inventory lock sırasını izler. İki farklı baseline'ın eşzamanlı candidate promotion'ı EXCLUSIVE table lock ile serialize edilir.
+
+Serialized ISSUE lock order: operation-id reservation → Material → source Location → MaterialCondition → Employee → ProductionLine → SerializedAsset.
+
+Serialized unused RETURN lock order: operation-id reservation → original ISSUE line → Material → target Location → MaterialCondition → SerializedAsset.
+
+Serialized TRANSFER lock order: operation-id reservation → Material → source ve target Location UUID-sıralı → MaterialCondition → SerializedAsset. Quantity TRANSFER ile aynı Location sıralaması korunur; Location ↔ SerializedAsset inversion yoktur.
+
+Serialized RECEIVE lock yolu değişmez: operation-id reservation → Material → target Location → MaterialCondition → SerializedAsset insert. Asset satırı projection doğrulama/mutasyonundan önce kilitlenir.
 
 Birden fazla quantity balance satırı `material_id → location_id → condition_id → primary key` sırasıyla kilitlenir. Serialized operation ilgili `SerializedAsset` satırını kilitler ve current location/condition/state'i lock sonrasında yeniden doğrular. Correction, import, reconciliation ve baseline kendi lifecycle/guard satırlarını lock altında yeniden doğrular.
 

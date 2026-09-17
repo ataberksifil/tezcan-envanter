@@ -491,6 +491,27 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   13. **Admin:** Read-only metadata; add/change/delete ve destructive bulk action yok.
 - **Consequence:** Quantity controlled correction V1 evidence closure COMPLETE. Serialized correction deferred kalır.
 
+### DEC-035 — V1 Serialized ISSUE, Linked Unused RETURN and In-Stock TRANSFER
+
+- **Status:** `DECIDED`
+- **Required before / recorded with:** Phase 5.6 serialized inventory movements backend
+- **Extends:** `DEC-032` identity rules korunur; V1 current-state vocabulary `IN_STOCK` + `ISSUED` olarak genişler
+- **Resolves:** Serialized unused linked RETURN analogue of `DEC-028`; serialized in-stock TRANSFER analogue of `DEC-029`; serialized ISSUE using existing ISSUE/`IssueContext` architecture
+- **Does not resolve:** serialized controlled correction; used/removed/defective/condition-changing return; generic unknown-origin return; custody/current-holder; INSTALLED/REPAIR/SCRAP/LOST; QR/barcode; serialized movement UI
+- **Decision:**
+  1. **V1 state vocabulary:** `SerializedAsset.current_state` yalnız `IN_STOCK` ve `ISSUED`dır. INSTALLED, REPAIR, SCRAP, LOST, custody/person state ve current-holder alanı yoktur.
+  2. **IN_STOCK projection:** `current_location != NULL` ve `current_condition != NULL`.
+  3. **ISSUED projection:** `current_location = NULL` ve `current_condition != NULL`. Kondisyon ISSUE anındaki değerdir. Alıcı, üretim hattı ve kullanım yeri `SerializedAsset`a kopyalanmaz; authoritative tarih `ISSUE` / `IssueContext`tedir.
+  4. **Ledger otoritesi:** Ledger authoritative kalır; `SerializedAsset` rebuildable current-state projection/cache'tir. `StockBalance` serialized hareketlerde kullanılmaz ve `quantity=1` uydurulmaz.
+  5. **Serialized ISSUE:** Mevcut `ISSUE` transaction type ve `inventory.issue_stock` permission. Asset `IN_STOCK`, verilen source/condition ile eşleşir. Line: asset required, quantity/unit NULL, source required, target NULL. `IssueContext` zorunludur. Projection `ISSUED` / location NULL / condition unchanged. Aynı asset yeniden ISSUE edilemez; RETURN sonrası yeni ISSUE yeni lineage'dır.
+  6. **Serialized linked unused RETURN:** Yalnız `DEC-028` analogu. Tam aynı SerializedAsset, Material ve ISSUE kondisyonu; explicit stock-holding target; `original_issue_line` serialized ISSUE'a köklenir. Kısmi miktar yoktur. Bir serialized ISSUE line tam olarak bir RETURN ile tüketilir. Permission `inventory.return_stock`.
+  7. **Serialized TRANSFER:** Yalnız `IN_STOCK` location movement. Source = current location; condition = current condition; source != target; target active stock-holding. IssueContext ve original_issue_line yoktur. Permission `inventory.transfer_stock`.
+  8. **Quantity kernels:** Quantity ISSUE/RETURN/TRANSFER arithmetic, cumulative cap, negative-stock ve StockBalance lock davranışı değişmez. Yeni SERIALIZED_* transaction type yoktur.
+  9. **Correction/custody:** Serialized correction, condition transformation ve custody bu karar kapsamı dışındadır.
+  10. **Causal event sequence:** `InventoryTransactionLine.asset_event_seq` serialized satır için zorunlu pozitif tamsayıdır; quantity satırda `NULL`dır. Değer, mevcut `SerializedAsset` `SELECT FOR UPDATE` kilidi altında `max(existing)+1` (genesis=1) olarak atanır. Projection verifier serialized history'yi yalnız `serialized_asset_id → asset_event_seq` ile replay eder; `occurred_at`, `created_at` ve line UUID nedensel sıra değildir. Sequence semantic fingerprint'e girmez. Next-seq kontrolü mevcut parent-aware serialized line guard içinde, asset row lock'u zaten tutulurken uygulanır; ayrı bir lock sırası yoktur.
+- **Consequence:** Phase 5.6 backend bu sözleşmeyi uygular. Implementation commit-gate review öncesi COMPLETE işaretlenmez. Broader RETURN (`DEC-HG-005`) ve serialized correction deferred kalır.
+- **Implementation status:** Phase 5.6 backend implemented, uncommitted pending commit-gate review. Serialized movement UI yoktur.
+
 ## 3. Açık İş Kararları
 
 Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` alanında kanonik karar kaydına bağlanır.
@@ -501,11 +522,11 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | `DEC-HG-002` | Correction bounds ve lineage | `DECIDED_FOR_QUANTITY_FIRST_SLICE` | OD-017, COR-011, DM-B13, UF-O-13, Gate0-AUD-006 | Serialized/broader correction | İş sahibi + inventory architect | `DEC-030` quantity first slice için gate'i kapatır. Serialized, non-stock context rewrite, evidence ve correction/count/baseline etkileşimi deferred kalır. |
 | `DEC-HG-003` | Production line veri modeli | `DECIDED` | OD-007, DM-B07, UF-O-01, Gate0-AUD-010 | ProductionLine foundation implementation (Phase 3.3 COMPLETE) | — | `DEC-025` ile kapatıldı. `ProductionLine` dynamic master-data entity; recursive hierarchy; code/name lifecycle; exact usage place ayrı free text. Foundation Phase 3.3 ve quantity ISSUE Phase 4.2 COMPLETE. |
 | `DEC-HG-004` | Employee identity linkage ve number reuse | `DECIDED` | OD-026 (employee linkage), DM-B01, DM-B08, UF-O-02, UF-O-16, UF-O-17, Gate0-AUD-017 | Employee foundation implementation (Phase 3.2 COMPLETE) | — | `DEC-024` ile kapatıldı (foundation). `accounts.Employee` ayrı entity; sicil string/global unique/editable; nullable one-to-one User link SET_NULL; lifecycle active/inactive. Foundation Phase 3.2 COMPLETE. Retention pilot öncesi kararları (`DEC-OPEN-013`, `DEC-OPEN-018`) açık kalır. Receiver snapshot korunur. |
-| `DEC-HG-005` | RETURN semantics | `DECIDED_FOR_QUANTITY_FIRST_SLICE` | OD-004, RET-004, DM-B11, UF-O-04, UF-O-12, Gate0-AUD-018 | Broader RETURN schema/service/UI | İş sahibi | `DEC-028`, yalnız unused linked QUANTITY RETURN first slice için gate'i kapatır. Serialized, used/defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları deferred/hard-gated kalır. |
+| `DEC-HG-005` | RETURN semantics | `DECIDED_FOR_UNUSED_LINKED_QUANTITY_AND_SERIALIZED` | OD-004, RET-004, DM-B11, UF-O-04, UF-O-12, Gate0-AUD-018 | Broader RETURN schema/service/UI | İş sahibi | `DEC-028` unused linked QUANTITY; `DEC-035` unused linked SERIALIZED analogue. Used/defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval deferred/hard-gated kalır. |
 | `DEC-OPEN-001` | Condition'ın available/minimum stock etkisi | `OPEN` | OD-001, OD-002, OD-003, OD-027, DM-B04, UF-O-11 | Issue availability, return, low-stock report | İş sahibi | Condition ile movement type ayrımı değişmez. |
 | `DEC-OPEN-002` | Quantity stock için çoklu lokasyondan seçim/dağıtım | `OPEN` | OD-005 | İlgili issue/picking feature | İş sahibi | Çoklu lokasyonda stok tutabilme modeli desteklenir. |
 | `DEC-OPEN-003` | Minimum stock aggregation | `OPEN` | OD-006, DM-B05, UF-O-03 | Low-stock/report implementation | İş sahibi | Global, location veya usable-condition semantics uydurulamaz. |
-| `DEC-OPEN-004` | Serialized identifier ve current-state vocabulary | `DECIDED` | OD-008, DM-B02, DM-B03, UF-O-08 | Phase 5.3 serialized foundation + RECEIVE | — | `DEC-032` ile kapatıldı: UUID technical identity; global unique internal asset code; optional per-material unique manufacturer serial; `IN_STOCK`-only first slice. |
+| `DEC-OPEN-004` | Serialized identifier ve current-state vocabulary | `DECIDED` | OD-008, DM-B02, DM-B03, UF-O-08 | Phase 5.3 serialized foundation + RECEIVE | — | `DEC-032` identity; first slice `IN_STOCK`. `DEC-035` V1 vocabulary'yi `IN_STOCK` + `ISSUED` olarak genişletir. |
 | `DEC-OPEN-005` | Storekeeper operational permissions | `OPEN` | OD-009, AUTH-011 (operational scope), UF-O-09 | İlgili warehouse feature | İş sahibi | Confirmed receipt/issue yetkileri korunur; diğerleri uydurulmaz. Phase 2 access management `DEC-022` ile kararlıdır. |
 | `DEC-OPEN-006` | Correction rejection reason zorunluluğu | `PROPOSED` | OD-010, COR-010, DM-S07, UF-O-19 | Correction reject form | İş sahibi | Onaylanana kadar nullable kalır. |
 | `DEC-OPEN-007` | Count tolerance, performer ve reconciliation role | `DECIDED` | OD-011, DM-B14, UF-O-06 | Phase 5.4 implementation | — | `DEC-033`: zero tolerance, blind counter, self-approval yasağı, 10–2000 açıklama ve sensitive ADMIN_MANAGER approval. |
@@ -556,6 +577,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Quantity controlled corrections (Phase 5.2) | **COMPLETE** (2026-09-13; 1242 test passed). `DEC-030`, `DEC-031`; evidence later `DEC-034` / Phase 5.5 |
 | Phase 5.5 correction evidence | **COMPLETE** (`DEC-034`). JPEG/PNG/WebP mandatory for new quantity correction requests; HEIC/HEIF unsupported; 10 MiB/file; protected retrieval; historical rows grandfathered. Serialized correction deferred. |
 | Serialized inventory foundation + serialized RECEIVE (Phase 5.3) | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; asset identity/current projection + serialized RECEIVE tamamlandı. |
+| Serialized ISSUE + linked unused RETURN + in-stock TRANSFER (Phase 5.6) | Backend implemented, uncommitted pending commit-gate review. `DEC-035`. Movement UI deferred. COMPLETE işaretlenmez. |
 | Counting/reconciliation | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout, `DEC-033`). Serialized `COUNT_RECONCILIATION` ve count/baseline UI sonraki ayrı görevlerdir. |
 | Baseline schema/cutover | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout). `InventoryBaseline`, scoped `INITIAL_BALANCE`, combined QUANTITY+SERIALIZED establishment. Count/baseline UI yoktur. `DEC-002` / `DEC-015` / `DEC-032` / `DEC-033` korunur. |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |

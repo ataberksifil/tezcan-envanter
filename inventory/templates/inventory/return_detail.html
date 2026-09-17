@@ -27,8 +27,14 @@
     <dt class="col-sm-3">Malzeme</dt>
     <dd class="col-sm-9">{{ line.material.material_code }} — {{ line.material.name }}</dd>
 
-    <dt class="col-sm-3">Bu iade miktarı</dt>
-    <dd class="col-sm-9">{{ line.quantity }} {{ line.unit.code }} ({{ line.unit.name }})</dd>
+    <dt class="col-sm-3">{% if line.serialized_asset_id %}Tekil varlık{% else %}Bu iade miktarı{% endif %}</dt>
+    <dd class="col-sm-9">
+        {% if line.serialized_asset_id %}
+            {{ line.serialized_asset.internal_asset_code }}{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
+        {% else %}
+            {{ line.quantity }} {{ line.unit.code }} ({{ line.unit.name }})
+        {% endif %}
+    </dd>
 
     <dt class="col-sm-3">Kondisyon</dt>
     <dd class="col-sm-9">{{ line.condition.name }}</dd>
@@ -45,17 +51,24 @@
         {% endif %}
     </dd>
 
+    {% if line.serialized_asset_id %}
+    <dt class="col-sm-3">Orijinal çıkış varlığı</dt>
+    <dd class="col-sm-9">{{ original_issue_line.serialized_asset.internal_asset_code }}</dd>
+    {% else %}
     <dt class="col-sm-3">Orijinal çıkış miktarı</dt>
     <dd class="col-sm-9">{{ original_issue_line.quantity }} {{ original_issue_line.unit.code }}</dd>
+    {% endif %}
 
     <dt class="col-sm-3">Orijinal kaynak konum</dt>
     <dd class="col-sm-9">{{ original_issue_line.source_location.code }}</dd>
 
+    {% if not line.serialized_asset_id %}
     <dt class="col-sm-3">Toplam iade</dt>
     <dd class="col-sm-9">{{ cumulative_returned }} {{ line.unit.code }}</dd>
 
     <dt class="col-sm-3">Kalan iade edilebilir</dt>
     <dd class="col-sm-9">{{ remaining_returnable }} {{ line.unit.code }}</dd>
+    {% endif %}
 
     <dt class="col-sm-3">Alıcı</dt>
     <dd class="col-sm-9">{{ issue_context.receiver_first_name_snapshot }} {{ issue_context.receiver_last_name_snapshot }} ({{ issue_context.receiver_employee_number_snapshot }})</dd>

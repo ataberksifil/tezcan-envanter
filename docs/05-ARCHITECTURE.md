@@ -525,7 +525,7 @@ Phase 5.4C routine QUANTITY approval toplam sırası `PhysicalCountSession → P
 
 Phase 5.4D-A serialized physical-count backend COMPLETE'tir. Counting-owned `PhysicalCountSerializedLine` mevcut START adımında in-scope `SerializedAsset` expected snapshot'ını alır; bir oturum QUANTITY ve SERIALIZED sayım kanıtını birlikte taşıyabilir. Expected satırlar authoritative `SerializedAsset` snapshot referansıdır; mevcut authoritative asset beklenmeyen konumda gözlemlenebilir; fiziksel bulunan candidate item counting-owned staging olarak kaydedilir ve counting sırasında authoritative `SerializedAsset` oluşturmaz. Untouched expected asset explicit missing değildir; routine session `NOT_COUNTED` kabul eder, baseline-candidate completion serialized `NOT_COUNTED` reddeder. Counting establishment öncesi non-authoritative kalır.
 
-Phase 5.4 — Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Phase 5.4D-B: `imports` owned `InventoryBaseline` prepare/establish, session ownership, scoped `INITIAL_BALANCE` result links, combined QUANTITY+SERIALIZED cutover, candidate serialized promotion, authoritative serialized identity DB normalization, no-freeze scope-wide drift, prior-ledger-history protection, separation of duties, establishment idempotency, projection verification before `ESTABLISHED` ve atomic rollback. Phase 5.4E: count/baseline default-role permission rollout; operational count permissions safe-managed; sensitive `counting.decide_discrepancy` ve `imports.establish_baseline` safe allowlist dışında. Count/baseline UI, serialized ISSUE/RETURN/TRANSFER/controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode uygulanmamıştır. `DEC-OPEN-010` OPEN kalır. Sonraki faz başlamamıştır.
+Phase 5.4 — Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Phase 5.4D-B: `imports` owned `InventoryBaseline` prepare/establish, session ownership, scoped `INITIAL_BALANCE` result links, combined QUANTITY+SERIALIZED cutover, candidate serialized promotion, authoritative serialized identity DB normalization, no-freeze scope-wide drift, prior-ledger-history protection, separation of duties, establishment idempotency, projection verification before `ESTABLISHED` ve atomic rollback. Phase 5.4E: count/baseline default-role permission rollout; operational count permissions safe-managed; sensitive `counting.decide_discrepancy` ve `imports.establish_baseline` safe allowlist dışında. Count/baseline UI, serialized controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode uygulanmamıştır. Phase 5.6 serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend `DEC-035` ile uygulanmıştır; commit-gate review öncesi COMPLETE işaretlenmez ve movement UI yoktur. `DEC-OPEN-010` OPEN kalır.
 
 ## 21. Reporting Architecture
 
@@ -816,7 +816,7 @@ Bu legacy özet tüm projeyi bloke etmez. Güncel status, owner, source mapping 
 | Konu | İlgili feature/modül | Kaynak |
 |---|---|---|
 | Employee number ve material code uniqueness/reuse | accounts, catalog, imports | Employee number `DEC-024`; Location code `DEC-023`; Material code remainder `DEC-OPEN-021` |
-| Serialized identifier ve ilk state kodu | Phase 5.3 foundation + RECEIVE | `DEC-032`: UUID, mandatory/global internal code, optional/per-material serial, `IN_STOCK`; broader movements/lifecycle deferred |
+| Serialized identifier ve ilk state kodu | Phase 5.3 foundation + RECEIVE; Phase 5.6 movements | `DEC-032` identity; `DEC-035` V1 `IN_STOCK`/`ISSUED`; serialized correction/custody/QR deferred |
 | Kondisyonun available/minimum stok etkisi | inventory, low stock, return | DM-B04 |
 | Minimum stok aggregation | reports/low stock | DM-B05 |
 | Birim bazlı decimal precision/kısmi miktar | quantity mutation | DM-B06 |
@@ -922,7 +922,7 @@ Phase 1 (1.1–1.8) tamamlandı → **Gate 1 PASS** (tarihsel kayıt; bkz. `docs
 
 **Phase 4.1:** Quantity RECEIPT UI + permission rollout — COMPLETE (2026-09-12).
 
-Quantity RECEIPT, ISSUE, `DEC-028` unused linked RETURN ve `DEC-029` quantity TRANSFER uçtan uca implement edilmiştir. Phase 5.1 current-stock visibility `44f1d30b7b8a72b768293de3ecbff32769e3f454` commit'inde COMPLETE'tir. `DEC-030` Phase 5.2 quantity controlled correction COMPLETE'tir; son doğrulama 1242 test ile geçmiştir. Phase 5.3 serialized identity/current projection + serialized RECEIVE `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec` üzerinde COMPLETE'tir. `DEC-033` kapsamında Phase 5.4A schema/guard, Phase 5.4B physical-count workflow foundation, Phase 5.4C routine QUANTITY discrepancy approval/rejection ve `COUNT_RECONCILIATION` kernel'i, Phase 5.4D-A serialized physical-count backend ve Phase 5.4D-B `InventoryBaseline`/`INITIAL_BALANCE` combined cutover uygulanmıştır. Counting establishment öncesi non-authoritative kalır. Serialized `COUNT_RECONCILIATION`, serialized mutation workflow'ları ve count/baseline UI uygulanmamıştır. Phase 5.4E permission rollout COMPLETE. **Gate 3 PASS** (2026-09-12; bkz. `06` §4.5) yalnız tarihsel audited scope'u doğrular.
+Quantity RECEIPT, ISSUE, `DEC-028` unused linked RETURN ve `DEC-029` quantity TRANSFER uçtan uca implement edilmiştir. Phase 5.1 current-stock visibility `44f1d30b7b8a72b768293de3ecbff32769e3f454` commit'inde COMPLETE'tir. `DEC-030` Phase 5.2 quantity controlled correction COMPLETE'tir; son doğrulama 1242 test ile geçmiştir. Phase 5.3 serialized identity/current projection + serialized RECEIVE `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec` üzerinde COMPLETE'tir. `DEC-033` kapsamında Phase 5.4A schema/guard, Phase 5.4B physical-count workflow foundation, Phase 5.4C routine QUANTITY discrepancy approval/rejection ve `COUNT_RECONCILIATION` kernel'i, Phase 5.4D-A serialized physical-count backend ve Phase 5.4D-B `InventoryBaseline`/`INITIAL_BALANCE` combined cutover uygulanmıştır. Counting establishment öncesi non-authoritative kalır. Serialized `COUNT_RECONCILIATION` ve count/baseline UI uygulanmamıştır. Phase 5.4E permission rollout COMPLETE. Phase 5.6 serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend `DEC-035` ile uygulanmıştır; COMPLETE ve movement UI commit-gate sonrasınadır. **Gate 3 PASS** (2026-09-12; bkz. `06` §4.5) yalnız tarihsel audited scope'u doğrular.
 
 ## 37. Dynamic Configuration Architecture
 
@@ -1033,21 +1033,24 @@ Inventory Core preflight disposition kanonikleşmiştir (`DEC-026`; `PASS FOR NE
 | 4.2C | ISSUE UI + `inventory.issue_stock` permission rollout — **COMPLETE** (`077e9d5`) |
 | 4.4 | Quantity RETURN first slice: kernel + service + UI + permission rollout — **COMPLETE** (`DEC-028`, 2026-09-12) |
 | 4.5 | Quantity TRANSFER first slice: kernel + service + UI + permission rollout — **COMPLETE** (`DEC-029`, 2026-09-12) |
-| 5.3 | Serialized inventory foundation + serialized RECEIVE — **AUTHORIZED** (`DEC-032`, 2026-09-13) |
+| 5.3 | Serialized inventory foundation + serialized RECEIVE — **COMPLETE** (`DEC-032`) |
+| 5.6 | Serialized ISSUE + linked unused RETURN + in-stock TRANSFER backend — implemented pending commit-gate (`DEC-035`; UI deferred) |
 
 **Onaylı ilk mutation:** quantity RECEIPT — uçtan uca implement edilmiştir (`DEC-026`).
 
 **İkinci mutation:** quantity ISSUE first slice — `DEC-027`; Phase 4.2A → 4.2B → 4.2C COMPLETE.
 
-**Quantity RETURN:** `DEC-028` unused linked QUANTITY first slice kernel, service/projection, UI ve role rollout ile uygulanmıştır. Broader RETURN, serialized TRANSFER, correction, count/baseline, serialized mutation ve multi-line/auto-allocation ISSUE authorize edilmemiştir.
+**Quantity RETURN:** `DEC-028` unused linked QUANTITY first slice kernel, service/projection, UI ve role rollout ile uygulanmıştır. Broader RETURN (used/removed, condition-changing, unknown-origin) deferred kalır. Serialized unused linked RETURN analogu `DEC-035` Phase 5.6 backend'indedir; movement UI yoktur.
 
-**Quantity TRANSFER:** `DEC-029` quantity first slice kernel, service/projection, UI ve role rollout ile uygulanmıştır. Serialized, condition-changing, multi-source/target, FIFO/FEFO, custody ve QR/offline TRANSFER senaryoları deferred kalır.
+**Quantity TRANSFER:** `DEC-029` quantity first slice kernel, service/projection, UI ve role rollout ile uygulanmıştır. Serialized in-stock TRANSFER analogu `DEC-035` Phase 5.6 backend'indedir; condition-changing, multi-source/target, FIFO/FEFO, custody ve QR/offline TRANSFER senaryoları deferred kalır.
 
 **Ledger/projection contract:** `InventoryTransaction` + `InventoryTransactionLine` immutable business ledger; `StockBalance` quantity projection. Plain successful inventory ledger mutation generic `AuditEvent` duplicate etmez.
 
 **Quantity RECEIPT implementation (Phase 4.0C–4.1):** idempotent `receive_stock` service; PostgreSQL concurrency koruması; receipt create/detail UI; `inventory.receive_stock` managed permission rollout; `operation_id` double-submit koruması.
 
-**Serialized RECEIVE first slice (Phase 5.3, `DEC-032`):** asset UUID + mandatory global internal code + optional per-material manufacturer serial; `IN_STOCK`/location/condition projection; serialized ledger line asset FK with null quantity/unit; asset + RECEIVE + projection one atomic command; existing `inventory.receive_stock` permission.
+**Serialized RECEIVE first slice (Phase 5.3, `DEC-032`):** asset UUID + mandatory global internal code + optional per-material manufacturer serial; genesis `IN_STOCK`/location/condition projection; serialized ledger line asset FK with null quantity/unit; asset + RECEIVE + projection one atomic command; existing `inventory.receive_stock` permission.
+
+**Serialized ISSUE/RETURN/TRANSFER backend (Phase 5.6, `DEC-035`):** V1 states `IN_STOCK` + `ISSUED`; same transaction types; no fake quantity 1; no StockBalance; IssueContext owns ISSUE recipient/line/usage history; linked unused serialized RETURN once per original ISSUE line; TRANSFER only while IN_STOCK. Permissions reuse `inventory.issue_stock`, `inventory.return_stock`, `inventory.transfer_stock`. Movement UI ve serialized correction deferred. COMPLETE işaretlenmez ta ki commit-gate review.
 
 **Quantity ISSUE implementation (Phase 4.2A–4.2C, `DEC-027`):** tek material/source/condition/quantity/line; explicit condition bucket; mandatory IssueContext; `inventory.issue_stock`; DB-backed IssueContext guards.
 

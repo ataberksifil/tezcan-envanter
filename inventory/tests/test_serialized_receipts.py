@@ -161,6 +161,7 @@ def test_successful_serialized_receive_is_atomic_ledger_and_projection(
     assert line.source_location_id is None
     assert line.target_location_id == asset.current_location_id
     assert line.condition_id == asset.current_condition_id
+    assert line.asset_event_seq == 1
     assert StockBalance.objects.count() == 0
     assert AuditEvent.objects.count() == audit_count
     assert verify_serialized_projection() == ()
@@ -181,6 +182,8 @@ def test_same_operation_and_semantic_input_replays_exact_asset(serialized_object
     assert replay.replayed is True
     assert replay.transaction.pk == first.transaction.pk
     assert replay.serialized_asset.pk == first.serialized_asset.pk
+    assert first.lines[0].asset_event_seq == 1
+    assert replay.lines[0].asset_event_seq == 1
     assert SerializedAsset.objects.count() == 1
     assert InventoryTransaction.objects.count() == 1
     assert InventoryTransactionLine.objects.count() == 1

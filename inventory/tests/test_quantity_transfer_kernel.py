@@ -421,6 +421,14 @@ def test_transfer_kernel_migration_reverses_without_transfer_data_and_forwards_a
         # leave the shared --reuse-db schema behind the current model state.
         call_command("migrate", verbosity=0)
 
+    recorder = MigrationRecorder(connection)
+    assert recorder.migration_qs.filter(
+        app="inventory", name=TRANSFER_KERNEL_MIGRATION
+    ).exists()
+    assert recorder.migration_qs.filter(
+        app="inventory", name="0012_serialized_inventory_movements"
+    ).exists()
+
     # Restore the transaction's normal deferred-check mode after the schema
     # operation. SET CONSTRAINTS above otherwise remains IMMEDIATE until pytest
     # closes its outer test transaction.

@@ -17,7 +17,12 @@ from inventory.models import (
     InventoryTransactionLine,
     IssueContext,
     ProductionLine,
+    SerializedAsset,
     StockBalance,
+)
+from inventory.services.projections import (
+    assert_serialized_projection_for_asset,
+    next_serialized_asset_event_seq,
 )
 from inventory.services.receipts import (
     INACTIVE_CONDITION,
@@ -41,6 +46,10 @@ INACTIVE_EMPLOYEE = "inventory.inactive_employee"
 INACTIVE_PRODUCTION_LINE = "inventory.inactive_production_line"
 INVALID_USAGE_LOCATION = "inventory.invalid_usage_location"
 INSUFFICIENT_STOCK = "inventory.insufficient_stock"
+INVALID_SERIALIZED_ASSET = "inventory.invalid_serialized_asset"
+INVALID_ASSET_STATE = "inventory.invalid_asset_state"
+CONDITION_MISMATCH = "inventory.condition_mismatch"
+PROJECTION_MISMATCH = "inventory.projection_mismatch"
 
 
 def issue_quantity(
@@ -198,6 +207,152 @@ def issue_quantity(
         )
 
 
+def issue_serialized(
+    *,
+    actor,
+    operation_id,
+    serialized_asset_id,
+    source_location_id,
+    condition_id,
+    receiver_employee_id,
+    production_line_id,
+    usage_location_text,
+    using: str = "default",
+) -> InventoryMutationResult:
+    """Atomically append one serialized ISSUE and project the asset to ISSUED.
+
+    Authorization precedes replay. For a new operation the lock order is the
+    operation-id reservation, Material, source Location, MaterialCondition,
+    Employee, ProductionLine, then the SerializedAsset row.
+    """
+    current_actor = _authorize_actor(actor, using)
+    normalized_operation_id = _normalize_uuid(
+        operation_id,
+        field="operation_id",
+        code="inventory.invalid_operation_id",
+    )
+    normalized_asset_id = _normalize_uuid(
+        serialized_asset_id,
+        field="serialized_asset_id",
+        code=INVALID_SERIALIZED_ASSET,
+    )
+    normalized_condition_id = _normalize_uuid(
+        condition_id,
+        field="condition_id",
+        code=INACTIVE_CONDITION,
+    )
+    normalized_source_location_id = _normalize_uuid(
+        source_location_id,
+        field="source_location_id",
+        code=INVALID_SOURCE,
+    )
+    normalized_receiver_employee_id = _normalize_uuid(
+        receiver_employee_id,
+        field="receiver_employee_id",
+        code=INACTIVE_EMPLOYEE,
+    )
+    normalized_production_line_id = _normalize_uuid(
+        production_line_id,
+        field="production_line_id",
+        code=INACTIVE_PRODUCTION_LINE,
+    )
+    normalized_usage_location = _normalize_usage_location(usage_location_text)
+    fingerprint = _serialized_request_fingerprint(
+        acting_user_id=current_actor.pk,
+        serialized_asset_id=normalized_asset_id,
+        condition_id=normalized_condition_id,
+        source_location_id=normalized_source_location_id,
+        receiver_employee_id=normalized_receiver_employee_id,
+        production_line_id=normalized_production_line_id,
+        usage_location_text=normalized_usage_location,
+    )
+
+    with transaction.atomic(using=using):
+        existing = (
+            InventoryTransaction.objects.using(using)
+            .filter(operation_id=normalized_operation_id)
+            .first()
+        )
+        if existing is not None:
+            return _replay_or_conflict(existing, fingerprint, using)
+
+        try:
+            with transaction.atomic(using=using):
+                header = InventoryTransaction.objects.using(using).create(
+                    operation_id=normalized_operation_id,
+                    request_fingerprint=fingerprint,
+                    transaction_type=InventoryTransaction.TransactionType.ISSUE,
+                    acting_user=current_actor,
+                    occurred_at=timezone.now(),
+                )
+        except IntegrityError as exc:
+            if not _is_constraint_error(exc, OPERATION_ID_UNIQUE_CONSTRAINT):
+                raise
+            winner = InventoryTransaction.objects.using(using).get(
+                operation_id=normalized_operation_id
+            )
+            return _replay_or_conflict(winner, fingerprint, using)
+
+        asset_preview = _asset_identity(normalized_asset_id, using)
+        material = _locked_material(asset_preview.material_id, using)
+        location = _locked_location(normalized_source_location_id, using)
+        condition = _locked_condition(normalized_condition_id, using)
+        employee = _locked_employee(normalized_receiver_employee_id, using)
+        production_line = _locked_production_line(
+            normalized_production_line_id, using
+        )
+        asset = _locked_serialized_asset(normalized_asset_id, using)
+        _validate_serialized_issue(
+            material=material,
+            location=location,
+            condition=condition,
+            employee=employee,
+            production_line=production_line,
+            asset=asset,
+            source_location_id=location.pk,
+            condition_id=condition.pk,
+        )
+
+        line = InventoryTransactionLine.objects.using(using).create(
+            transaction=header,
+            line_number=1,
+            material=material,
+            serialized_asset=asset,
+            quantity=None,
+            unit=None,
+            condition=condition,
+            source_location=location,
+            target_location=None,
+            asset_event_seq=next_serialized_asset_event_seq(asset.pk, using=using),
+        )
+        issue_context = IssueContext.objects.using(using).create(
+            transaction=header,
+            receiver_employee=employee,
+            receiver_first_name_snapshot=employee.first_name,
+            receiver_last_name_snapshot=employee.last_name,
+            receiver_employee_number_snapshot=employee.employee_number,
+            production_line=production_line,
+            production_line_code_snapshot=production_line.code,
+            production_line_name_snapshot=production_line.name,
+            usage_location_text=normalized_usage_location,
+        )
+        asset.current_state = SerializedAsset.CurrentState.ISSUED
+        asset.current_location = None
+        asset.save(
+            using=using,
+            update_fields=["current_state", "current_location", "updated_at"],
+        )
+        assert_serialized_projection_for_asset(asset.pk, using=using)
+
+        return InventoryMutationResult(
+            transaction=header,
+            lines=(line,),
+            replayed=False,
+            issue_context=issue_context,
+            serialized_asset=asset,
+        )
+
+
 def _authorize_actor(actor, using: str):
     if actor is None or getattr(actor, "pk", None) is None:
         raise PermissionDenied
@@ -274,15 +429,24 @@ def _replay_or_conflict(
             OPERATION_CONFLICT,
             "operation_id farklı bir envanter isteği için zaten kullanılmış.",
         )
-    lines = tuple(transaction_record.lines.using(using).order_by("line_number", "pk"))
+    lines = tuple(
+        transaction_record.lines.using(using)
+        .select_related("serialized_asset")
+        .order_by("line_number", "pk")
+    )
     issue_context = IssueContext.objects.using(using).get(
         transaction_id=transaction_record.pk
+    )
+    serialized_asset = next(
+        (line.serialized_asset for line in lines if line.serialized_asset_id),
+        None,
     )
     return InventoryMutationResult(
         transaction=transaction_record,
         lines=lines,
         replayed=True,
         issue_context=issue_context,
+        serialized_asset=serialized_asset,
     )
 
 
@@ -389,4 +553,106 @@ def _locked_balance(
         _raise_validation(
             INSUFFICIENT_STOCK,
             "Seçilen malzeme, konum ve kondisyon için yeterli stok yok.",
+        )
+
+
+def _serialized_request_fingerprint(
+    *,
+    acting_user_id,
+    serialized_asset_id: uuid.UUID,
+    condition_id: uuid.UUID,
+    source_location_id: uuid.UUID,
+    receiver_employee_id: uuid.UUID,
+    production_line_id: uuid.UUID,
+    usage_location_text: str,
+) -> str:
+    payload = {
+        "acting_user_id": str(acting_user_id),
+        "condition_id": str(condition_id),
+        "production_line_id": str(production_line_id),
+        "receiver_employee_id": str(receiver_employee_id),
+        "serialized_asset_id": str(serialized_asset_id),
+        "source_location_id": str(source_location_id),
+        "tracking_mode": Material.TrackingMode.SERIALIZED,
+        "transaction_type": InventoryTransaction.TransactionType.ISSUE,
+        "usage_location_text": usage_location_text,
+    }
+    canonical_json = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
+
+
+def _asset_identity(asset_id: uuid.UUID, using: str) -> SerializedAsset:
+    try:
+        return SerializedAsset.objects.using(using).get(pk=asset_id)
+    except SerializedAsset.DoesNotExist:
+        _raise_validation(INVALID_SERIALIZED_ASSET, "Tekil varlık bulunamadı.")
+
+
+def _locked_serialized_asset(asset_id: uuid.UUID, using: str) -> SerializedAsset:
+    try:
+        return (
+            SerializedAsset.objects.using(using)
+            .select_for_update()
+            .get(pk=asset_id)
+        )
+    except SerializedAsset.DoesNotExist:
+        _raise_validation(INVALID_SERIALIZED_ASSET, "Tekil varlık bulunamadı.")
+
+
+def _validate_serialized_issue(
+    *,
+    material: Material,
+    location: Location,
+    condition: MaterialCondition,
+    employee: Employee,
+    production_line: ProductionLine,
+    asset: SerializedAsset,
+    source_location_id: uuid.UUID,
+    condition_id: uuid.UUID,
+) -> None:
+    if not material.active:
+        _raise_validation(INACTIVE_MATERIAL, "Pasif malzemeden stok çıkışı yapılamaz.")
+    if material.tracking_mode != Material.TrackingMode.SERIALIZED:
+        _raise_validation(
+            TRACKING_MODE_MISMATCH,
+            "Bu servis yalnız tekil takip edilen malzemeleri kabul eder.",
+        )
+    if asset.material_id != material.pk:
+        _raise_validation(
+            INVALID_SERIALIZED_ASSET,
+            "Tekil varlık malzemesi kilitlenen malzeme ile eşleşmiyor.",
+        )
+    if not location.active or not location.can_hold_stock:
+        _raise_validation(
+            INVALID_SOURCE,
+            "Kaynak konum aktif ve stok tutabilir olmalıdır.",
+        )
+    if not condition.active:
+        _raise_validation(INACTIVE_CONDITION, "Pasif kondisyon kullanılamaz.")
+    if not employee.active:
+        _raise_validation(INACTIVE_EMPLOYEE, "Pasif çalışan alıcı seçilemez.")
+    if not production_line.active:
+        _raise_validation(
+            INACTIVE_PRODUCTION_LINE,
+            "Pasif üretim hattı seçilemez.",
+        )
+    if asset.current_state != SerializedAsset.CurrentState.IN_STOCK:
+        _raise_validation(
+            INVALID_ASSET_STATE,
+            "Yalnız stoktaki tekil varlık çıkışı yapılabilir.",
+        )
+    if asset.current_location_id != source_location_id:
+        _raise_validation(
+            INVALID_SOURCE,
+            "Tekil varlık belirtilen kaynak konumda değildir.",
+        )
+    if asset.current_condition_id != condition_id:
+        _raise_validation(
+            CONDITION_MISMATCH,
+            "Tekil varlık belirtilen kondisyonda değildir.",
         )

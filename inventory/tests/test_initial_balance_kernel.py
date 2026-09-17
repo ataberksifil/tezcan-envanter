@@ -10,10 +10,12 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, connection, transaction
 
 from catalog.models import Category, Material, MaterialCondition, UnitOfMeasure
+from accounts.models import Employee
 from inventory.models import (
     InventoryTransaction,
     InventoryTransactionLine,
     IssueContext,
+    ProductionLine,
     SerializedAsset,
     StockBalance,
 )
@@ -23,6 +25,7 @@ from inventory.services.baselines import (
     SerializedOpening,
     establish_initial_balance,
 )
+from inventory.services.issues import issue_serialized
 from inventory.services.projections import (
     verify_quantity_projection,
     verify_serialized_projection,
@@ -242,6 +245,7 @@ def test_serialized_opening_promotes_canonical_identity(kernel_objects):
     assert line.unit_id is None
     assert line.source_location_id is None
     assert line.target_location_id == kernel_objects["location"].pk
+    assert line.asset_event_seq == 1
     assert verify_serialized_projection() == ()
 
 
@@ -612,6 +616,7 @@ def test_initial_balance_rejects_asset_material_mismatch(kernel_objects):
                 unit=None,
                 condition=kernel_objects["condition"],
                 target_location=kernel_objects["location"],
+                asset_event_seq=1,
             )
 
 
@@ -671,6 +676,54 @@ def test_raw_sql_rejects_quantity_serialized_mix_on_initial_balance(kernel_objec
                 condition=kernel_objects["condition"],
                 target_location=kernel_objects["location"],
             )
+
+
+def test_serialized_initial_balance_then_movement_uses_next_event_seq(kernel_objects):
+    user = kernel_objects["user"]
+    user.user_permissions.add(
+        Permission.objects.get(
+            content_type__app_label="inventory",
+            content_type__model="inventorytransaction",
+            codename="issue_stock",
+        )
+    )
+    user = type(user).objects.get(pk=user.pk)
+    employee = Employee.objects.create(
+        employee_number=f"IB-E-{uuid.uuid4().hex[:6]}",
+        first_name="Ayşe",
+        last_name="Yılmaz",
+    )
+    production_line = ProductionLine.objects.create(
+        code=f"IB-PL-{uuid.uuid4().hex[:6]}",
+        name="Hat",
+    )
+    result = establish_initial_balance(
+        actor=user,
+        operation_id=uuid.uuid4(),
+        serialized_openings=[
+            SerializedOpening(
+                material_id=kernel_objects["serialized_material"].pk,
+                internal_asset_code=f"IB-SEQ-{uuid.uuid4().hex[:6]}",
+                serial_number=None,
+                location_id=kernel_objects["location"].pk,
+                condition_id=kernel_objects["condition"].pk,
+            )
+        ],
+    )
+    asset = result.serialized_asset
+    assert result.lines[0].asset_event_seq == 1
+    issue = issue_serialized(
+        actor=user,
+        operation_id=uuid.uuid4(),
+        serialized_asset_id=asset.pk,
+        source_location_id=kernel_objects["location"].pk,
+        condition_id=kernel_objects["condition"].pk,
+        receiver_employee_id=employee.pk,
+        production_line_id=production_line.pk,
+        usage_location_text="Pano 7",
+    )
+    assert issue.lines[0].asset_event_seq == 2
+    assert verify_serialized_projection() == ()
 
 
 def test_establish_baseline_permission_is_sensitive_and_admin_manager_only():

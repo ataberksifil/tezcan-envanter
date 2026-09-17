@@ -427,15 +427,18 @@ class IssueDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
             raise Http404("Issue not found")
         context["line"] = lines[0]
         context["issue_context"] = self.object.issue_context
-        returned_quantity = (
-            lines[0]
-            .return_lines.filter(
-                transaction__transaction_type=InventoryTransaction.TransactionType.RETURN
+        if lines[0].serialized_asset_id:
+            context["return_remaining_quantity"] = 0
+        else:
+            returned_quantity = (
+                lines[0]
+                .return_lines.filter(
+                    transaction__transaction_type=InventoryTransaction.TransactionType.RETURN
+                )
+                .aggregate(total=Sum("quantity"))["total"]
+                or 0
             )
-            .aggregate(total=Sum("quantity"))["total"]
-            or 0
-        )
-        context["return_remaining_quantity"] = lines[0].quantity - returned_quantity
+            context["return_remaining_quantity"] = lines[0].quantity - returned_quantity
         return context
 
 
@@ -501,7 +504,8 @@ class ReturnDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
             "target_location",
             "original_issue_line__transaction__issue_context",
             "original_issue_line__source_location",
-            "original_issue_line__unit",
+            "original_issue_line__serialized_asset",
+            "serialized_asset",
         ).order_by("line_number")
         return (
             InventoryTransaction.objects.filter(
@@ -518,13 +522,18 @@ class ReturnDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
             raise Http404("Return not found")
         line = lines[0]
         original_issue_line = line.original_issue_line
-        cumulative_returned = (
-            original_issue_line.return_lines.filter(
-                transaction__transaction_type=InventoryTransaction.TransactionType.RETURN
+        if line.serialized_asset_id:
+            remaining_returnable = 0
+            cumulative_returned = 1
+        else:
+            cumulative_returned = (
+                original_issue_line.return_lines.filter(
+                    transaction__transaction_type=InventoryTransaction.TransactionType.RETURN
+                )
+                .aggregate(total=Sum("quantity"))["total"]
+                or 0
             )
-            .aggregate(total=Sum("quantity"))["total"]
-            or 0
-        )
+            remaining_returnable = original_issue_line.quantity - cumulative_returned
         context.update(
             {
                 "line": line,
@@ -532,8 +541,7 @@ class ReturnDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
                 "original_issue": original_issue_line.transaction,
                 "issue_context": original_issue_line.transaction.issue_context,
                 "cumulative_returned": cumulative_returned,
-                "remaining_returnable": original_issue_line.quantity
-                - cumulative_returned,
+                "remaining_returnable": remaining_returnable,
             }
         )
         return context
@@ -711,6 +719,7 @@ class TransferDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
             .select_related("acting_user")
             .prefetch_related(
                 "lines__material__unit",
+                "lines__serialized_asset",
                 "lines__condition",
                 "lines__source_location",
                 "lines__target_location",

@@ -244,6 +244,7 @@ def test_quantity_serialized_mix_still_blocked_on_receipt(objects):
             unit=None,
             condition=objects["condition"],
             target_location=objects["child"],
+            asset_event_seq=1,
         )
     with pytest.raises(Exception, match="cannot share a RECEIVE"):
         with transaction.atomic():

@@ -290,7 +290,7 @@ Her `SerializedAsset`:
 - aynı anda iki fiziksel lokasyonda bulunamaz;
 - güncel konum ve kondisyonunu geçerli işlem geçmişinden türetir.
 
-UUID stable teknik kimliktir; `internal_asset_code` insan-facing operasyonel kimliktir; üretici `serial_number` teknik primary key değildir (`DEC-032`). Phase 5.3 current state vocabulary yalnız `IN_STOCK`tır; state, location, condition ve future custody birbirinden ayrıdır.
+UUID stable teknik kimliktir; `internal_asset_code` insan-facing operasyonel kimliktir; üretici `serial_number` teknik primary key değildir (`DEC-032`). V1 current-state vocabulary `DEC-035` ile `IN_STOCK` ve `ISSUED`dır; INSTALLED/REPAIR/SCRAP/LOST ve custody/current-holder yoktur. State, location, condition ve IssueContext tarihsel bağlamı birbirinden ayrıdır.
 
 Tekil varlık bir anonim sayısal bakiye olarak temsil edilmez. `SerializedAssetState`, varlığın son geçerli ledger etkilerinden türetilen mevcut/konum/kondisyon görünümüdür.
 
@@ -318,7 +318,7 @@ Ledger'dan beklenen quantity ve serialized current state'i temporary/in-memory o
 
 ### SerializedAssetState
 
-Tekil stok için anonim `StockBalance(quantity=1)` kullanılmaz. Her fiziksel örnek kendi `SerializedAsset` kimliğiyle ve geçmişten türetilen `SerializedAssetState` ile izlenir. Phase 5.3 ilk diliminde persisted projection `current_state=IN_STOCK`, zorunlu current stock-holding location ve active `MaterialCondition` taşır; ledger authoritative kalır (`DEC-032`).
+Tekil stok için anonim `StockBalance(quantity=1)` kullanılmaz. Her fiziksel örnek kendi `SerializedAsset` kimliğiyle ve geçmişten türetilen `SerializedAssetState` ile izlenir. Persisted projection `DEC-035` ile: `IN_STOCK` için zorunlu current stock-holding location ve condition; `ISSUED` için `current_location=NULL` ve ISSUE anındaki condition. Alıcı/üretim hattı/kullanım yeri projection'a kopyalanmaz. Ledger authoritative kalır (`DEC-032`, `DEC-035`).
 
 ## 10. Giriş / Çıkış / İade / Transfer Domaini
 
@@ -330,7 +330,7 @@ Her satırda source azalış, target artış anlamına gelir; aşağıdaki tablo
 |---|---|---|---|
 | `RECEIPT` | Yok | Zorunlu stock-holding location | Hedefte miktar veya tekil varlık mevcudiyeti oluşturur/artırır. |
 | `ISSUE` | Zorunlu stock-holding location | Yok | Kaynak miktarı azaltır veya tekil varlığı stok dışına çıkarır; zorunlu `IssueContext` taşır. |
-| `RETURN` | Yok | Zorunlu, açıkça seçilen stock-holding location | `DEC-028` unused linked QUANTITY slice: exactly one original ISSUE line; same material/unit/condition; partial/multiple allowed; cumulative cap original ISSUE quantity. Broader RETURN deferred'dır. |
+| `RETURN` | Yok | Zorunlu, açıkça seçilen stock-holding location | `DEC-028` unused linked QUANTITY: original ISSUE line; same material/unit/condition; partial/multiple allowed; cumulative cap. `DEC-035` unused linked SERIALIZED: same asset/material/condition; exactly one RETURN per serialized ISSUE line. Broader RETURN deferred'dır. |
 | `TRANSFER` | Zorunlu stock-holding location | Zorunlu, source'dan farklı stock-holding location | Tek atomik olayda source azalır, target artar. |
 | `CONTROLLED_CORRECTION` | Azalış line'ında zorunlu | Artış line'ında zorunlu | `DEC-030`: pure signed quantity effect tek line; identity restatement eşit miktarlı decrease+increase olarak iki line; ikisi de canonical original line lineage taşır. |
 | `INITIAL_BALANCE` | Yok | Zorunlu stock-holding location | Yalnız reconciled baseline üzerinden açılış stoğunu bir kez oluşturur. |
@@ -352,11 +352,13 @@ Alıcı için `Employee` UUID referansı ve zorunlu kimlik snapshot'ı (`employe
 
 **Fiili kullanım yeri (exact usage place):** V1 quantity ISSUE ayrı required free-text `usage_location_text` gerektirir (`DEC-027`). `ProductionLine` structured selectable context sağlar; exact usage place ayrı kalır. `UsagePlace` modeli yoktur; Location veya ProductionLine'dan infer edilmez.
 
-Quantity ISSUE first slice `DEC-027` doğrultusunda Phase 4.2A–4.2C'de kernel, service, UI ve `inventory.issue_stock` managed rollout ile tamamlanmıştır.
+Quantity ISSUE first slice `DEC-027` doğrultusunda Phase 4.2A–4.2C'de kernel, service, UI ve `inventory.issue_stock` managed rollout ile tamamlanmıştır. Serialized ISSUE (`DEC-035`) aynı `ISSUE` type ve `IssueContext` sözleşmesini kullanır; `SerializedAsset` alıcı/hat/kullanım yeri kopyalamaz.
 
 ### Quantity RETURN Lineage (`DEC-028`)
 
-Unused linked QUANTITY RETURN tam olarak bir immutable original ISSUE line'a `InventoryTransactionLine.original_issue_line` self-FK'siyle bağlanır ve tam olarak bir RETURN line taşır. RETURN line source'u null, target'ı zorunludur; target original ISSUE source olmak zorunda değildir. Material, unit ve condition original ISSUE line ile aynıdır. Aynı ISSUE line'a partial ve multiple RETURN bağlanabilir; cumulative quantity original ISSUE quantity'sini aşamaz. Concurrency serialization point original ISSUE line row lock'ıdır. Ayrı `ReturnContext` yoktur; `IssueContext` yalnız ISSUE transaction'a aittir. Serialized ve broader RETURN senaryoları deferred kalır.
+Unused linked QUANTITY RETURN tam olarak bir immutable original ISSUE line'a `InventoryTransactionLine.original_issue_line` self-FK'siyle bağlanır ve tam olarak bir RETURN line taşır. RETURN line source'u null, target'ı zorunludur; target original ISSUE source olmak zorunda değildir. Material, unit ve condition original ISSUE line ile aynıdır. Aynı ISSUE line'a partial ve multiple RETURN bağlanabilir; cumulative quantity original ISSUE quantity'sini aşamaz. Concurrency serialization point original ISSUE line row lock'ıdır. Ayrı `ReturnContext` yoktur; `IssueContext` yalnız ISSUE transaction'a aittir.
+
+Serialized unused linked RETURN (`DEC-035`) aynı lineage kolonunu kullanır: original line serialized ISSUE olmalıdır; asset/material/condition aynıdır; kısmi iade yoktur; bir serialized ISSUE line tam olarak bir RETURN ile tüketilir. Asset o anda `ISSUED` olmalıdır. RETURN sonrası re-ISSUE yeni lineage'dır. Used/removed, condition-changing, unknown-origin ve serialized correction deferred kalır.
 
 ### Kavramsal işlem akışı
 

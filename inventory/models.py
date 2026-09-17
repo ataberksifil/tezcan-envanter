@@ -161,6 +161,7 @@ class InventoryTransaction(models.Model):
 class SerializedAsset(models.Model):
     class CurrentState(models.TextChoices):
         IN_STOCK = "IN_STOCK", "Stokta"
+        ISSUED = "ISSUED", "Çıkış yapılmış"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     material = models.ForeignKey(
@@ -173,6 +174,8 @@ class SerializedAsset(models.Model):
     serial_number = models.CharField(max_length=255, null=True, blank=True)
     current_location = models.ForeignKey(
         "locations.Location",
+        null=True,
+        blank=True,
         on_delete=models.RESTRICT,
         related_name="current_serialized_assets",
         db_index=False,
@@ -228,8 +231,19 @@ class SerializedAsset(models.Model):
                 name="inventory_asset_serial_trimmed_or_null",
             ),
             models.CheckConstraint(
-                condition=Q(current_state="IN_STOCK"),
-                name="inventory_asset_state_in_stock",
+                condition=(
+                    Q(
+                        current_state="IN_STOCK",
+                        current_location__isnull=False,
+                        current_condition__isnull=False,
+                    )
+                    | Q(
+                        current_state="ISSUED",
+                        current_location__isnull=True,
+                        current_condition__isnull=False,
+                    )
+                ),
+                name="inventory_asset_state_shape",
             ),
         ]
 
@@ -257,23 +271,40 @@ class SerializedAsset(models.Model):
                 raise ValidationError(
                     {"material": "Tekil varlık için SERIALIZED malzeme zorunludur."}
                 )
-        if self.current_location_id is not None and (
-            not self.current_location.active
-            or not self.current_location.can_hold_stock
-        ):
+        if self.current_state == self.CurrentState.IN_STOCK:
+            if self.current_location_id is None:
+                raise ValidationError(
+                    {"current_location": "Stoktaki tekil varlık konum gerektirir."}
+                )
+            if (
+                not self.current_location.active
+                or not self.current_location.can_hold_stock
+            ):
+                raise ValidationError(
+                    {
+                        "current_location": "Mevcut konum aktif ve stok tutabilir olmalıdır."
+                    }
+                )
+        elif self.current_state == self.CurrentState.ISSUED:
+            if self.current_location_id is not None:
+                raise ValidationError(
+                    {
+                        "current_location": "Çıkışı yapılmış tekil varlığın mevcut konumu boş olmalıdır."
+                    }
+                )
+        else:
             raise ValidationError(
-                {"current_location": "Mevcut konum aktif ve stok tutabilir olmalıdır."}
+                {
+                    "current_state": "V1 tekil varlık durumu yalnız IN_STOCK veya ISSUED olabilir."
+                }
             )
-        if (
-            self.current_condition_id is not None
-            and not self.current_condition.active
-        ):
+        if self.current_condition_id is None:
+            raise ValidationError(
+                {"current_condition": "Mevcut kondisyon zorunludur."}
+            )
+        if not self.current_condition.active:
             raise ValidationError(
                 {"current_condition": "Mevcut kondisyon aktif olmalıdır."}
-            )
-        if self.current_state != self.CurrentState.IN_STOCK:
-            raise ValidationError(
-                {"current_state": "Bu dilimde yalnız IN_STOCK durumu geçerlidir."}
             )
 
     def save(self, *args, **kwargs):
@@ -373,6 +404,7 @@ class InventoryTransactionLine(models.Model):
         on_delete=models.RESTRICT,
         related_name="correction_lines",
     )
+    asset_event_seq = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -385,6 +417,19 @@ class InventoryTransactionLine(models.Model):
                 fields=["transaction", "serialized_asset"],
                 condition=Q(serialized_asset__isnull=False),
                 name="inventory_line_tx_asset_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["original_issue_line"],
+                condition=Q(
+                    original_issue_line__isnull=False,
+                    serialized_asset__isnull=False,
+                ),
+                name="inventory_serialized_return_original_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["serialized_asset", "asset_event_seq"],
+                condition=Q(serialized_asset__isnull=False),
+                name="inventory_line_asset_event_seq_uniq",
             ),
             models.CheckConstraint(
                 condition=Q(line_number__gt=0),
@@ -408,6 +453,19 @@ class InventoryTransactionLine(models.Model):
                     )
                 ),
                 name="inventory_line_tracking_shape",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        serialized_asset__isnull=True,
+                        asset_event_seq__isnull=True,
+                    )
+                    | Q(
+                        serialized_asset__isnull=False,
+                        asset_event_seq__gte=1,
+                    )
+                ),
+                name="inventory_line_asset_event_seq_shape",
             ),
             models.CheckConstraint(
                 condition=(

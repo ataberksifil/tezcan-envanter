@@ -37,6 +37,7 @@ LINE_PREFETCH = Prefetch(
         "target_location",
         "original_issue_line__transaction",
         "original_issue_line__unit",
+        "original_issue_line__serialized_asset",
         "corrected_line__transaction",
         "corrected_line__material",
         "corrected_line__condition",

@@ -19,6 +19,7 @@ from inventory.models import (
     SerializedAsset,
     StockBalance,
 )
+from inventory.services.projections import next_serialized_asset_event_seq
 from locations.models import Location
 
 RECEIVE_STOCK_PERMISSION = "inventory.receive_stock"
@@ -278,6 +279,7 @@ def receive_serialized(
                 )
             raise
 
+        asset = _locked_serialized_asset(asset.pk, using)
         line = InventoryTransactionLine.objects.using(using).create(
             transaction=header,
             line_number=1,
@@ -288,6 +290,7 @@ def receive_serialized(
             condition=condition,
             source_location=None,
             target_location=location,
+            asset_event_seq=next_serialized_asset_event_seq(asset.pk, using=using),
         )
         return InventoryMutationResult(
             transaction=header,
@@ -480,6 +483,14 @@ def _locked_material(material_id: uuid.UUID, using: str) -> Material:
         return Material.objects.using(using).select_for_update().get(pk=material_id)
     except Material.DoesNotExist:
         _raise_validation(INACTIVE_MATERIAL, "Malzeme bulunamadı veya aktif değil.")
+
+
+def _locked_serialized_asset(asset_id: uuid.UUID, using: str) -> SerializedAsset:
+    return (
+        SerializedAsset.objects.using(using)
+        .select_for_update()
+        .get(pk=asset_id)
+    )
 
 
 def _locked_location(location_id: uuid.UUID, using: str) -> Location:
