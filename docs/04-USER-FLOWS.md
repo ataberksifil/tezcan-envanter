@@ -320,7 +320,7 @@ flowchart TD
 - Acting user, `occurred_at`, işlem detayı ledger'da.
 
 **Scope Boundary**
-- `DEC-032` identity + serialized RECEIVE korunur. `DEC-035` V1 states `IN_STOCK`/`ISSUED` ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend'ini tanımlar; movement UI, serialized correction, QR, serialized `COUNT_RECONCILIATION` ve broader lifecycle deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve establishment öncesi non-authoritative'tir. Phase 5.4D-B COMPLETE: combined QUANTITY+SERIALIZED baseline establishment backend uygulanmıştır; count/baseline UI yoktur.
+- `DEC-032` identity + serialized RECEIVE korunur. `DEC-035` V1 states `IN_STOCK`/`ISSUED` ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend'ini tanımlar. Phase 5.7 normal application workflow/UI wiring'i state-aware tekil varlık detayından mevcut permission'larla uygular; review için uncommitted durumdadır ve COMPLETE işaretlenmemiştir. Serialized correction, QR, serialized `COUNT_RECONCILIATION` ve broader lifecycle deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve establishment öncesi non-authoritative'tir. Phase 5.4D-B COMPLETE: combined QUANTITY+SERIALIZED baseline establishment backend uygulanmıştır; count/baseline UI yoktur.
 
 ### UF-INT-001 — Saha / Atölye Malzeme Alım Talebi
 
@@ -474,6 +474,7 @@ flowchart TD
 
 **TBD / Open Decisions**
 - Quantity ISSUE first slice `DEC-027` doğrultusunda Phase 4.2A–4.2C'de kernel, service, UI ve `inventory.issue_stock` managed rollout ile tamamlanmıştır.
+- Serialized ISSUE Phase 5.7 workflow'u asset kimliğini route'tan sabitler; current source/condition hidden stale-form kanıtıdır, kullanıcı condition dönüştüremez; `issue_serialized(...)` tek mutation otoritesidir. Miktar/birim alanı yoktur.
 - ProductionLine foundation `DEC-025` ile kararlıdır; structured selectable context; exact usage place ayrı required free text (`usage_location_text`).
 - Employee foundation `DEC-024` ile kararlıdır; receiver Employee UUID + snapshot; inactive Employee yeni ISSUE'da seçilemez.
 
@@ -518,7 +519,7 @@ flowchart TD
 
 ### UF-RET-001 — İade
 
-> **SCOPE GATE — `DEC-028`:** Yalnız unused linked QUANTITY RETURN first slice kararlıdır ve Phase 4.4'te kernel, service, UI ve permission rollout ile uygulanmıştır. Serialized, used/defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları `DEC-HG-005` altında deferred kalır.
+> **SCOPE GATE — `DEC-028` + `DEC-035`:** Unused linked QUANTITY RETURN Phase 4.4'te; aynı varlık/material/condition'a köklü, exactly-once serialized unused linked RETURN backend'i Phase 5.6'da ve normal web workflow'u Phase 5.7'de uygulanmıştır. Used/defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları `DEC-HG-005` altında deferred kalır.
 
 **Actors:** Direct quantity RETURN için `STOREKEEPER`, `ADMIN_MANAGER`; `TECHNICIAN` değil. Runtime authorization `inventory.return_stock` permission'ına dayanır.
 
@@ -561,13 +562,14 @@ flowchart TD
 - Ordinary RETURN için yalnız immutable ledger; duplicate `AuditEvent` ve `ReturnContext` yoktur.
 
 **TBD / Open Decisions**
-- `DEC-HG-005`: Serialized, used/removed, defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları.
+- Phase 5.7 serialized RETURN UI aktif ISSUE lineage'ını kanonik asset yüzeyinden taşır; kullanıcı yalnız eligible hedef Location seçer; miktar/birim/condition seçimi yoktur ve `return_serialized(...)` tek mutation otoritesidir.
+- `DEC-HG-005`: Used/removed, defective/condition-changing, unknown-provenance, supplier/unlinked, correction/count ve technician approval senaryoları.
 
 ## 9. Transfer Flows
 
 ### UF-TRF-001 — Lokasyonlar Arası Transfer
 
-**Actors:** Transfer yetkisi **TBD**; muhtemel: `STOREKEEPER`, `ADMIN_MANAGER`
+**Actors:** Runtime authorization `inventory.transfer_stock`; fresh `STOREKEEPER` ve `ADMIN_MANAGER` alır, `TECHNICIAN` almaz.
 
 **Preconditions**
 - Kaynak != hedef.
@@ -596,7 +598,7 @@ flowchart TD
 - Yetersiz kaynak, pasif hedef, aynı kaynak/hedef, yetki reddi, eşzamanlı tüketim.
 
 **Permissions**
-- **TBD** (TRF-005).
+- `inventory.transfer_stock` (`DEC-029`, `DEC-035`); hard-coded Group kontrolü yoktur.
 
 **Inventory / Data Effect**
 - `TRANSFER` transaction; iki lokasyon projection güncellemesi.
@@ -605,7 +607,8 @@ flowchart TD
 - Ledger kaydı.
 
 **TBD / Open Decisions**
-- Transfer senaryoları ve yetkili roller.
+- Phase 5.7 serialized TRANSFER UI asset kimliğini route'tan sabitler; source/condition hidden stale-form kanıtıdır; kullanıcı yalnız eligible, current source'tan farklı hedef seçer; `transfer_serialized(...)` tek mutation otoritesidir. Miktar/birim/condition transformation yoktur.
+- Condition-changing, multi-source/multi-target, FIFO/FEFO, custody ve QR/offline transfer senaryoları deferred kalır.
 
 ## 10. Correction Flows
 
@@ -889,7 +892,7 @@ flowchart TD
 
 **Phase 5.4D-A implementation note:** Counting-owned `PhysicalCountSerializedLine` ve mevcut START içindeki serialized expected snapshot uygulanmıştır. Bir oturum QUANTITY + SERIALIZED kanıt taşıyabilir. Expected asset'ler authoritative `SerializedAsset` snapshot referansıdır; unexpected existing asset gözlemlenebilir; candidate item staging-only kaydedilir ve counting sırasında `SerializedAsset` oluşturmaz. Untouched expected ≠ explicit missing; routine `NOT_COUNTED` vardır; baseline-candidate completion serialized `NOT_COUNTED` reddeder. Counting establishment öncesi non-authoritative kalır. Serialized `COUNT_RECONCILIATION` yoktur.
 
-**Phase 5.4 implementation note:** Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Phase 5.4E default-role permission rollout tamamlanmıştır: fresh TECHNICIAN/STOREKEEPER `counting.view/add/change_physicalcountsession`; fresh ADMIN_MANAGER ayrıca `counting.decide_discrepancy` ve `imports.establish_baseline`. Count/baseline UI, serialized controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode yoktur. Phase 5.6 serialized movement backend `DEC-035` ile uygulanmıştır; COMPLETE ve action UI commit-gate sonrasınadır.
+**Phase 5.4 implementation note:** Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Phase 5.4E default-role permission rollout tamamlanmıştır: fresh TECHNICIAN/STOREKEEPER `counting.view/add/change_physicalcountsession`; fresh ADMIN_MANAGER ayrıca `counting.decide_discrepancy` ve `imports.establish_baseline`. Count/baseline UI, serialized controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode yoktur. Phase 5.6 serialized movement backend `DEC-035` ile commit `1947b8ab374510c8bafb5f58f160decc455969d6` üzerinde uygulanmıştır; Phase 5.7 action UI/workflow wiring'i review için uncommitted durumdadır ve COMPLETE işaretlenmemiştir.
 
 **Audit Effect**
 - Sayım aktörü ve zamanları.

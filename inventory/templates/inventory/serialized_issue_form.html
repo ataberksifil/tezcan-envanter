@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm"><div class="card-body p-4">
+            <h1 class="h3 mb-3">{{ form_title }}</h1>
+            <dl class="row mb-4">
+                <dt class="col-sm-4">Dahili varlık kodu</dt><dd class="col-sm-8">{{ asset.internal_asset_code }}</dd>
+                <dt class="col-sm-4">Malzeme</dt><dd class="col-sm-8">{{ asset.material.material_code }} — {{ asset.material.name }}</dd>
+                <dt class="col-sm-4">Üretici seri numarası</dt><dd class="col-sm-8">{% if asset.serial_number %}{{ asset.serial_number }}{% else %}—{% endif %}</dd>
+                <dt class="col-sm-4">Kaynak konum</dt><dd class="col-sm-8">{% if asset.current_location %}{{ asset.current_location.code }} — {{ asset.current_location.name }}{% else %}—{% endif %}</dd>
+                <dt class="col-sm-4">Kondisyon</dt><dd class="col-sm-8">{{ asset.current_condition.name }}</dd>
+            </dl>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for hidden in form.hidden_fields %}{{ hidden }}{% for error in hidden.errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}{% endfor %}
+                {% if form.non_field_errors %}<div class="alert alert-danger">{% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
+                {% for field in form.visible_fields %}
+                    <div class="mb-3"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+                {% endfor %}
+                <div class="d-flex gap-2"><button class="btn btn-primary" type="submit">Çıkışı kaydet</button><a class="btn btn-outline-secondary" href="{% url 'inventory:serialized-asset-detail' asset.pk %}">İptal</a></div>
+            </form>
+        </div></div>
+    </div>
+</div>
+{% endblock %}

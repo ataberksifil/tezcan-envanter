@@ -7,7 +7,9 @@
     <h1 class="h3 mb-0">Stok çıkışı kaydı</h1>
     <div class="d-flex flex-wrap gap-2">
         <a class="btn btn-outline-primary" href="{% url 'inventory:issue-create' %}">Yeni stok çıkışı</a>
-        {% if perms.inventory.return_stock and return_remaining_quantity > 0 %}
+        {% if line.serialized_asset_id and perms.inventory.return_stock and serialized_return_available %}
+            <a class="btn btn-outline-success" href="{% url 'inventory:serialized-return-create' line.serialized_asset_id line.pk %}">Tekil varlığı iade al</a>
+        {% elif perms.inventory.return_stock and return_remaining_quantity > 0 %}
             <a class="btn btn-outline-success" href="{% url 'inventory:return-create' %}?issue_line={{ line.pk }}">İade başlat</a>
         {% endif %}
         <a class="btn btn-outline-secondary" href="{% url 'home' %}">Ana sayfa</a>
@@ -33,7 +35,7 @@
     <dt class="col-sm-3">{% if line.serialized_asset_id %}Tekil varlık{% else %}Miktar{% endif %}</dt>
     <dd class="col-sm-9">
         {% if line.serialized_asset_id %}
-            {{ line.serialized_asset.internal_asset_code }}{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
+            {% if perms.inventory.view_stockbalance %}<a href="{% url 'inventory:serialized-asset-detail' line.serialized_asset.pk %}">{{ line.serialized_asset.internal_asset_code }}</a>{% else %}{{ line.serialized_asset.internal_asset_code }}{% endif %}{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
         {% else %}
             {{ line.quantity }}
         {% endif %}

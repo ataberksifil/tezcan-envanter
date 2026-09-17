@@ -3,7 +3,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Prefetch, Q, Sum
 from django.http import Http404
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
@@ -14,17 +14,24 @@ from inventory.forms import (
     QuantityReceiptForm,
     QuantityReturnForm,
     QuantityTransferForm,
+    SerializedIssueForm,
     SerializedReceiptForm,
+    SerializedReturnForm,
+    SerializedTransferForm,
     attach_issue_validation_error,
     attach_receipt_validation_error,
     attach_return_validation_error,
+    attach_serialized_issue_validation_error,
     attach_serialized_receipt_validation_error,
+    attach_serialized_return_validation_error,
+    attach_serialized_transfer_validation_error,
     attach_transfer_validation_error,
 )
 from inventory.models import (
     InventoryTransaction,
     InventoryTransactionLine,
     ProductionLine,
+    SerializedAsset,
     StockBalance,
 )
 from inventory.stock_list import (
@@ -38,19 +45,20 @@ from inventory.transaction_history import (
     TRANSACTION_HISTORY_PAGE_SIZE,
     TRANSACTION_HISTORY_PERMISSION,
     build_transaction_history_queryset,
+    base_transaction_history_queryset,
     filter_form_context,
     filter_params_from_request,
     normalize_transaction_type_filter,
 )
-from inventory.services.issues import issue_quantity
+from inventory.services.issues import issue_quantity, issue_serialized
 from inventory.services.production_lines import (
     create_production_line,
     set_production_line_active,
     update_production_line,
 )
 from inventory.services.receipts import receive_quantity, receive_serialized
-from inventory.services.returns import return_quantity
-from inventory.services.transfers import transfer_quantity
+from inventory.services.returns import return_quantity, return_serialized
+from inventory.services.transfers import transfer_quantity, transfer_serialized
 
 PRODUCTION_LINE_LIST_PAGE_SIZE = 50
 STATUS_ALL = "all"
@@ -336,6 +344,228 @@ class SerializedReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, V
         return redirect("inventory:receipt-detail", pk=result.transaction.pk)
 
 
+class SerializedAssetDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = "inventory.view_stockbalance"
+    model = SerializedAsset
+    context_object_name = "asset"
+    template_name = "inventory/serialized_asset_detail.html"
+    http_method_names = ["get", "head"]
+
+    def get_queryset(self):
+        return SerializedAsset.objects.select_related(
+            "material",
+            "current_location",
+            "current_condition",
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.user.has_perm(TRANSACTION_HISTORY_PERMISSION):
+            history = base_transaction_history_queryset().filter(
+                lines__serialized_asset_id=self.object.pk
+            )
+            context["asset_transactions"] = history.order_by(
+                "-lines__asset_event_seq", "-id"
+            )
+        if self.object.current_state == SerializedAsset.CurrentState.ISSUED:
+            context["active_issue_line"] = (
+                InventoryTransactionLine.objects.filter(
+                    serialized_asset_id=self.object.pk,
+                    transaction__transaction_type=(
+                        InventoryTransaction.TransactionType.ISSUE
+                    ),
+                    return_lines__isnull=True,
+                )
+                .select_related("transaction__issue_context", "source_location")
+                .order_by("-asset_event_seq", "-id")
+                .first()
+            )
+        return context
+
+
+class SerializedIssueCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "inventory.issue_stock"
+    template_name = "inventory/serialized_issue_form.html"
+
+    def _asset(self, pk):
+        return get_object_or_404(
+            SerializedAsset.objects.select_related(
+                "material", "current_location", "current_condition"
+            ),
+            pk=pk,
+        )
+
+    def _render(self, request, asset, form):
+        return render(
+            request,
+            self.template_name,
+            {"asset": asset, "form": form, "form_title": "Tekil varlık çıkışı"},
+        )
+
+    def get(self, request, pk):
+        asset = self._asset(pk)
+        if asset.current_state != SerializedAsset.CurrentState.IN_STOCK:
+            raise Http404("Serialized asset is not in stock")
+        return self._render(request, asset, SerializedIssueForm(asset=asset))
+
+    def post(self, request, pk):
+        asset = self._asset(pk)
+        form = SerializedIssueForm(request.POST, asset=asset)
+        if not form.is_valid():
+            return self._render(request, asset, form)
+        try:
+            result = issue_serialized(
+                actor=request.user,
+                operation_id=form.cleaned_data["operation_id"],
+                serialized_asset_id=asset.pk,
+                source_location_id=form.cleaned_data["source_location"].pk,
+                condition_id=form.cleaned_data["condition"].pk,
+                receiver_employee_id=form.cleaned_data["receiver_employee"].pk,
+                production_line_id=form.cleaned_data["production_line"].pk,
+                usage_location_text=form.cleaned_data["usage_location_text"],
+            )
+        except PermissionDenied:
+            raise
+        except ValidationError as exc:
+            attach_serialized_issue_validation_error(form, exc)
+            return self._render(request, asset, form)
+
+        if result.replayed:
+            messages.info(request, "Bu tekil varlık çıkışı daha önce kaydedilmişti.")
+        else:
+            messages.success(request, "Tekil varlık çıkışı kaydedildi.")
+        return redirect("inventory:issue-detail", pk=result.transaction.pk)
+
+
+class SerializedReturnCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "inventory.return_stock"
+    template_name = "inventory/serialized_return_form.html"
+
+    def _objects(self, asset_pk, issue_line_pk):
+        asset = get_object_or_404(
+            SerializedAsset.objects.select_related(
+                "material", "current_condition", "current_location"
+            ),
+            pk=asset_pk,
+        )
+        issue_line = get_object_or_404(
+            InventoryTransactionLine.objects.select_related(
+                "transaction__issue_context",
+                "source_location",
+                "condition",
+                "material",
+                "serialized_asset",
+            ),
+            pk=issue_line_pk,
+            serialized_asset_id=asset.pk,
+            transaction__transaction_type=InventoryTransaction.TransactionType.ISSUE,
+            quantity__isnull=True,
+            unit__isnull=True,
+        )
+        return asset, issue_line
+
+    def _render(self, request, asset, issue_line, form):
+        return render(
+            request,
+            self.template_name,
+            {
+                "asset": asset,
+                "issue_line": issue_line,
+                "issue_context": issue_line.transaction.issue_context,
+                "form": form,
+                "form_title": "Tekil varlık iadesi",
+            },
+        )
+
+    def get(self, request, asset_pk, issue_line_pk):
+        asset, issue_line = self._objects(asset_pk, issue_line_pk)
+        if (
+            asset.current_state != SerializedAsset.CurrentState.ISSUED
+            or issue_line.return_lines.filter(
+                transaction__transaction_type=InventoryTransaction.TransactionType.RETURN
+            ).exists()
+        ):
+            raise Http404("Serialized issue is not returnable")
+        return self._render(request, asset, issue_line, SerializedReturnForm())
+
+    def post(self, request, asset_pk, issue_line_pk):
+        asset, issue_line = self._objects(asset_pk, issue_line_pk)
+        form = SerializedReturnForm(request.POST)
+        if not form.is_valid():
+            return self._render(request, asset, issue_line, form)
+        try:
+            result = return_serialized(
+                actor=request.user,
+                operation_id=form.cleaned_data["operation_id"],
+                original_issue_line_id=issue_line.pk,
+                serialized_asset_id=asset.pk,
+                target_location_id=form.cleaned_data["target_location"].pk,
+            )
+        except PermissionDenied:
+            raise
+        except ValidationError as exc:
+            attach_serialized_return_validation_error(form, exc)
+            return self._render(request, asset, issue_line, form)
+
+        if result.replayed:
+            messages.info(request, "Bu tekil varlık iadesi daha önce kaydedilmişti.")
+        else:
+            messages.success(request, "Tekil varlık iadesi kaydedildi.")
+        return redirect("inventory:return-detail", pk=result.transaction.pk)
+
+
+class SerializedTransferCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "inventory.transfer_stock"
+    template_name = "inventory/serialized_transfer_form.html"
+
+    def _asset(self, pk):
+        return get_object_or_404(
+            SerializedAsset.objects.select_related(
+                "material", "current_location", "current_condition"
+            ),
+            pk=pk,
+        )
+
+    def _render(self, request, asset, form):
+        return render(
+            request,
+            self.template_name,
+            {"asset": asset, "form": form, "form_title": "Tekil varlık transferi"},
+        )
+
+    def get(self, request, pk):
+        asset = self._asset(pk)
+        if asset.current_state != SerializedAsset.CurrentState.IN_STOCK:
+            raise Http404("Serialized asset is not in stock")
+        return self._render(request, asset, SerializedTransferForm(asset=asset))
+
+    def post(self, request, pk):
+        asset = self._asset(pk)
+        form = SerializedTransferForm(request.POST, asset=asset)
+        if not form.is_valid():
+            return self._render(request, asset, form)
+        try:
+            result = transfer_serialized(
+                actor=request.user,
+                operation_id=form.cleaned_data["operation_id"],
+                serialized_asset_id=asset.pk,
+                source_location_id=form.cleaned_data["source_location"].pk,
+                target_location_id=form.cleaned_data["target_location"].pk,
+                condition_id=form.cleaned_data["condition"].pk,
+            )
+        except PermissionDenied:
+            raise
+        except ValidationError as exc:
+            attach_serialized_transfer_validation_error(form, exc)
+            return self._render(request, asset, form)
+
+        if result.replayed:
+            messages.info(request, "Bu tekil varlık transferi daha önce kaydedilmişti.")
+        else:
+            messages.success(request, "Tekil varlık transferi kaydedildi.")
+        return redirect("inventory:transfer-detail", pk=result.transaction.pk)
+
+
 class IssueCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
     permission_required = "inventory.issue_stock"
     template_name = "inventory/issue_form.html"
@@ -429,6 +659,15 @@ class IssueDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         context["issue_context"] = self.object.issue_context
         if lines[0].serialized_asset_id:
             context["return_remaining_quantity"] = 0
+            context["serialized_return_available"] = (
+                lines[0].serialized_asset.current_state
+                == SerializedAsset.CurrentState.ISSUED
+                and not lines[0].return_lines.filter(
+                    transaction__transaction_type=(
+                        InventoryTransaction.TransactionType.RETURN
+                    )
+                ).exists()
+            )
         else:
             returned_quantity = (
                 lines[0]
@@ -523,8 +762,7 @@ class ReturnDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         line = lines[0]
         original_issue_line = line.original_issue_line
         if line.serialized_asset_id:
-            remaining_returnable = 0
-            cumulative_returned = 1
+            context["is_serialized_return"] = True
         else:
             cumulative_returned = (
                 original_issue_line.return_lines.filter(
@@ -534,14 +772,14 @@ class ReturnDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
                 or 0
             )
             remaining_returnable = original_issue_line.quantity - cumulative_returned
+            context["cumulative_returned"] = cumulative_returned
+            context["remaining_returnable"] = remaining_returnable
         context.update(
             {
                 "line": line,
                 "original_issue_line": original_issue_line,
                 "original_issue": original_issue_line.transaction,
                 "issue_context": original_issue_line.transaction.issue_context,
-                "cumulative_returned": cumulative_returned,
-                "remaining_returnable": remaining_returnable,
             }
         )
         return context

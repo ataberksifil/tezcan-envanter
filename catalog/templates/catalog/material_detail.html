@@ -144,7 +144,7 @@
                     <tbody>
                         {% for asset in current_serialized_assets %}
                             <tr>
-                                <td>{{ asset.internal_asset_code }}</td>
+                                <td><a href="{% url 'inventory:serialized-asset-detail' asset.pk %}">{{ asset.internal_asset_code }}</a></td>
                                 <td>{% if asset.serial_number %}{{ asset.serial_number }}{% else %}—{% endif %}</td>
                                 <td>{% if asset.current_location %}{{ asset.current_location.code }} ({{ asset.current_location.name }}){% else %}—{% endif %}</td>
                                 <td>{{ asset.current_condition.name }}</td>

@@ -46,6 +46,26 @@ urlpatterns = [
         name="serialized-receipt-create",
     ),
     path(
+        "inventory/serialized-assets/<uuid:pk>/",
+        views.SerializedAssetDetailView.as_view(),
+        name="serialized-asset-detail",
+    ),
+    path(
+        "inventory/serialized-assets/<uuid:pk>/issue/",
+        views.SerializedIssueCreateView.as_view(),
+        name="serialized-issue-create",
+    ),
+    path(
+        "inventory/serialized-assets/<uuid:asset_pk>/returns/<uuid:issue_line_pk>/new/",
+        views.SerializedReturnCreateView.as_view(),
+        name="serialized-return-create",
+    ),
+    path(
+        "inventory/serialized-assets/<uuid:pk>/transfer/",
+        views.SerializedTransferCreateView.as_view(),
+        name="serialized-transfer-create",
+    ),
+    path(
         "inventory/receipts/<uuid:pk>/",
         views.ReceiptDetailView.as_view(),
         name="receipt-detail",

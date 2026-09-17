@@ -29,7 +29,7 @@
         <dd class="col-sm-9">
             {{ rendered_line.material.material_code }} — {{ rendered_line.material.name }};
             {% if rendered_line.serialized_asset_id %}
-                dahili varlık {{ rendered_line.serialized_asset.internal_asset_code }}{% if rendered_line.serialized_asset.serial_number %}; üretici seri {{ rendered_line.serialized_asset.serial_number }}{% endif %};
+                dahili varlık {% if perms.inventory.view_stockbalance %}<a href="{% url 'inventory:serialized-asset-detail' rendered_line.serialized_asset.pk %}">{{ rendered_line.serialized_asset.internal_asset_code }}</a>{% else %}{{ rendered_line.serialized_asset.internal_asset_code }}{% endif %}{% if rendered_line.serialized_asset.serial_number %}; üretici seri {{ rendered_line.serialized_asset.serial_number }}{% endif %};
             {% else %}
                 {{ rendered_line.quantity }} {{ rendered_line.unit.code }};
             {% endif %}

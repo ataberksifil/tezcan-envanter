@@ -386,6 +386,126 @@ class QuantityIssueForm(forms.Form):
         return value.strip()
 
 
+class SerializedIssueForm(forms.Form):
+    operation_id = forms.UUIDField(widget=forms.HiddenInput())
+    source_location = ServiceValidatedModelChoiceField(
+        label="Kaynak konum",
+        queryset=Location.objects.none(),
+        widget=forms.HiddenInput(),
+    )
+    condition = ServiceValidatedModelChoiceField(
+        label="Kondisyon",
+        queryset=MaterialCondition.objects.none(),
+        widget=forms.HiddenInput(),
+    )
+    receiver_employee = forms.ModelChoiceField(
+        label="Alıcı çalışan",
+        queryset=Employee.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    production_line = forms.ModelChoiceField(
+        label="Üretim hattı",
+        queryset=ProductionLine.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    usage_location_text = forms.CharField(
+        label="Kullanım yeri",
+        max_length=2000,
+        strip=False,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+
+    def __init__(self, *args, asset: SerializedAsset, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.fields["operation_id"].initial = uuid.uuid4()
+            self.initial.setdefault("source_location", asset.current_location_id)
+            self.initial.setdefault("condition", asset.current_condition_id)
+
+        self.fields["source_location"].queryset = Location.objects.filter(
+            active=True,
+            can_hold_stock=True,
+        )
+        self.fields["condition"].queryset = MaterialCondition.objects.filter(active=True)
+
+        employees = Employee.objects.filter(active=True).order_by(
+            "employee_number", "last_name", "first_name", "id"
+        )
+        self.fields["receiver_employee"].queryset = employees
+        self.fields["receiver_employee"].label_from_instance = employee_choice_label
+
+        production_lines = ProductionLine.objects.filter(active=True).order_by(
+            "name", "id"
+        )
+        self.fields["production_line"].queryset = production_lines
+        self.fields["production_line"].label_from_instance = production_line_choice_label
+
+    def clean_usage_location_text(self):
+        value = self.cleaned_data.get("usage_location_text")
+        return value.strip() if isinstance(value, str) else value
+
+
+class SerializedReturnForm(forms.Form):
+    operation_id = forms.UUIDField(widget=forms.HiddenInput())
+    target_location = ServiceValidatedModelChoiceField(
+        label="Hedef konum",
+        queryset=Location.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.fields["operation_id"].initial = uuid.uuid4()
+        locations = Location.objects.filter(
+            active=True,
+            can_hold_stock=True,
+        ).order_by("code", "name", "id")
+        self.fields["target_location"].queryset = locations
+        self.fields["target_location"].label_from_instance = stock_location_choice_label
+
+
+class SerializedTransferForm(forms.Form):
+    operation_id = forms.UUIDField(widget=forms.HiddenInput())
+    source_location = ServiceValidatedModelChoiceField(
+        label="Kaynak konum",
+        queryset=Location.objects.none(),
+        widget=forms.HiddenInput(),
+    )
+    condition = ServiceValidatedModelChoiceField(
+        label="Kondisyon",
+        queryset=MaterialCondition.objects.none(),
+        widget=forms.HiddenInput(),
+    )
+    target_location = ServiceValidatedModelChoiceField(
+        label="Hedef konum",
+        queryset=Location.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    def __init__(self, *args, asset: SerializedAsset, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.fields["operation_id"].initial = uuid.uuid4()
+            self.initial.setdefault("source_location", asset.current_location_id)
+            self.initial.setdefault("condition", asset.current_condition_id)
+
+        locations = Location.objects.filter(
+            active=True,
+            can_hold_stock=True,
+        ).order_by("code", "name", "id")
+        self.fields["source_location"].queryset = locations
+        self.fields["condition"].queryset = MaterialCondition.objects.filter(active=True)
+
+        source_id = (
+            self.data.get("source_location")
+            if self.is_bound
+            else asset.current_location_id
+        )
+        self.fields["target_location"].queryset = locations.exclude(pk=source_id)
+        self.fields["target_location"].label_from_instance = stock_location_choice_label
+
+
 ISSUE_ERROR_FIELD_MAP = {
     "inventory.invalid_quantity": "quantity",
     "inventory.inactive_material": "material",
@@ -399,6 +519,67 @@ ISSUE_ERROR_FIELD_MAP = {
     "inventory.insufficient_stock": "quantity",
     "inventory.invalid_operation_id": "operation_id",
 }
+
+
+SERIALIZED_ISSUE_ERROR_FIELD_MAP = {
+    "inventory.invalid_source": "source_location",
+    "inventory.inactive_condition": "condition",
+    "inventory.condition_mismatch": "condition",
+    "inventory.inactive_employee": "receiver_employee",
+    "inventory.inactive_production_line": "production_line",
+    "inventory.invalid_usage_location": "usage_location_text",
+    "inventory.invalid_operation_id": "operation_id",
+}
+
+SERIALIZED_RETURN_ERROR_FIELD_MAP = {
+    "inventory.invalid_destination": "target_location",
+    "inventory.invalid_operation_id": "operation_id",
+}
+
+SERIALIZED_TRANSFER_ERROR_FIELD_MAP = {
+    "inventory.invalid_source": "source_location",
+    "inventory.invalid_destination": "target_location",
+    "inventory.same_source_destination": "target_location",
+    "inventory.inactive_condition": "condition",
+    "inventory.condition_mismatch": "condition",
+    "inventory.invalid_operation_id": "operation_id",
+}
+
+
+def _attach_serialized_movement_validation_error(form, exc, field_map) -> None:
+    if hasattr(exc, "error_list"):
+        for error in exc.error_list:
+            field = field_map.get(getattr(error, "code", None))
+            if field is not None and field in form.fields:
+                form.add_error(field, error)
+            else:
+                form.add_error(None, error)
+        return
+    _attach_errors_to_form(form, exc)
+
+
+def attach_serialized_issue_validation_error(
+    form: SerializedIssueForm, exc: ValidationError
+) -> None:
+    _attach_serialized_movement_validation_error(
+        form, exc, SERIALIZED_ISSUE_ERROR_FIELD_MAP
+    )
+
+
+def attach_serialized_return_validation_error(
+    form: SerializedReturnForm, exc: ValidationError
+) -> None:
+    _attach_serialized_movement_validation_error(
+        form, exc, SERIALIZED_RETURN_ERROR_FIELD_MAP
+    )
+
+
+def attach_serialized_transfer_validation_error(
+    form: SerializedTransferForm, exc: ValidationError
+) -> None:
+    _attach_serialized_movement_validation_error(
+        form, exc, SERIALIZED_TRANSFER_ERROR_FIELD_MAP
+    )
 
 
 def return_issue_line_choice_label(line: InventoryTransactionLine) -> str:

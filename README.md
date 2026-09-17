@@ -216,11 +216,15 @@ Fresh-role policy (`inventory.transfer_stock`): TECHNICIAN no; STOREKEEPER yes; 
 
 Broader TRANSFER senaryoları deferred: serialized, condition-changing, multi-source/multi-target, FIFO/FEFO, technician custody, person-to-person handover, production usage, correction/count, QR/offline.
 
-**Phase 5.4:** Physical Count + Combined Quantity/Serialized Baseline backend — COMPLETE. Backend: count session foundation, quantity/serialized count, blind count, explicit zero/NOT_COUNTED, routine COUNT_RECONCILIATION, SoD discrepancy approval, combined baseline/INITIAL_BALANCE, drift detection, serialized candidate promotion, projection verification, permission rollout. Count/baseline UI, serialized ISSUE/RETURN/TRANSFER/controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode uygulanmamıştır. `DEC-OPEN-010` OPEN kalır.
+**Phase 5.4:** Physical Count + Combined Quantity/Serialized Baseline backend — COMPLETE. Backend: count session foundation, quantity/serialized count, blind count, explicit zero/NOT_COUNTED, routine COUNT_RECONCILIATION, SoD discrepancy approval, combined baseline/INITIAL_BALANCE, drift detection, serialized candidate promotion, projection verification, permission rollout. Count/baseline UI, serialized controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode uygulanmamıştır. `DEC-OPEN-010` OPEN kalır.
 
 **Phase 5.5:** Controlled Correction Evidence / Photo Closure — COMPLETE (`DEC-034`). Yeni quantity `CorrectionRequest` için en az bir JPEG/PNG/WebP kanıt zorunludur; HEIC/HEIF desteklenmez; dosya başına 10 MiB; otomatik silme yoktur; authenticated `/corrections/evidence/<uuid>/` retrieval `corrections.view_correctionrequest` ile korunur; public `MEDIA_URL` yoktur; historical pre-5.5 talepler grandfathered'dır. Serialized correction deferred kalır.
 
-**Son doğrulanmış test suite:** 1568 passed
+**Phase 5.6:** Serialized ISSUE + linked unused RETURN + in-stock TRANSFER backend commit `1947b8ab374510c8bafb5f58f160decc455969d6` üzerinde uygulanmıştır (`DEC-035`).
+
+**Phase 5.7:** Bu hareketlerin state-aware normal Django web workflow/UI entegrasyonu uygulanmış ve review için uncommitted bırakılmıştır; henüz COMPLETE işaretlenmemiştir. Kanonik tekil varlık detayı yalnız geçerli state + permission aksiyonlarını gösterir; quantity/unit veya condition transformation yüzeyi yoktur.
+
+**Son doğrulanmış test suite:** 1631 passed (Phase 5.7 uncommitted working tree)
 
 **Managed permission count:** 28
 

@@ -2,17 +2,18 @@
 
 **Oluşturulma:** 2026-09-17  
 **Branch:** `main`  
-**Canonical inventory base:** `5ec22eefc3cb80a355ce32d88170feef174d8a35` (`feat: add correction evidence`)  
-**Phase 5.5:** COMPLETE (`DEC-034`)
+**Canonical inventory base:** `1947b8ab374510c8bafb5f58f160decc455969d6` (`feat: add serialized inventory movements`)
+**Phase 5.6 backend:** implemented/committed (`DEC-035`)
+**Phase 5.7 web workflows:** implemented in working tree, uncommitted pending review; not COMPLETE
 
 ---
 
 ## 1. Özet
 
-Modüler monolit Django 5.2 envanter sistemi; quantity envanter hareketleri, kontrollü düzeltme (kanıtlı), serialized RECEIVE, fiziksel sayım + combined baseline backend ve ilgili operasyonel UI katmanları tamamlanmış durumdadır.
+Modüler monolit Django 5.2 envanter sistemi; quantity envanter hareketleri, kontrollü düzeltme (kanıtlı), serialized RECEIVE, fiziksel sayım + combined baseline backend ve Phase 5.6 serialized ISSUE/linked unused RETURN/in-stock TRANSFER kernel'leri mevcuttur. Phase 5.7 bu serialized hareketleri state-aware normal Django web workflow'larına bağlamıştır; çalışma ağacı review için uncommitted bırakılmış ve faz henüz COMPLETE işaretlenmemiştir.
 
-**Son doğrulanmış full suite (Phase 5.5 base):** 1568 passed in 6m 55s  
-**Collected test count (post demo-seed test):** 1569  
+**Son doğrulanmış full suite (Phase 5.7 working tree):** 1631 passed in 5m 28s
+**Collected test count:** 1631
 **Managed permission count:** 28
 
 ---
@@ -80,11 +81,26 @@ Aşağıdaki sayılar **git object `5ec22eefc3cb80a355ce32d88170feef174d8a35`** 
 | Phase 4.0A–4.5 | COMPLETE |
 | Phase 5.1–5.4 | COMPLETE |
 | **Phase 5.5** | **COMPLETE** — correction evidence (`DEC-034`) |
+| Phase 5.6 | Backend implemented/committed at `1947b8a` — serialized ISSUE / linked unused RETURN / in-stock TRANSFER (`DEC-035`) |
+| Phase 5.7 | Web workflows implemented in uncommitted working tree; pending review, not COMPLETE |
 | Gate 3 | PASS (tarihsel; qty RECEIPT scope) |
 
 ---
 
-## 4. Phase 5.5 — Tamamlanan Kapsam
+## 4. Phase 5.7 — Review Bekleyen Kapsam
+
+| Özellik | Durum |
+|---|---|
+| Canonical serialized asset detail/action surface | State + permission aware |
+| Serialized ISSUE web workflow | Asset-fixed route; existing `issue_serialized(...)`; IssueContext; operation-id/PRG |
+| Serialized linked unused RETURN web workflow | Asset + immutable active ISSUE lineage; target-only input; existing `return_serialized(...)` |
+| Serialized in-stock TRANSFER web workflow | Asset-fixed route; target-only business choice; existing `transfer_serialized(...)` |
+| Quantity/unit artifacts | Serialized forms/read models do not fabricate quantity `1` or unit |
+| Schema/kernel changes | None; Phase 5.6 kernel authoritative |
+
+Review/commit öncesi bu kapsam `COMPLETE` değildir.
+
+## 4A. Phase 5.5 — Tamamlanan Kapsam
 
 | Özellik | Durum |
 |---|---|
@@ -98,9 +114,8 @@ Aşağıdaki sayılar **git object `5ec22eefc3cb80a355ce32d88170feef174d8a35`** 
 
 ## 5. Kalan Backend İşi
 
-Correction evidence closure **tamamlandı**; kalan backend:
+Correction evidence closure ve Phase 5.6 serialized movement backend'i uygulanmıştır; kalan ürün işi:
 
-- Serialized ISSUE / RETURN / TRANSFER
 - Serialized correction
 - Real Excel import workflow (UI)
 - Reporting

@@ -510,7 +510,7 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   9. **Correction/custody:** Serialized correction, condition transformation ve custody bu karar kapsamı dışındadır.
   10. **Causal event sequence:** `InventoryTransactionLine.asset_event_seq` serialized satır için zorunlu pozitif tamsayıdır; quantity satırda `NULL`dır. Değer, mevcut `SerializedAsset` `SELECT FOR UPDATE` kilidi altında `max(existing)+1` (genesis=1) olarak atanır. Projection verifier serialized history'yi yalnız `serialized_asset_id → asset_event_seq` ile replay eder; `occurred_at`, `created_at` ve line UUID nedensel sıra değildir. Sequence semantic fingerprint'e girmez. Next-seq kontrolü mevcut parent-aware serialized line guard içinde, asset row lock'u zaten tutulurken uygulanır; ayrı bir lock sırası yoktur.
 - **Consequence:** Phase 5.6 backend bu sözleşmeyi uygular. Implementation commit-gate review öncesi COMPLETE işaretlenmez. Broader RETURN (`DEC-HG-005`) ve serialized correction deferred kalır.
-- **Implementation status:** Phase 5.6 backend implemented, uncommitted pending commit-gate review. Serialized movement UI yoktur.
+- **Implementation status:** Phase 5.6 backend commit `1947b8ab374510c8bafb5f58f160decc455969d6` üzerinde uygulanmıştır. Phase 5.7 state-aware serialized movement web workflow/UI wiring'i uygulanmış ve review için uncommitted bırakılmıştır; COMPLETE işaretlenmemiştir.
 
 ## 3. Açık İş Kararları
 
@@ -577,7 +577,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Quantity controlled corrections (Phase 5.2) | **COMPLETE** (2026-09-13; 1242 test passed). `DEC-030`, `DEC-031`; evidence later `DEC-034` / Phase 5.5 |
 | Phase 5.5 correction evidence | **COMPLETE** (`DEC-034`). JPEG/PNG/WebP mandatory for new quantity correction requests; HEIC/HEIF unsupported; 10 MiB/file; protected retrieval; historical rows grandfathered. Serialized correction deferred. |
 | Serialized inventory foundation + serialized RECEIVE (Phase 5.3) | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; asset identity/current projection + serialized RECEIVE tamamlandı. |
-| Serialized ISSUE + linked unused RETURN + in-stock TRANSFER (Phase 5.6) | Backend implemented, uncommitted pending commit-gate review. `DEC-035`. Movement UI deferred. COMPLETE işaretlenmez. |
+| Serialized ISSUE + linked unused RETURN + in-stock TRANSFER (Phase 5.6–5.7) | Phase 5.6 backend committed at `1947b8a`; Phase 5.7 state-aware web workflows implemented, uncommitted pending review. `DEC-035`. COMPLETE işaretlenmez. |
 | Counting/reconciliation | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout, `DEC-033`). Serialized `COUNT_RECONCILIATION` ve count/baseline UI sonraki ayrı görevlerdir. |
 | Baseline schema/cutover | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout). `InventoryBaseline`, scoped `INITIAL_BALANCE`, combined QUANTITY+SERIALIZED establishment. Count/baseline UI yoktur. `DEC-002` / `DEC-015` / `DEC-032` / `DEC-033` korunur. |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |

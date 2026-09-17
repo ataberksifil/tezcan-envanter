@@ -30,7 +30,7 @@
     <dt class="col-sm-3">{% if line.serialized_asset_id %}Tekil varlık{% else %}Bu iade miktarı{% endif %}</dt>
     <dd class="col-sm-9">
         {% if line.serialized_asset_id %}
-            {{ line.serialized_asset.internal_asset_code }}{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
+            {% if perms.inventory.view_stockbalance %}<a href="{% url 'inventory:serialized-asset-detail' line.serialized_asset.pk %}">{{ line.serialized_asset.internal_asset_code }}</a>{% else %}{{ line.serialized_asset.internal_asset_code }}{% endif %}{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
         {% else %}
             {{ line.quantity }} {{ line.unit.code }} ({{ line.unit.name }})
         {% endif %}

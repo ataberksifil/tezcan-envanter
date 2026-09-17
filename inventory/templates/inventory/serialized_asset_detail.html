@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}{{ asset.internal_asset_code }} — Tekil varlık — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <div>
+        <h1 class="h3 mb-1">{{ asset.internal_asset_code }}</h1>
+        <div class="text-body-secondary">Tekil varlık</div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        {% if asset.current_state == "IN_STOCK" %}
+            {% if perms.inventory.issue_stock %}
+                <a class="btn btn-primary" href="{% url 'inventory:serialized-issue-create' asset.pk %}">Çıkış yap</a>
+            {% endif %}
+            {% if perms.inventory.transfer_stock %}
+                <a class="btn btn-outline-primary" href="{% url 'inventory:serialized-transfer-create' asset.pk %}">Transfer et</a>
+            {% endif %}
+        {% elif asset.current_state == "ISSUED" and active_issue_line and perms.inventory.return_stock %}
+            <a class="btn btn-success" href="{% url 'inventory:serialized-return-create' asset.pk active_issue_line.pk %}">İade al</a>
+        {% endif %}
+        <a class="btn btn-outline-secondary" href="{% url 'catalog:material-detail' asset.material.pk %}">Malzemeye dön</a>
+    </div>
+</div>
+
+<dl class="row mb-4">
+    <dt class="col-sm-3">Dahili varlık kodu</dt>
+    <dd class="col-sm-9">{{ asset.internal_asset_code }}</dd>
+
+    <dt class="col-sm-3">Malzeme</dt>
+    <dd class="col-sm-9"><a href="{% url 'catalog:material-detail' asset.material.pk %}">{{ asset.material.material_code }} — {{ asset.material.name }}</a></dd>
+
+    <dt class="col-sm-3">Üretici seri numarası</dt>
+    <dd class="col-sm-9">{% if asset.serial_number %}{{ asset.serial_number }}{% else %}—{% endif %}</dd>
+
+    <dt class="col-sm-3">Durum</dt>
+    <dd class="col-sm-9">{{ asset.get_current_state_display }}</dd>
+
+    <dt class="col-sm-3">Mevcut konum</dt>
+    <dd class="col-sm-9">{% if asset.current_location %}{{ asset.current_location.code }} — {{ asset.current_location.name }}{% else %}—{% endif %}</dd>
+
+    <dt class="col-sm-3">Mevcut kondisyon</dt>
+    <dd class="col-sm-9">{{ asset.current_condition.name }}</dd>
+
+    <dt class="col-sm-3">Kimlik</dt>
+    <dd class="col-sm-9 font-monospace">{{ asset.pk }}</dd>
+</dl>
+
+{% if active_issue_line %}
+{% if perms.inventory.view_inventorytransaction or perms.inventory.return_stock %}
+    <section class="mb-4" aria-labelledby="active-issue-heading">
+        <h2 class="h5" id="active-issue-heading">Aktif stok çıkışı</h2>
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Çıkış zamanı</dt>
+            <dd class="col-sm-9">{{ active_issue_line.transaction.occurred_at }}</dd>
+            <dt class="col-sm-3">Alıcı</dt>
+            <dd class="col-sm-9">{{ active_issue_line.transaction.issue_context.receiver_first_name_snapshot }} {{ active_issue_line.transaction.issue_context.receiver_last_name_snapshot }} ({{ active_issue_line.transaction.issue_context.receiver_employee_number_snapshot }})</dd>
+            <dt class="col-sm-3">Üretim hattı</dt>
+            <dd class="col-sm-9">{{ active_issue_line.transaction.issue_context.production_line_code_snapshot }} — {{ active_issue_line.transaction.issue_context.production_line_name_snapshot }}</dd>
+            <dt class="col-sm-3">Kullanım yeri</dt>
+            <dd class="col-sm-9">{{ active_issue_line.transaction.issue_context.usage_location_text }}</dd>
+        </dl>
+</section>
+{% endif %}
+{% endif %}
+
+<section aria-labelledby="asset-history-heading">
+    <h2 class="h5" id="asset-history-heading">Hareket geçmişi</h2>
+    {% if asset_transactions %}
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead><tr><th>Tarih/saat</th><th>Tür</th><th>Kaynak</th><th>Hedef</th><th>Detay</th></tr></thead>
+                <tbody>
+                {% for transaction in asset_transactions %}
+                    {% with line=transaction.lines.all.0 %}
+                    <tr>
+                        <td>{{ transaction.occurred_at }}</td>
+                        <td>{{ transaction.get_transaction_type_display }}</td>
+                        <td>{% if line.source_location %}{{ line.source_location.code }}{% else %}—{% endif %}</td>
+                        <td>{% if line.target_location %}{{ line.target_location.code }}{% else %}—{% endif %}</td>
+                        <td>{% if perms.inventory.view_inventorytransaction %}<a href="{% url 'inventory:transaction-history-detail' transaction.pk %}">Görüntüle</a>{% else %}—{% endif %}</td>
+                    </tr>
+                    {% endwith %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% elif perms.inventory.view_inventorytransaction %}
+        <p class="text-body-secondary">Hareket bulunmuyor.</p>
+    {% else %}
+        <p class="text-body-secondary">Hareket geçmişini görüntüleme yetkiniz yok.</p>
+    {% endif %}
+</section>
+{% endblock %}
