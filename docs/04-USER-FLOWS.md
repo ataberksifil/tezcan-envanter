@@ -1067,28 +1067,28 @@ flowchart LR
 **TBD / Open Decisions**
 - Yok: Phase 5.4 baseline cardinality, approval ve establishment ölçütleri `DEC-033` ile kararlıdır.
 
-## 14. QR / Barcode Flows
+## 14. Barkod / QR Flows
 
-### UF-QR-001 — Malzeme QR
+### UF-QR-001 — Malzeme kimliği tara
 
 **Actors:** Yetkili kullanıcılar
 
 **Preconditions**
-- Malzeme için aktif barcode identifier tanımlı.
+- Malzeme UUID'si canonical payload üretir (`DEC-036`).
 - Authenticated resolver neutral `identification` boundary'sinde çalışır.
 - Kullanıcı tarama sonrası izinli işlevlere erişebilir.
 
 **Trigger**
-- Malzeme QR/barkod taranır.
+- Malzeme Code128 veya QR taranır, USB okuyucu Enter gönderir veya payload elle girilir.
 
 **Main Flow**
-1. Tanımlayıcı çözülür.
+1. Payload codec ile çözülür.
 2. Malzeme detayı açılır.
 3. Kullanıcı yetkili işlemlere devam eder (görüntüleme, çıkış, giriş vb.).
 
 **Validation Rules**
 - QR-003: Tanımlayıcı tek nesneye çözülür.
-- Yetki kontrolü zorunlu; QR yetki bypass etmez.
+- Yetki kontrolü zorunlu; tarama yetki bypass etmez.
 - Resolver unrestricted enumeration endpoint olamaz; object/action authorization scan sonrasında da uygulanır.
 
 **Success Result**
@@ -1099,32 +1099,29 @@ flowchart LR
 - Pasif malzeme: Görüntüleme mümkün; yeni işlemde UF-ERR-004.
 
 **Permissions**
-- Hedef işleve göre ilgili UF yetkileri.
+- Hedef işleve göre ilgili UF yetkileri. `catalog.view_material` çözümleme için gerekir.
 
 **Inventory / Data Effect**
 - Yok (tarama tek başına).
 
 **Audit Effect**
-- Tarama audit'i **TBD**.
+- Yok; yalnız tarama/yazdırma `AuditEvent` üretmez (`DEC-036`).
 
-**TBD / Open Decisions**
-- QR payload, etiket standardı.
-
-### UF-QR-002 — Tekil Varlık QR
+### UF-QR-002 — Tekil varlık kimliği tara
 
 **Actors:** Yetkili kullanıcılar
 
 **Preconditions**
-- Serialized asset identifier tanımlı.
+- SerializedAsset UUID'si canonical payload üretir.
 - Authenticated `identification` resolver erişilebilir.
 
 **Trigger**
-- Varlık QR taranır.
+- Varlık Code128 veya QR taranır.
 
 **Main Flow**
-1. Tanımlayıcı tekil varlığa çözülür.
-2. Material, kondisyon, mevcut lokasyon, son işlemler gösterilir.
-3. İzinli işlemler sunulur (transfer, çıkış vb.).
+1. Payload tekil varlığa çözülür.
+2. Phase 5.7 canonical varlık detayı açılır.
+3. IN_STOCK ise izinli ISSUE/TRANSFER; ISSUED ise izinli linked RETURN sunulur. Tarayıcı hareket yapmaz.
 
 **Validation Rules**
 - UF-QR-001 ile aynı çözümleme ve yetki kuralları.
@@ -1136,53 +1133,47 @@ flowchart LR
 - Geçersiz kod, yetki reddi.
 
 **Permissions**
-- İşleme bağlı.
+- Çözümleme için `inventory.view_stockbalance`. Hareketler ayrı inventory permission.
 
 **Inventory / Data Effect**
 - Yok (tarama tek başına).
 
 **Audit Effect**
-- **TBD**.
+- Yok.
 
-**TBD / Open Decisions**
-- Asset QR V1 zamanlaması.
-
-### UF-QR-003 — Lokasyon QR
+### UF-QR-003 — Lokasyon kimliği tara
 
 **Actors:** Yetkili kullanıcılar
 
 **Preconditions**
-- Lokasyon identifier tanımlı.
+- Location UUID'si canonical payload üretir.
 - Authenticated `identification` resolver erişilebilir.
 
 **Trigger**
-- Raf/lokasyon QR taranır.
+- Raf/lokasyon Code128 veya QR taranır.
 
 **Main Flow**
 1. Lokasyon çözülür.
-2. O lokasyondaki stok listelenir.
+2. Canonical lokasyon detayı açılır; `inventory.view_stockbalance` varsa güncel stok salt okunur gösterilir.
 3. Kullanıcı giriş, transfer veya sayım akışına devam edebilir.
 
 **Validation Rules**
-- Pasif lokasyon yeni operasyonel hareket için reddedilir.
+- Pasif lokasyon yeni operasyonel hareket için reddedilir; detay görüntüleme yetkili kullanıcıya açıktır.
 
 **Success Result**
-- Lokasyon stok görünümü.
+- Lokasyon detayı.
 
 **Failure / Alternate Flows**
-- Geçersiz kod, pasif lokasyon, yetki reddi.
+- Geçersiz kod, yetki reddi.
 
 **Permissions**
-- Devam edilen işleve göre.
+- Çözümleme için `locations.view_location`. Stok görünürlüğü `inventory.view_stockbalance`.
 
 **Inventory / Data Effect**
 - Yok (tarama tek başına).
 
 **Audit Effect**
-- **TBD**.
-
-**TBD / Open Decisions**
-- Lokasyon QR etiket standardı.
+- Yok.
 
 ## 15. Reporting Flows
 
@@ -1519,7 +1510,7 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 | ID | Konu | Etki |
 |---|---|---|
 | UF-O-20 | Teknik nitelik arama | Advanced search |
-| UF-O-21 | QR payload ve yazıcı entegrasyonu | Label printing UX |
+| UF-O-21 | QR payload ve yazıcı entegrasyonu | `DEC-036`: payload/carrier/scan kapanır; yazıcı sürücüsü V1 dışı, tarayıcı print |
 | UF-O-22 | Offline/mobile retry UX | Mobile flows |
 | UF-O-23 | Login/export audit detayı | Security reporting |
 | UF-O-24 | Retention ve arşivleme | Historical data UI |

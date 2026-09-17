@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if is_compact_label %}Kompakt QR{% else %}Standart barkod{% endif %} — Elektrik Atölyesi Envanter{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'identification/css/label.css' %}">{% endblock %}
+
+{% block content %}
+<div class="no-print d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <h1 class="h3 mb-0">{% if is_compact_label %}Kompakt QR etiketi{% else %}Standart barkod etiketi{% endif %}</h1>
+    <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-primary" type="button" onclick="window.print()">Yazdır</button>
+        {% if is_compact_label %}
+            <a class="btn btn-outline-secondary" href="{{ qr_image_url }}?download=1">QR indir</a>
+            <a class="btn btn-outline-dark" href="{{ standard_label_url }}">Standart barkod</a>
+        {% else %}
+            <a class="btn btn-outline-secondary" href="{{ code128_image_url }}?download=1">Barkod indir</a>
+            <a class="btn btn-outline-dark" href="{{ compact_label_url }}">Kompakt QR</a>
+        {% endif %}
+    </div>
+</div>
+
+{% if is_compact_label %}
+<article class="id-label id-label--compact" aria-label="Yazdırılabilir kompakt QR etiketi">
+    <img class="id-label__qr" src="{{ qr_image_url }}" alt="QR kodu">
+    <div class="id-label__details">
+        {% if entity_type == "M" %}
+            <p class="id-label__kind">Malzeme</p>
+            <h2 class="id-label__title">{{ target.name }}</h2>
+            <p class="id-label__code">{{ target.material_code }}</p>
+            <p class="id-label__note">Bu etiket malzeme türünü tanımlar; tek bir fiziksel birimi tanımlamaz.</p>
+        {% elif entity_type == "A" %}
+            <p class="id-label__kind">Tekil varlık</p>
+            <h2 class="id-label__title">{{ target.internal_asset_code }}</h2>
+            <p>{{ target.material.name }}</p>
+            {% if target.serial_number %}<p class="id-label__code">Seri no: {{ target.serial_number }}</p>{% endif %}
+        {% elif entity_type == "L" %}
+            <p class="id-label__kind">Lokasyon</p>
+            <h2 class="id-label__title">{{ target.code }}</h2>
+            <p>{{ target.name }}</p>
+        {% endif %}
+        <p class="id-label__payload">{{ identity_payload }}</p>
+    </div>
+</article>
+{% else %}
+<article class="id-label id-label--standard" aria-label="Yazdırılabilir standart barkod etiketi">
+    <img class="id-label__barcode" src="{{ code128_image_url }}" alt="Code 128 barkodu">
+    <div class="id-label__details">
+        {% if entity_type == "M" %}
+            <p class="id-label__kind">Malzeme</p>
+            <h2 class="id-label__title">{{ target.name }}</h2>
+            <p class="id-label__code">{{ target.material_code }}</p>
+            <p class="id-label__note">Bu etiket malzeme türünü tanımlar; tek bir fiziksel birimi tanımlamaz.</p>
+        {% elif entity_type == "A" %}
+            <p class="id-label__kind">Tekil varlık</p>
+            <h2 class="id-label__title">{{ target.internal_asset_code }}</h2>
+            <p>{{ target.material.name }}</p>
+            {% if target.serial_number %}<p class="id-label__code">Seri no: {{ target.serial_number }}</p>{% endif %}
+        {% elif entity_type == "L" %}
+            <p class="id-label__kind">Lokasyon</p>
+            <h2 class="id-label__title">{{ target.code }}</h2>
+            <p>{{ target.name }}</p>
+        {% endif %}
+        <p class="id-label__payload">{{ identity_payload }}</p>
+    </div>
+</article>
+{% endif %}
+{% endblock %}

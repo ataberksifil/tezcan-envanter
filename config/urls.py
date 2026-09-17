@@ -29,6 +29,7 @@ urlpatterns = [
     path('corrections/', include('corrections.urls')),
     path('catalog/', include('catalog.urls')),
     path('locations/', include('locations.urls')),
+    path('identification/', include('identification.urls')),
     path('admin/', admin.site.urls),
 ]
 

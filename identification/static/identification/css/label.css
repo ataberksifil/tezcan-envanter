@@ -1,0 +1,85 @@
+.id-label {
+    border: 1px solid #111;
+    padding: 8mm;
+}
+
+.id-label--standard {
+    max-width: 210mm;
+}
+
+.id-label--compact {
+    align-items: center;
+    display: flex;
+    gap: 1rem;
+    max-width: 120mm;
+}
+
+.id-label__barcode {
+    display: block;
+    height: 17mm;
+    width: auto;
+    max-width: none;
+}
+
+.id-label__qr {
+    height: 46mm;
+    width: 46mm;
+}
+
+.id-label__details {
+    margin-top: 4mm;
+}
+
+.id-label--compact .id-label__details {
+    margin-top: 0;
+}
+
+.id-label__details p {
+    margin-bottom: .35rem;
+}
+
+.id-label__kind {
+    font-size: .85rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.id-label__title {
+    font-size: 1.55rem;
+    font-weight: 700;
+    margin-bottom: .5rem;
+}
+
+.id-label__code,
+.id-label__payload {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.id-label__payload {
+    font-size: .65rem;
+    overflow-wrap: anywhere;
+}
+
+.id-label__note {
+    font-size: .8rem;
+}
+
+@media screen {
+    .id-label--standard {
+        overflow-x: auto;
+    }
+}
+
+@media print {
+    @page { margin: 8mm; }
+    .app-header,
+    .no-print { display: none !important; }
+    main.container { margin: 0; max-width: none; padding: 0 !important; }
+    .id-label { break-inside: avoid; }
+    .id-label__barcode {
+        max-width: none;
+        height: 17mm;
+        width: auto;
+    }
+}

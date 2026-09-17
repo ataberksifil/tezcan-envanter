@@ -222,9 +222,11 @@ Broader TRANSFER senaryoları deferred: serialized, condition-changing, multi-so
 
 **Phase 5.6:** Serialized ISSUE + linked unused RETURN + in-stock TRANSFER backend commit `1947b8ab374510c8bafb5f58f160decc455969d6` üzerinde uygulanmıştır (`DEC-035`).
 
-**Phase 5.7:** Bu hareketlerin state-aware normal Django web workflow/UI entegrasyonu uygulanmış ve review için uncommitted bırakılmıştır; henüz COMPLETE işaretlenmemiştir. Kanonik tekil varlık detayı yalnız geçerli state + permission aksiyonlarını gösterir; quantity/unit veya condition transformation yüzeyi yoktur.
+**Phase 5.7:** State-aware normal Django web workflow/UI entegrasyonu commit `22c29deacb9247b3921a6f36a802ebe63ad9c341` üzerinde tamamlanmıştır. Kanonik tekil varlık detayı yalnız geçerli state + permission aksiyonlarını gösterir; quantity/unit veya condition transformation yüzeyi yoktur.
 
-**Son doğrulanmış test suite:** 1631 passed (Phase 5.7 uncommitted working tree)
+**Phase 5.8:** `DEC-036` Machine-Readable Identification & Scanning katmanı uygulanmış ve review için uncommitted bırakılmıştır; henüz COMPLETE işaretlenmemiştir. Compact `TZ1M|A|L:<22-char-base64url-uuid>` payload, Code128 standart 100 mm-sınıfı etiket, kompakt QR, USB HID/klavye-wedge, yerel kamera tarayıcı, manuel fallback ve mevcut state-aware movement aksiyonlarına güvenli navigation sağlar; şema/migration ve scan mutation engine yoktur.
+
+**Son doğrulanmış test suite:** 1746 passed (Phase 5.8 uncommitted working tree; reused test DB MaterialCondition seeds restored via committed `0004_seed_material_conditions`)
 
 **Managed permission count:** 28
 

@@ -91,7 +91,7 @@ V1, tek deployment birimi ve tek ilişkisel veritabanı kullanan **modüler mono
 
 ## 6. Module Boundaries
 
-Pragmatik V1 yapısı dokuz başlangıç Django app'i ve bir teknik `core` paketi önerir. `attachments` ayrı app yapılmaz; doğrulanmış V1 kullanımı correction fotoğrafı olduğu için model sahipliği `corrections`ta, storage adaptörü `core.storage`da olur. `audit`, çapraz modül idari kayıt sahipliği nedeniyle ayrı ve küçük app olarak kalır. QR feature başladığında neutral `identification` boundary/app eklenir; ihtiyaçtan önce oluşturulmaz.
+Pragmatik V1 yapısı dokuz başlangıç Django app'i, Phase 5.8 `identification` app'i ve bir teknik `core` paketi önerir. `attachments` ayrı app yapılmaz; doğrulanmış V1 kullanımı correction fotoğrafı olduğu için model sahipliği `corrections`ta, storage adaptörü `core.storage`da olur. `audit`, çapraz modül idari kayıt sahipliği nedeniyle ayrı ve küçük app olarak kalır.
 
 | Modül | Sorumluluk ve sahip olduğu veri | İzin verilen bağımlılıklar | Yasak sorumluluklar |
 |---|---|---|---|
@@ -104,10 +104,10 @@ Pragmatik V1 yapısı dokuz başlangıç Django app'i ve bir teknik `core` paket
 | `imports` | ImportBatch/Row, Excel parse/validate/preview, InventoryBaseline orkestrasyonu | `accounts`, `catalog`, `locations`, `inventory`, `counting`, `audit`, `core.storage` | Upload sonrası doğrudan yetkili bakiye yazmak |
 | `reports` | Salt okunur rapor query/use-case'leri ve Excel export | `catalog`, `locations`, `inventory` | Kaynak kayıtları değiştirmek |
 | `audit` | AuditEvent ve küçük append-only kayıt API'si | `accounts` kimliğine yalnız FK düzeyi | Ledger'ı kopyalamak veya iş akışı yönetmek |
-| `identification` (QR fazında) | BarcodeIdentifier registry ve authenticated resolver | `catalog`, `inventory`, `locations` | Stok mutation yapmak veya core modüllerin kendisine bağımlı olmasını istemek |
+| `identification` | Carrier-neutral codec, Code128/QR rendering, authenticated scanner/resolver, printable labels | `catalog`, `inventory`, `locations` | Stok mutation yapmak veya core modüllerin kendisine bağımlı olmasını istemek |
 | `core` | Ortak hata tipleri, clock/correlation, storage adaptörü, teknik yardımcılar | İş modüllerine bağımlı değil | Domain entity veya iş kuralı sahipliği |
 
-`BarcodeIdentifier` kalıcı olarak `catalog` içine yerleştirilemez. `identification`, `catalog`, `inventory` ve `locations`a bağımlı olabilir; bu modüller core domain operasyonu için `identification`a bağımlı olmaz (`DEC-011`).
+V1 first-party kimlik `catalog` içine yerleştirilemez ve `BarcodeIdentifier` tablosu olarak persist edilmez (`DEC-036`). `identification`, `catalog`, `inventory` ve `locations`a bağımlı olabilir; bu modüller core domain operasyonu için `identification`a bağımlı olmaz (`DEC-011`).
 
 ## 7. Dependency Rules
 
@@ -127,7 +127,7 @@ flowchart TD
     Reports["reports"] -->|"reads"| Inventory
     Reports -->|"reads"| Catalog
     Reports -->|"reads"| Locations
-    Identification["identification QR fazı"] -->|"resolves"| Inventory
+    Identification["identification"] -->|"resolves"| Inventory
     Identification -->|"resolves"| Catalog
     Identification -->|"resolves"| Locations
     Accounts -->|"uses"| Core["core teknik destek"]
@@ -435,19 +435,19 @@ Django Templates + HTMX + Bootstrap 5:
 
 HTMX request de normal request ile aynı authentication, permission, CSRF ve service-layer kurallarına tabidir.
 
-## 17. QR / Barcode Architecture
+## 17. Machine-Readable Identification Architecture
 
-Neutral `identification` boundary'sindeki `BarcodeIdentifier`, server-side resolver üzerinden tam olarak bir `Material`, `SerializedAsset` veya `Location` nesnesine çözülür.
+Neutral `identification` boundary (`DEC-036`) Code128 ve QR için aynı compact `TZ1M|A|L:<22-char-base64url-uuid>` payload'u üretir ve tek resolver ile `Material`, `SerializedAsset` veya `Location` nesnesine çözer. Payload persist edilmez.
 
 Akış:
 
-1. Tarayıcı kamera kütüphanesi veya cihaz okuyucusu değeri alır.
-2. Authenticated endpoint değeri normalize edip arar.
-3. Aktif identifier tek hedefe çözülür.
-4. Kullanıcı hedef detaya yönlenir.
+1. Kamera (yerel ZXing, Code128 + QR), USB HID/klavye-wedge veya elle giriş aynı metni üretir.
+2. Authenticated POST resolver codec ile parse eder.
+3. Object-view permission kontrol edilir.
+4. Kullanıcı canonical detay sayfasına yönlenir.
 5. Sonraki action için normal server-side permission ve inventory validation uygulanır.
 
-Bilinmeyen/ambiguous/inactive kod stok etkisi oluşturmadan hata verir. Resolve endpoint authenticated'tır, permission bypass veya unrestricted identifier enumeration endpoint olamaz. Risk doğrulanırsa QR feature'da Redis gerektirmeyen application/proxy rate limiting değerlendirilir. Payload formatı, semboloji ve etiket yazıcısı **TBD**'dir. Mimari donanım üreticisine kilitlenmez.
+Bilinmeyen/geçersiz kod stok etkisi oluşturmadan hata verir. Resolve endpoint authenticated'tır, permission bypass veya unrestricted identifier enumeration endpoint olamaz. Risk doğrulanırsa Redis gerektirmeyen application/proxy rate limiting değerlendirilir. Standart etiket Code128, kompakt etiket QR'dır. DataMatrix V1'de yoktur. Mimari donanım üreticisine kilitlenmez; yazıcı sürücüsü/SDK V1 dışıdır.
 
 ## 18. File / Attachment Architecture
 
@@ -525,7 +525,7 @@ Phase 5.4C routine QUANTITY approval toplam sırası `PhysicalCountSession → P
 
 Phase 5.4D-A serialized physical-count backend COMPLETE'tir. Counting-owned `PhysicalCountSerializedLine` mevcut START adımında in-scope `SerializedAsset` expected snapshot'ını alır; bir oturum QUANTITY ve SERIALIZED sayım kanıtını birlikte taşıyabilir. Expected satırlar authoritative `SerializedAsset` snapshot referansıdır; mevcut authoritative asset beklenmeyen konumda gözlemlenebilir; fiziksel bulunan candidate item counting-owned staging olarak kaydedilir ve counting sırasında authoritative `SerializedAsset` oluşturmaz. Untouched expected asset explicit missing değildir; routine session `NOT_COUNTED` kabul eder, baseline-candidate completion serialized `NOT_COUNTED` reddeder. Counting establishment öncesi non-authoritative kalır.
 
-Phase 5.4 — Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Phase 5.4D-B: `imports` owned `InventoryBaseline` prepare/establish, session ownership, scoped `INITIAL_BALANCE` result links, combined QUANTITY+SERIALIZED cutover, candidate serialized promotion, authoritative serialized identity DB normalization, no-freeze scope-wide drift, prior-ledger-history protection, separation of duties, establishment idempotency, projection verification before `ESTABLISHED` ve atomic rollback. Phase 5.4E: count/baseline default-role permission rollout; operational count permissions safe-managed; sensitive `counting.decide_discrepancy` ve `imports.establish_baseline` safe allowlist dışında. Count/baseline UI, serialized controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode uygulanmamıştır. Phase 5.6 serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend `DEC-035` ile commit `1947b8ab374510c8bafb5f58f160decc455969d6` üzerinde uygulanmıştır. Phase 5.7 state-aware movement web workflow/UI wiring'i uygulanmış, review için uncommitted durumdadır ve COMPLETE işaretlenmemiştir. `DEC-OPEN-010` OPEN kalır.
+Phase 5.4 — Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Phase 5.4D-B: `imports` owned `InventoryBaseline` prepare/establish, session ownership, scoped `INITIAL_BALANCE` result links, combined QUANTITY+SERIALIZED cutover, candidate serialized promotion, authoritative serialized identity DB normalization, no-freeze scope-wide drift, prior-ledger-history protection, separation of duties, establishment idempotency, projection verification before `ESTABLISHED` ve atomic rollback. Phase 5.4E: count/baseline default-role permission rollout; operational count permissions safe-managed; sensitive `counting.decide_discrepancy` ve `imports.establish_baseline` safe allowlist dışında. Count/baseline UI, serialized controlled correction, serialized `COUNT_RECONCILIATION` ve custody uygulanmamıştır. Phase 5.6 serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend `DEC-035` ile commit `1947b8ab374510c8bafb5f58f160decc455969d6` üzerinde uygulanmıştır. Phase 5.7 state-aware movement web workflow/UI wiring'i commit `22c29deacb9247b3921a6f36a802ebe63ad9c341` üzerinde tamamlanmıştır. Phase 5.8 Machine-Readable Identification `DEC-036` ile uygulanmış, review için uncommitted bırakılmıştır. `DEC-OPEN-010` OPEN kalır.
 
 ## 21. Reporting Architecture
 
@@ -764,7 +764,7 @@ V1 online, web-first'tür. Geleceğe hazırlık:
 - UUID stable domain identifier'ları,
 - unique `operation_id`,
 - server-side validation ve permission,
-- `BarcodeIdentifier`,
+- carrier-neutral identification codec/resolver,
 - responsive/touch-friendly browser ekranları.
 
 V1'de uygulanmayacak:

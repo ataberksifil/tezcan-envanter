@@ -1,2 +1,4 @@
 Django>=5.2,<5.3
 psycopg[binary]>=3.2,<4
+qrcode[pil]==8.2
+python-barcode==0.16.1

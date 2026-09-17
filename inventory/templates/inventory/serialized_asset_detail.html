@@ -9,6 +9,8 @@
         <div class="text-body-secondary">Tekil varlık</div>
     </div>
     <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-dark" href="{% url 'identification:asset-label' asset.pk %}">Etiket yazdır</a>
+        <a class="btn btn-outline-secondary" href="{% url 'identification:asset-label-compact' asset.pk %}">Kompakt QR</a>
         {% if asset.current_state == "IN_STOCK" %}
             {% if perms.inventory.issue_stock %}
                 <a class="btn btn-primary" href="{% url 'inventory:serialized-issue-create' asset.pk %}">Çıkış yap</a>
@@ -45,6 +47,11 @@
     <dt class="col-sm-3">Kimlik</dt>
     <dd class="col-sm-9 font-monospace">{{ asset.pk }}</dd>
 </dl>
+
+<section class="mb-4" aria-labelledby="asset-id-heading">
+    <h2 class="h5" id="asset-id-heading">Makine okunur kimlik</h2>
+    <img src="{% url 'identification:asset-code128' asset.pk %}" height="48" alt="{{ asset.internal_asset_code }} tekil varlık Code 128 barkodu">
+</section>
 
 {% if active_issue_line %}
 {% if perms.inventory.view_inventorytransaction or perms.inventory.return_stock %}

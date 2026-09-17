@@ -127,6 +127,7 @@ INSTALLED_APPS = [
     'imports.apps.ImportsConfig',
     'reports.apps.ReportsConfig',
     'audit.apps.AuditConfig',
+    'identification.apps.IdentificationConfig',
 ]
 
 # DEC-019: custom User must be configured before the first migrate.

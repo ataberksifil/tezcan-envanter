@@ -510,7 +510,28 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   9. **Correction/custody:** Serialized correction, condition transformation ve custody bu karar kapsamı dışındadır.
   10. **Causal event sequence:** `InventoryTransactionLine.asset_event_seq` serialized satır için zorunlu pozitif tamsayıdır; quantity satırda `NULL`dır. Değer, mevcut `SerializedAsset` `SELECT FOR UPDATE` kilidi altında `max(existing)+1` (genesis=1) olarak atanır. Projection verifier serialized history'yi yalnız `serialized_asset_id → asset_event_seq` ile replay eder; `occurred_at`, `created_at` ve line UUID nedensel sıra değildir. Sequence semantic fingerprint'e girmez. Next-seq kontrolü mevcut parent-aware serialized line guard içinde, asset row lock'u zaten tutulurken uygulanır; ayrı bir lock sırası yoktur.
 - **Consequence:** Phase 5.6 backend bu sözleşmeyi uygular. Implementation commit-gate review öncesi COMPLETE işaretlenmez. Broader RETURN (`DEC-HG-005`) ve serialized correction deferred kalır.
-- **Implementation status:** Phase 5.6 backend commit `1947b8ab374510c8bafb5f58f160decc455969d6` üzerinde uygulanmıştır. Phase 5.7 state-aware serialized movement web workflow/UI wiring'i uygulanmış ve review için uncommitted bırakılmıştır; COMPLETE işaretlenmemiştir.
+- **Implementation status:** Phase 5.6 backend commit `1947b8ab374510c8bafb5f58f160decc455969d6` üzerinde uygulanmıştır. Phase 5.7 state-aware serialized movement web workflow/UI wiring'i commit `22c29deacb9247b3921a6f36a802ebe63ad9c341` üzerinde tamamlanmıştır.
+
+### DEC-036 — V1 Machine-Readable Identification and Carrier Policy
+
+- **Status:** `DECIDED`
+- **Required before / recorded with:** Phase 5.8 Machine-Readable Identification & Scanning
+- **Extends:** `DEC-011` neutral `identification` boundary; `DEC-032` UUID technical identity
+- **Resolves:** `DEC-OPEN-016` (payload, carriers, labels, scan devices); product `TBD-015` / `TBD-016`; `OD-021`, `OD-029`, `DM-P02`, `UF-O-21` for V1 software identification
+- **Does not resolve:** dedicated printer driver/SDK; physical label media/durability purchasing; RFID/NFC; native mobile app; offline scan queue; external/legacy barcode registry; DataMatrix
+- **Decision:**
+  1. **Carrier-neutral compact payload:** Authoritative technical identity mevcut UUID primary key'dir. Makine okunur payload, aynı UUID'nin tersinir metin temsilidir: URL-safe Base64 of the raw 16 UUID bytes, `=` padding kaldırılmış, tam 22 karakter. V1 kanonik protokol `TZ1M:<token>`, `TZ1A:<token>`, `TZ1L:<token>` biçimindedir (`TZ1<type>:<22-char-base64url-uuid>`). Payload persist edilmez; barcode token tablosu yoktur. Parser kasıtlı olarak strict'tir: yalnız tam kanonik biçim, tam büyük harf `TZ`, sürüm `1`, tek `:`, tam 22 karakter URL-safe Base64 alfabesi, padding yok, decode tam 16 byte ve re-encode eşitliği. Taslak verbose `TEZCAN:1:*:<uuid>` biçimi hiç yayınlanmamıştır ve kanonik değildir; kabul edilmez. Payload mutable kod/ad/seri, URL veya mutation verisi taşımaz.
+  2. **Shared semantics:** Code128 ve QR aynı canonical payload metnini taşır. Carrier entity identity'nin parçası değildir. Decode sonrası tek codec → tek resolver → authentication/permission → canonical object page yolu vardır.
+  3. **Standard label (default):** Code128, insan okunur kimlik ile. Material: ad + malzeme kodu. SerializedAsset: `internal_asset_code` önde, malzeme adı, isteğe bağlı `serial_number`. Location: kod + ad.
+  4. **Compact label:** QR, insan okunur kimlik ile. Küçük tekil varlıklar, dar fiziksel etiketler ve telefon/tarayıcı kamera iş akışları içindir. Her etikete Code128 ve QR birlikte basılmaz.
+  5. **No stored token:** V1'de `BarcodeIdentifier` tablosu, barkod/QR id, scan token veya payload persistence yoktur. UUID zaten authoritative'dir.
+  6. **Scanning:** Tarayıcı kamera yerel ZXing multi-format okuyucu ile en az Code128 ve QR okur; runtime CDN yoktur. USB HID/klavye-wedge okuyucular manuel giriş alanına yazar ve Enter ile aynı resolver'a gider. Elle giriş fallback'tir. Server codec otoritedir.
+  7. **Authorization:** Koda sahip olmak veya taramak yetki vermez. Scan/image/label/resolver authentication ve object-view permission gerektirir. Inventory movement permission'ları Phase 5.7 kurallarıyla ayrı kalır.
+  8. **No mutation / no read audit:** Scan, render ve print `InventoryTransaction`, line, `StockBalance`, `SerializedAsset` current state, `IssueContext`, count/baseline state değiştirmez. Yalnız etiket tarama/yazdırma için `AuditEvent` üretilmez.
+  9. **No DataMatrix:** V1 carrier seti Code128 + QR'dır. DataMatrix, RFID/NFC ve native app yoktur.
+  10. **Print path:** V1 yazdırma tarayıcı HTML/CSS print'tir. Yazıcı sürücüsü/SDK entegrasyonu V1 dışıdır. Compact payload Code128 (0.25 mm module, 15 mm bar height, 2.5 mm quiet zone) renderer ölçümüyle 88.000 mm × 17.000 mm'dir; 100 mm-sınıfı standart atölye etiketine yatay bozulma olmadan sığar. 50 mm Code128 iddia edilmez; daha küçük etiketler kompakt QR profilini kullanır. UUID kısaltılmaz, hash'lenmez, stored short-id yoktur; token yalnız mevcut UUID'nin tersinir temsilidir.
+- **Consequence:** Phase 5.8 `identification` app bu sözleşmeyi uygular. Implementation review/commit öncesi COMPLETE işaretlenmez.
+- **Implementation status:** Uncommitted working tree on parent `22c29deacb9247b3921a6f36a802ebe63ad9c341`; COMPLETE değildir.
 
 ## 3. Açık İş Kararları
 
@@ -538,7 +559,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | `DEC-OPEN-013` | Photo format/size/currentness/retention | `DECIDED` (V1 correction evidence) | OD-018, COR-013, DM-P01, TBD-013 | Attachment feature | — | `DEC-034` ile V1 kapatıldı: JPEG/PNG/WebP; HEIC/HEIF yok; 10 MiB/dosya; create-time mandatory; no auto-delete; protected retrieval. Uzun dönem silme süreleri `DEC-OPEN-018` açık kalır. |
 | `DEC-OPEN-014` | Report periods, usage/decrease definitions | `OPEN` | OD-019, REP-007, UF-O-10 | Reporting implementation | İş sahibi | Europe/Istanbul presentation default'u korunur. |
 | `DEC-OPEN-015` | Excel workbook mapping ve cleansing | `OPEN` | OD-020, IMP-006 | Import implementation | Gerçek workbook + iş sahibi | Candidate stock yasağı `DEC-001` ile kararlıdır. |
-| `DEC-OPEN-016` | QR payload, labels ve device rules | `OPEN` | OD-021, OD-029, DM-P02, UF-O-21 | QR feature | Operasyon + IT | Module ownership `DEC-011` ile kararlıdır. |
+| `DEC-OPEN-016` | QR/barcode payload, labels ve device rules | `DECIDED` | OD-021, OD-029, DM-P02, UF-O-21 | Phase 5.8 identification | — | `DEC-036` ile kapatıldı: compact reversible UUID token (`TZ1M\|A\|L:<22-char-base64url-uuid>`); Code128 standart / QR kompakt; tek resolver; no stored token; USB HID + kamera; DataMatrix yok; browser print. Yazıcı sürücüsü/SDK V1 dışı kalır. |
 | `DEC-OPEN-017` | Report timezone/week boundary | `OPEN` | OD-023, TIME-005, UF-O-10 | Reporting implementation | İş sahibi | Storage timezone-aware'dır. |
 | `DEC-OPEN-018` | Ledger/audit/photo/import retention periods | `OPEN` | OD-024, TIME-006, DM-P01, UF-O-24 | Pilot/go-live policy | İş sahibi + legal/privacy + IT | Karar çıkana kadar destructive deletion yok. |
 | `DEC-OPEN-019` | Category-specific technical attribute schema | `OPEN` | OD-025, MAT-004, Ürün TBD-001/TBD-002 | Catalog/import mapping | Gerçek material/workbook examples | JSONB teknik yönü korunur. |
@@ -577,11 +598,11 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Quantity controlled corrections (Phase 5.2) | **COMPLETE** (2026-09-13; 1242 test passed). `DEC-030`, `DEC-031`; evidence later `DEC-034` / Phase 5.5 |
 | Phase 5.5 correction evidence | **COMPLETE** (`DEC-034`). JPEG/PNG/WebP mandatory for new quantity correction requests; HEIC/HEIF unsupported; 10 MiB/file; protected retrieval; historical rows grandfathered. Serialized correction deferred. |
 | Serialized inventory foundation + serialized RECEIVE (Phase 5.3) | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; asset identity/current projection + serialized RECEIVE tamamlandı. |
-| Serialized ISSUE + linked unused RETURN + in-stock TRANSFER (Phase 5.6–5.7) | Phase 5.6 backend committed at `1947b8a`; Phase 5.7 state-aware web workflows implemented, uncommitted pending review. `DEC-035`. COMPLETE işaretlenmez. |
+| Serialized ISSUE + linked unused RETURN + in-stock TRANSFER (Phase 5.6–5.7) | Phase 5.6 backend committed at `1947b8a`; Phase 5.7 web workflows committed at `22c29de`. `DEC-035`. |
 | Counting/reconciliation | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout, `DEC-033`). Serialized `COUNT_RECONCILIATION` ve count/baseline UI sonraki ayrı görevlerdir. |
 | Baseline schema/cutover | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout). `InventoryBaseline`, scoped `INITIAL_BALANCE`, combined QUANTITY+SERIALIZED establishment. Count/baseline UI yoktur. `DEC-002` / `DEC-015` / `DEC-032` / `DEC-033` korunur. |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |
-| QR | `DEC-OPEN-016`, `DEC-IT-006`; neutral ownership `DEC-011` ile sabittir |
+| Machine-readable identification | `DEC-036` (`DEC-OPEN-016` DECIDED); `DEC-IT-006` mobile/tablet intranet; ownership `DEC-011` |
 | Deployment/pilot | `DEC-IT-001`–`DEC-IT-005`, restore drill; uzun dönem retention için `DEC-OPEN-018` |
 | Phase 2 catalog/configuration UI | `DEC-021`: dynamic configuration principle, seed≠whitelist, UoM/role/technical-spec boundaries |
 | Phase 2.9B-0 access management policy | `DEC-022`: management capability, allowlist, anti-escalation, audit identity, Admin/UI boundary |
@@ -863,7 +884,7 @@ Legacy kimlikler silinmez; toplu eşlemeler aşağıdaki kanonik kayıtlara yön
 | `OD-018`, `DM-P01` | `DEC-034` (`DEC-OPEN-013` DECIDED for V1); uzun dönem silme `DEC-OPEN-018` |
 | `OD-019`, `UF-O-10` | `DEC-OPEN-014` |
 | `OD-020` | `DEC-OPEN-015` |
-| `OD-021`, `OD-029`, `DM-P02`, `UF-O-21` | `DEC-OPEN-016` |
+| `OD-021`, `OD-029`, `DM-P02`, `UF-O-21` | `DEC-036` (`DEC-OPEN-016` DECIDED) |
 | `OD-022`, `DM-B16` | Closed by `DEC-006`–`DEC-009` |
 | `OD-023`, `UF-O-10` | `DEC-OPEN-017` |
 | `OD-024`, `DM-P01`, `UF-O-24` | `DEC-OPEN-018` |
@@ -891,7 +912,7 @@ Legacy kimlikler silinmez; toplu eşlemeler aşağıdaki kanonik kayıtlara yön
 | `TBD-012` | `DEC-HG-002`, `DEC-OPEN-006` |
 | `TBD-013` | `DEC-034` (`DEC-OPEN-013` DECIDED for V1); `DEC-OPEN-018` |
 | `TBD-014` | `DEC-OPEN-027` |
-| `TBD-015`, `TBD-016` | `DEC-OPEN-016` |
+| `TBD-015`, `TBD-016` | `DEC-036` (`DEC-OPEN-016` DECIDED) |
 | `TBD-017` | `DEC-OPEN-014`, `DEC-OPEN-017`, `DEC-OPEN-024` |
 | `TBD-018` | `DEC-OPEN-025` |
 | `TBD-019` | `DEC-OPEN-015` |

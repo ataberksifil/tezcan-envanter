@@ -6,6 +6,15 @@
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
     <h1 class="h3 mb-0">{{ material.name }}</h1>
     <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-dark" href="{% url 'identification:material-label' material.pk %}">Etiket yazdır</a>
+        <a class="btn btn-outline-secondary" href="{% url 'identification:material-label-compact' material.pk %}">Kompakt QR</a>
+        {% if material.active and material.tracking_mode == "QUANTITY" %}
+            {% if perms.inventory.receive_stock %}<a class="btn btn-outline-success" href="{% url 'inventory:receipt-create' %}">Stok girişi</a>{% endif %}
+            {% if perms.inventory.issue_stock %}<a class="btn btn-outline-primary" href="{% url 'inventory:issue-create' %}">Stok çıkışı</a>{% endif %}
+            {% if perms.inventory.transfer_stock %}<a class="btn btn-outline-primary" href="{% url 'inventory:transfer-create' %}">Transfer</a>{% endif %}
+        {% elif material.active and material.tracking_mode == "SERIALIZED" and perms.inventory.receive_stock %}
+            <a class="btn btn-outline-success" href="{% url 'inventory:serialized-receipt-create' %}">Tekil varlık girişi</a>
+        {% endif %}
         {% if perms.catalog.change_material %}
             <a class="btn btn-outline-primary" href="{% url 'catalog:material-update' material.pk %}">Düzenle</a>
             {% if material.active %}
@@ -87,6 +96,14 @@
     <dt class="col-sm-3">Güncellenme</dt>
     <dd class="col-sm-9">{{ material.updated_at }}</dd>
 </dl>
+
+<section class="mb-4" aria-labelledby="material-id-heading">
+    <h2 class="h5" id="material-id-heading">Makine okunur kimlik</h2>
+    <div class="d-flex flex-wrap align-items-center gap-3">
+        <img src="{% url 'identification:material-code128' material.pk %}" height="48" alt="{{ material.name }} malzeme Code 128 barkodu">
+        <p class="text-body-secondary mb-0">Bu kod malzeme tanımını açar; tek bir fiziksel birimi temsil etmez. Küçük etiket için kompakt QR kullanın.</p>
+    </div>
+</section>
 
 {% if current_stock_balances is not None %}
     <section class="mb-4" aria-labelledby="current-stock-heading">

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Barkod / QR Tara — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <div>
+        <h1 class="h3 mb-1">Barkod / QR tara</h1>
+        <p class="text-body-secondary mb-0">Malzeme, tekil varlık veya lokasyon kodunu açın. Tarama stok hareketi oluşturmaz.</p>
+    </div>
+</div>
+
+{% if scan_error %}
+    <div class="alert alert-danger" role="alert">{{ scan_error }}</div>
+{% endif %}
+
+<section class="card mb-4" aria-labelledby="camera-heading">
+    <div class="card-body">
+        <h2 class="h5" id="camera-heading">Kamera ile tara</h2>
+        <p id="scanner-status" class="text-body-secondary" role="status" aria-live="polite">Kamera Code 128 ve QR okur; yalnız siz başlattığınızda açılır.</p>
+        <div id="scanner-video-wrap" class="ratio ratio-4x3 bg-dark rounded overflow-hidden d-none mb-3">
+            <video id="scanner-video" class="w-100 h-100 object-fit-cover" muted playsinline></video>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-primary" type="button" id="scanner-start">Kamerayı başlat</button>
+            <button class="btn btn-outline-secondary d-none" type="button" id="scanner-stop">Kamerayı durdur</button>
+            <button class="btn btn-outline-primary d-none" type="button" id="scanner-retry">Tekrar dene</button>
+        </div>
+    </div>
+</section>
+
+<section aria-labelledby="manual-heading">
+    <h2 class="h5" id="manual-heading">Elle gir veya USB okuyucu kullan</h2>
+    <p class="text-body-secondary">Klasik USB barkod okuyucu klavye gibi çalışır: bu alana odaklanın, kodu okutun, okuyucu Enter gönderir.</p>
+    <form method="post" action="{% url 'identification:resolve' %}" id="scan-resolve-form" novalidate>
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label" for="{{ form.payload.id_for_label }}">{{ form.payload.label }}</label>
+            {{ form.payload }}
+            {% for error in form.payload.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        </div>
+        <button class="btn btn-primary" type="submit">Çözümle</button>
+    </form>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/zxing/zxing-browser.min.js' %}"></script>
+<script src="{% static 'identification/js/scanner.js' %}"></script>
+{% endblock %}

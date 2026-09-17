@@ -58,7 +58,7 @@ Bu belge:
 | `PhysicalCountLine` | Entity | Beklenen sistem durumu ile fiziksel sayım sonucunun karşılaştırması. |
 | `ImportBatch` | Entity / Aggregate Root | Bir Excel kaynağının kontrollü doğrulama ve aktarım süreci. |
 | `ImportRow` | Entity | Kaynak satırın eşleme, doğrulama ve sonuç bilgisi. |
-| `BarcodeIdentifier` | Entity | Tek bir domain nesnesine çözülen QR/barkod kimliği. |
+| `CanonicalIdentity` | Value object | Carrier-independent `TZ1M\|A\|L:<22-char-base64url-uuid>` payload. |
 | `AuditEvent` | Entity | Stok ledger'ı dışında kalan önemli idari değişikliğin denetim kaydı. |
 | `MinimumStockPolicy` | Value Object / politika kavramı | Malzemenin minimum stok eşiği ve henüz kesinleşmemiş değerlendirme kapsamı. |
 | `InventoryBaseline` | Entity | Mutabakatı tamamlanmış başlangıç envanterinin yetkili kesim kaydı. |
@@ -494,33 +494,15 @@ Kesin durum değerleri, eşleme ve hata politikası kaynak Excel görülmeden be
 
 Import ön izlemesi ile kontrollü master-data commit ayrılır. Import commit'i sıfır authoritative stock etkisi üretir. Gerçek açılış stoğu fiziksel sayım ve mutabakat sonrasında yalnız `InventoryBaseline`a bağlı scoped `INITIAL_BALANCE` işlemleriyle tam bir kez oluşturulur.
 
-## 14. QR / Kimliklendirme Domaini
+## 14. Makine Okunur Kimliklendirme Domaini
 
-### Öneri: generic BarcodeIdentifier
+V1 first-party kimlik, persisted `BarcodeIdentifier` tablosu değildir (`DEC-036`). `Material`, `SerializedAsset` ve `Location` UUID'si authoritative technical identity'dir. Compact token yalnız bu UUID'nin tersinir metin temsilidir (URL-safe Base64, padding yok, 22 karakter). Code128 ve QR aynı canonical payload'u taşır:
 
-`Material`, `SerializedAsset` ve `Location` üzerine tek bir değiştirilebilir QR alanı eklemek yerine basit bir `BarcodeIdentifier` entity'si önerilir. Her identifier:
+- `TZ1M:<token>`
+- `TZ1A:<token>`
+- `TZ1L:<token>`
 
-- benzersiz sistem kimliğine,
-- benzersiz taranabilir değere,
-- identifier türüne,
-- tam olarak bir hedef domain nesnesine,
-- aktif/pasif durumuna,
-- denetim için oluşturma/değişiklik bağlamına
-
-sahip olur.
-
-Bu yaklaşım:
-
-- malzeme QR'ını,
-- lokasyon QR'ını,
-- ileride tekil varlık QR'ını,
-- olası mevcut barkodları ve yeniden etiketlemeyi
-
-aynı küçük kavramla destekler. V1'de yalnızca doğrulanmış ihtiyaçlar etkinleştirilir; gereksiz identifier alt tipleri oluşturulmaz.
-
-QR payload biçimi, semboloji, etiket ölçüsü, yazıcı entegrasyonu ve yeniden basım kuralları **TBD**'dir. Bir taranabilir kimlik aynı anda birden fazla nesneye çözülemez.
-
-`BarcodeIdentifier` neutral `Identification` boundary'sine aittir. Bu modül `Catalog`, `Inventory` ve `Locations`ı tanıyabilir; bu üç modül core domain operasyonu için `Identification`a bağımlı olmaz. Ayrı Django app ancak QR feature başladığında oluşturulur.
+Carrier entity identity'nin parçası değildir. Neutral `identification` modülü codec, rendering, scan ve resolver'ı sahiplenilir; `Catalog`, `Inventory` ve `Locations` core domain operasyonu için `identification`'a bağımlı olmaz (`DEC-011`). Bir taranabilir kod aynı anda birden fazla nesneye çözülemez. Koda sahip olmak yetki vermez; tarama stok değiştirmez. DataMatrix V1'de yoktur. External/legacy barcode registry ayrı gelecekteki karardır.
 
 ## 15. Attachment ve Audit Domaini
 
@@ -602,7 +584,7 @@ Bu seçeneklerden hiçbiri seçilmiş değildir. `MinimumStockStatus`, ledger ve
 | `PhysicalCountLine` | karşılaştırır | `Material` / `SerializedAsset` / `Location` | Takip moduna göre miktar veya tekil varlık karşılaştırılır. |
 | `ImportBatch` | içerir | `ImportRow` | Bir batch `1..N` satır içerir. |
 | `ImportBatch` | kaynak kullanır | `Attachment` | Bir kaynak dosya zorunlu; yeniden işleme davranışı **TBD**. |
-| `BarcodeIdentifier` | tanımlar | `Material` / `SerializedAsset` / `Location` | Her identifier tam `1` hedefe çözülür; hedef `0..N` identifier alabilir. |
+| Canonical payload | çözer | `Material` / `SerializedAsset` / `Location` | Her payload tam `1` hedefe çözülür; UUID authoritative'dir. |
 | `InventoryBaseline` | kaynaklanır | `ImportBatch` / `PhysicalCountSession` | Bir baseline ilgili staging reference'ı ve `1..N` count session kanıtını referanslar (`DEC-033`). |
 | `InventoryBaseline` | downstream-owned link ile sonuçlanır | `InventoryTransaction` | Bir baseline `1..N` scoped `INITIAL_BALANCE` transaction'a bağlanır; inventory baseline modülüne reverse FK taşımaz. |
 
@@ -625,7 +607,7 @@ Bu invariant'lar ilişkisel kısıtlara, servis doğrulamalarına ve otomatik te
 - **DI-013:** `ISSUE`, alıcı adı, soyadı, sicil numarası, üretim hattı, fiili kullanım yeri ve sistem işlem zamanı olmadan tamamlanamaz.
 - **DI-014:** Yeni `CorrectionRequest`, talep eden kullanıcı, açıklama ve en az bir V1-uyumlu fotoğraf olmadan `PENDING` duruma gelemez; `PENDING` talep stok değiştiremez. Phase 5.5 öncesi historical satırlar evidence olmadan okunabilir kalır.
 - **DI-015:** Fiziksel sayım farkı `StockBalance` üzerinde sessiz doğrudan değişiklik oluşturamaz; yetkili düzeltme izi gerekir.
-- **DI-016:** Etkin bir `BarcodeIdentifier` tam olarak bir domain nesnesine çözülür ve taranabilir değeri sistem içinde belirsiz olamaz.
+- **DI-016:** Canonical payload tam olarak bir domain nesnesine çözülür ve taranabilir değeri sistem içinde belirsiz olamaz (`DEC-036`).
 - **DI-017:** Asıl işlem zamanı sistem tarafından kaydedilir ve normal kullanıcı tarafından sessizce değiştirilemez.
 - **DI-018:** Pasifleştirilen bir `Location`, geçmiş işlem referanslarını anlaşılmaz hâle getiremez.
 - **DI-019:** Quantity satırındaki miktar, ilgili `Material`ın geçerli `UnitOfMeasure` kavramıyla uyumlu olmalıdır.
@@ -654,7 +636,7 @@ V1 için tek uygulama ve tek dağıtım birimi içinde aşağıdaki modüler mon
 | **Corrections** | Düzeltme talebi, karar ve sonuç ilişkisi | `CorrectionRequest` |
 | **Counting** | Fiziksel sayım ve mutabakat | `PhysicalCountSession` |
 | **Imports** | Excel batch/satır doğrulama, controlled master-data commit ve baseline orkestrasyonu | `ImportBatch`, `InventoryBaseline` |
-| **Identification** | QR/barkod kimliklerinin nesnelere çözülmesi | `BarcodeIdentifier` |
+| **Identification** | Makine okunur kimliklerin nesnelere çözülmesi | Canonical payload / codec / resolver |
 | **Audit** | Stok dışı idari audit kayıtları | `AuditEvent` |
 | **Corrections / Core storage** | Correction evidence metadata / binary storage abstraction | `CorrectionEvidence` / `core.storage` |
 | **Reporting** | Haftalık hareket, kullanım, azalış, düşük stok ve Excel çıktı projection'ları | Salt okunur rapor/projection'lar |
@@ -757,7 +739,7 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 | OD-018 | Fotoğraf güncelliği, dosya koşulları ve erişim | `DEC-034` V1 correction evidence |
 | OD-019 | Rapor dönemleri, kullanım tanımı, azalış hesabı ve filtreler | Reporting projection'ları |
 | OD-020 | Excel yapısı, eşleme, temizlik ve hata çözümü | `ImportRow` doğrulama modeli |
-| OD-021, OD-029 | QR payload/etiket standardı, yazıcı ve teslim zamanlaması | `BarcodeIdentifier` ve etiket yaşam döngüsü |
+| OD-021, OD-029 | QR payload/etiket standardı, yazıcı ve teslim zamanlaması | `DEC-036` (`DEC-OPEN-016` DECIDED); yazıcı sürücüsü V1 dışı |
 | OD-022 | `DEC-006`–`DEC-009` ile Gate 0'da kapatıldı | Inventory concurrency ve idempotency contract |
 | OD-023 | Fabrika saat dilimi, hafta başlangıcı ve dönem kapanışı | Zaman kaydı ve rapor davranışı |
 | OD-025 | Kategoriye özgü teknik alanlar | Esnek nitelik doğrulaması |
@@ -804,7 +786,7 @@ Bu bölüm legacy kaynak kimliklerini korur. Güncel status, owner ve hard gate'
 11. `PhysicalCountSession` / `PhysicalCountLine`, miktar ve serialized sayımı ayrı anlamlarla destekler.
 12. `ImportBatch` / `ImportRow`, Excel'i staging/candidate reference data olarak doğrular; import commit'i ledger veya `StockBalance` yaratmaz.
 13. `InventoryBaseline`, fiziksel mutabakat sonrası `1..N` scoped `INITIAL_BALANCE` ile yetki kesimini temsil eder.
-14. `BarcodeIdentifier`, tek bir `Material`, `SerializedAsset` veya `Location` nesnesine çözülür.
+14. Canonical identity payload tek bir `Material`, `SerializedAsset` veya `Location` nesnesine çözülür.
 15. `AuditEvent`, ledger'ı çoğaltmadan idari değişiklikleri izler.
 16. `docs/06-DECISION-REGISTER.md` hard gate'leri varsayımla kapatılmamalı; ilgili feature karar verilmeden başlatılmamalıdır.
 

@@ -107,6 +107,26 @@ class LocationDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
             Location.objects.filter(parent_id=self.object.pk)
             .order_by("name", "id")
         )
+        context["current_stock_balances"] = None
+        context["current_serialized_assets"] = None
+        if self.request.user.has_perm("inventory.view_stockbalance"):
+            context["current_stock_balances"] = (
+                self.object.stock_balances.select_related(
+                    "material",
+                    "material__unit",
+                    "condition",
+                )
+                .filter(quantity__gt=0)
+                .order_by("material__name", "condition__sort_order", "id")
+            )
+            context["current_serialized_assets"] = (
+                self.object.current_serialized_assets.select_related(
+                    "material",
+                    "current_condition",
+                )
+                .filter(current_state="IN_STOCK")
+                .order_by("internal_asset_code", "id")
+            )
         return context
 
 

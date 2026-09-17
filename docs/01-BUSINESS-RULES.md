@@ -262,7 +262,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | QR-002 | CONFIRMED | Sistem lokasyon QR/barkod etiketlerini desteklemelidir. | Geçerli etiket ilgili fiziksel lokasyonu çözümleyebilmelidir. |
 | QR-003 | CONFIRMED | Bir QR/barkod tanımlayıcısı sistemde benzersiz biçimde belirlenebilir tek bir hedef nesneye çözülmelidir. | Aynı tanımlayıcı belirsiz biçimde iki nesneye yönlenemez. |
 | QR-004 | CONFIRMED | Malzeme ve lokasyon QR/barkod desteği en geç nihai V1 üretim devreye alımından önce hazır ve doğrulanmış olmalıdır. | Üretim kabulünde iki nesne türü de taranarak bulunabilmelidir. |
-| QR-005 | TBD DEPENDENCY | Yük biçimi, tanımlayıcı standardı, barkod türü, etiket ölçüsü/dayanıklılığı, yazıcı entegrasyonu ve yeniden basım kuralları belirlenmemiştir. | Etiket standardı sonraki tasarım ve ekipman doğrulamasına bağlıdır. |
+| QR-005 | DECIDED (`DEC-036`) | V1 payload `TZ1M\|A\|L:<22-char-base64url-uuid>`; Code128 standart / QR kompakt; tek resolver; no stored token; USB HID + kamera. DataMatrix ve yazıcı sürücüsü V1 dışıdır. | Koda sahip olmak yetki vermez; tarama stok değiştirmez. |
 
 ## 19. Zaman ve Kayıt Kuralları
 
@@ -301,7 +301,8 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | OD-018 | Kararlı (V1) | `DEC-034`: JPEG/PNG/WebP, HEIC/HEIF yok, 10 MiB/dosya, create-time mandatory evidence, no auto-delete, protected retrieval. | Uzun dönem retention/silme `DEC-OPEN-018` açık kalır. |
 | OD-019 | Eksik karar | Rapor hafta sınırları, kullanım tanımı, azalış hesabı, filtre ve gruplamalar bilinmiyor. | Rapor türleri zorunlu, hesap ayrıntıları TBD'dir. |
 | OD-020 | Eksik karar | Excel dosya yapısı, eşlemeler, temizleme ve hata çözüm süreci bilinmiyor. | Kaynak dosya analizi gereklidir. |
-| OD-021 | Eksik karar | QR/barkod yükü, standardı ve yazıcı/etiket entegrasyonu bilinmiyor. | Benzersiz nesne çözümleme kuralı korunur. |
+| OD-021 | Kararlı | `DEC-036`: compact reversible UUID token (`TZ1M\|A\|L:<22-char-base64url-uuid>`), Code128 standart / QR kompakt, tek resolver, USB HID + kamera, no stored token. | Benzersiz nesne çözümleme kuralı korunur; koda sahip olmak yetki vermez. |
+| OD-022 | Teknik bağımlılık | Negatif stoğun eş zamanlı işlemlerde nasıl atomik önleneceği sonraki teknik tasarıma aittir. | İş kuralı değişmez; uygulama yöntemi seçilmez. |
 | OD-022 | Teknik bağımlılık | Negatif stoğun eş zamanlı işlemlerde nasıl atomik önleneceği sonraki teknik tasarıma aittir. | İş kuralı değişmez; uygulama yöntemi seçilmez. |
 | OD-023 | Eksik karar | Fabrikanın mutabık kalınmış yerel saat dilimi yapılandırması ve hafta başlangıcı bilinmiyor. | Türkiye yerel iş zamanı yönü korunur. |
 | OD-024 | Eksik karar | Envanter geçmişi, audit kayıtları ve fotoğrafların saklama/silme süreleri bilinmiyor. | Retention politikası varsayılmaz. |
@@ -309,9 +310,9 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | OD-026 | Kısmen kararlı | Rol atama/onay süreci Phase 2 için `DEC-022` ile kararlıdır. Kullanıcı–Employee ilişkisi `DEC-024` ile kararlıdır: nullable one-to-one, ownership Employee, delete `SET_NULL`; sicil string/global unique/editable. | Employee foundation implementation Phase 3.2 COMPLETE; retention pilot öncesi kararları açık kalır. |
 | OD-027 | Eksik karar | Kondisyon değişikliğinin kendisinin hangi kayıtlı iş olayıyla yapılacağı bilinmiyor. | Kondisyon sessizce değiştirilemez; olay türü varsayılmaz. |
 | OD-028 | Eksik karar | Nicel stok doğruluğu hedefi ve kabul edilebilir sapma yaklaşımı bilinmiyor. | Fiziksel bulunabilirlik temel başarı yönüdür. |
-| OD-029 | Zamanlama belirsizliği | QR/barkod V1 kapsamındadır; ara sürümdeki teslim anı belirtilmemiştir. | En geç nihai V1 üretim devreye alımından önce doğrulanmalıdır. |
+| OD-029 | Kararlı | Phase 5.8 Machine-Readable Identification `DEC-036` ile V1 yazılım teslimini tanımlar; review/commit öncesi COMPLETE işaretlenmez. | Yazıcı sürücüsü/SDK V1 dışıdır. |
 
-Doğrudan çözülemez bir çelişki tespit edilmemiştir. QR/barkodun “V1 veya nihai üretim devreye alımı öncesi” ifadesi ile V1 kapsam listesi arasındaki zamanlama belirsizliği, ürün belgesindeki kabul yönü korunarak OD-029 altında açık bırakılmıştır.
+Doğrudan çözülemez bir çelişki tespit edilmemiştir. QR/barkod yazılım kimlik politikası `DEC-036` ile kapanmıştır.
 
 ## 21. Faz 0.3 İçin Girdi
 

@@ -2,18 +2,19 @@
 
 **Oluşturulma:** 2026-09-17  
 **Branch:** `main`  
-**Canonical inventory base:** `1947b8ab374510c8bafb5f58f160decc455969d6` (`feat: add serialized inventory movements`)
+**Canonical inventory base:** `22c29deacb9247b3921a6f36a802ebe63ad9c341` (`feat: add serialized movement workflows`)
 **Phase 5.6 backend:** implemented/committed (`DEC-035`)
-**Phase 5.7 web workflows:** implemented in working tree, uncommitted pending review; not COMPLETE
+**Phase 5.7 web workflows:** implemented/committed at `22c29de`
+**Phase 5.8 identification:** implemented in working tree under `DEC-036`, uncommitted pending review; not COMPLETE
 
 ---
 
 ## 1. Özet
 
-Modüler monolit Django 5.2 envanter sistemi; quantity envanter hareketleri, kontrollü düzeltme (kanıtlı), serialized RECEIVE, fiziksel sayım + combined baseline backend ve Phase 5.6 serialized ISSUE/linked unused RETURN/in-stock TRANSFER kernel'leri mevcuttur. Phase 5.7 bu serialized hareketleri state-aware normal Django web workflow'larına bağlamıştır; çalışma ağacı review için uncommitted bırakılmış ve faz henüz COMPLETE işaretlenmemiştir.
+Modüler monolit Django 5.2 envanter sistemi; quantity envanter hareketleri, kontrollü düzeltme (kanıtlı), serialized RECEIVE, fiziksel sayım + combined baseline backend ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER akışları mevcuttur. Phase 5.7 state-aware normal Django web workflow'larını tamamlamıştır. Phase 5.8 carrier-neutral Machine-Readable Identification (Code128 standart 100 mm-sınıfı etiket, kompakt QR, compact `TZ1M|A|L:<22-char-base64url-uuid>` payload, USB HID + kamera tarama, tek resolver) katmanını eklemiştir; çalışma ağacı review için uncommitted bırakılmış ve faz henüz COMPLETE işaretlenmemiştir.
 
-**Son doğrulanmış full suite (Phase 5.7 working tree):** 1631 passed in 5m 28s
-**Collected test count:** 1631
+**Son doğrulanmış full suite:** 1746 passed
+**Collected test count:** 1746
 **Managed permission count:** 28
 
 ---
@@ -82,21 +83,24 @@ Aşağıdaki sayılar **git object `5ec22eefc3cb80a355ce32d88170feef174d8a35`** 
 | Phase 5.1–5.4 | COMPLETE |
 | **Phase 5.5** | **COMPLETE** — correction evidence (`DEC-034`) |
 | Phase 5.6 | Backend implemented/committed at `1947b8a` — serialized ISSUE / linked unused RETURN / in-stock TRANSFER (`DEC-035`) |
-| Phase 5.7 | Web workflows implemented in uncommitted working tree; pending review, not COMPLETE |
+| Phase 5.7 | Web workflows committed at `22c29de` |
+| Phase 5.8 | Machine-Readable Identification implemented in uncommitted working tree; pending review, not COMPLETE |
 | Gate 3 | PASS (tarihsel; qty RECEIPT scope) |
 
 ---
 
-## 4. Phase 5.7 — Review Bekleyen Kapsam
+## 4. Phase 5.8 — Review Bekleyen Kapsam
 
 | Özellik | Durum |
 |---|---|
-| Canonical serialized asset detail/action surface | State + permission aware |
-| Serialized ISSUE web workflow | Asset-fixed route; existing `issue_serialized(...)`; IssueContext; operation-id/PRG |
-| Serialized linked unused RETURN web workflow | Asset + immutable active ISSUE lineage; target-only input; existing `return_serialized(...)` |
-| Serialized in-stock TRANSFER web workflow | Asset-fixed route; target-only business choice; existing `transfer_serialized(...)` |
-| Quantity/unit artifacts | Serialized forms/read models do not fabricate quantity `1` or unit |
-| Schema/kernel changes | None; Phase 5.6 kernel authoritative |
+| Canonical payload | `TZ1M\|A\|L:<22-char-base64url-uuid>`; carrier-independent; UUID authoritative; no DB persistence |
+| Standard label | Code128 SVG + human-readable identity; default workshop profile |
+| Compact label | QR PNG + human-readable identity; small labels / phone camera |
+| Scanner / resolver | Local ZXing multi-format camera (Code128 + QR) + USB HID/manual field; one authenticated POST resolver |
+| Canonical navigation | Material, SerializedAsset ve Location detail; inactive records remain visible to authorized users |
+| Quick actions | Existing Phase 5.7 asset ISSUE/RETURN/TRANSFER surfaces; no scanner mutation |
+| Schema/kernel changes | None; existing inventory services remain authoritative |
+| V1 exclusions | DataMatrix, RFID/NFC, printer driver, stored barcode token |
 
 Review/commit öncesi bu kapsam `COMPLETE` değildir.
 
@@ -119,7 +123,7 @@ Correction evidence closure ve Phase 5.6 serialized movement backend'i uygulanm�
 - Serialized correction
 - Real Excel import workflow (UI)
 - Reporting
-- QR / barcode
+- Identification review/commit (Phase 5.8 dirty tree; not COMPLETE)
 - Count / baseline UI + remaining polish
 
 ---

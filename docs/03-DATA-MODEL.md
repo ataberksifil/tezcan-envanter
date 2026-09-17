@@ -573,29 +573,9 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 
 ## 15. Barcode / QR Tabloları
 
-### 15.1 `barcode_identifiers`
+V1'de `barcode_identifiers` tablosu yoktur (`DEC-036`). First-party makine okunur kimlik, `Material` / `SerializedAsset` / `Location` UUID'sinden compact reversible token olarak türetilir ve persist edilmez. Code128 ve QR aynı `TZ1M|A|L:<22-char-base64url-uuid>` payload metnini taşır. External/legacy barcode registry ihtiyacı ayrı karardır.
 
-**Purpose:** Material, serialized asset veya location için generic fakat FK-güvenli QR/barkod kimliği sağlar.
-
-| Column | Conceptual Type | Null | Constraint | Description |
-|---|---|---:|---|---|
-| `id` | UUID | Hayır | PK | Identifier kimliği. |
-| `identifier_type` | VARCHAR | Hayır | Namespace/type | İç QR, mevcut barkod vb. tür. |
-| `identifier_value` | VARCHAR | Hayır | Composite UNIQUE | Taranan değer. |
-| `material_id` | UUID | Evet | FK | Hedef material. |
-| `serialized_asset_id` | UUID | Evet | FK | Hedef asset. |
-| `location_id` | UUID | Evet | FK | Hedef location. |
-| `active` | BOOLEAN | Hayır | Default true | Çözümlemede kullanılabilirlik. |
-| `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Oluşturma. |
-| `updated_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Aktivasyon/metadata güncellemesi. |
-
-- **Primary Key:** `id`
-- **Foreign Keys:** Üç açık hedef FK'si; delete restricted.
-- **Unique Constraints:** `(identifier_type, identifier_value)`.
-- **Check Constraints:** `material_id`, `serialized_asset_id`, `location_id` alanlarından tam olarak biri dolu olmalıdır.
-- **Recommended Indexes:** Composite unique identifier; dolu hedef FK'leri için üç koşullu indeks.
-- **Delete Policy:** Kullanımdan kaldırmada `SOFT DELETE / DEACTIVATE`; tarihsel audit varsa hard delete yok.
-- **Notes / TBD:** Generic content-type polymorphism kullanılmaz. Model sahibi neutral `identification` boundary'sidir; bu module `catalog`, `inventory` ve `locations`a bağımlı olabilir, tersi core operation için yasaktır. Django app QR feature başladığında oluşturulur. Payload, identifier type namespace'leri, semboloji ve yeniden basım politikası TBD'dir.
+Tarihsel conceptual `BarcodeIdentifier` modeli `DEC-011` ownership sınırını kaydeder; V1 schema bunu tablo olarak uygulamaz.
 
 ## 16. Audit Tabloları
 
@@ -716,7 +696,7 @@ Tek tabloda quantity ve serialized alanları tutmak çok sayıda nullable kolon 
 | `materials` | `stock_balances` | 1 : 0..N | Yalnızca QUANTITY material. |
 | `locations` | `stock_balances` | 1 : 0..N | Yalnız `active && can_hold_stock` lokasyon. |
 | `material_conditions` | `stock_balances` | 1 : 0..N | Kondisyon partition'ı. |
-| `materials/assets/locations` | `barcode_identifiers` | 1 : 0..N | Her identifier tam bir hedef seçer. |
+| `materials/assets/locations` | first-party identity payload | 1 : 1 derived | V1'de tablo yok; UUID payload `DEC-036` ile türetilir. |
 | `import_batches` | `inventory_baselines` | 1 : 0..N TBD | Tekrar/cutover politikası açık. |
 | `physical_count_sessions` | `inventory_baseline_count_session_links` | 1 : 0..N | Yalnız `baseline_candidate=true` session linklenebilir; authoritative-establishment uniqueness guard ayrıca uygulanır. |
 | `inventory_baselines` | `inventory_baseline_count_session_links` | 1 : 1..N | Bir baseline `DEC-033` gereği bir veya daha çok required count session kapsar. |
@@ -792,7 +772,7 @@ Broader RETURN ve controlled correction semantics kesinleşmeden DB'ye ek zorunl
 - `physical_count_sessions(status)`, `(reconciliation_status)`, `(scope_location_id)`
 - `import_batches(status)`, `(source_checksum)`
 - `import_rows(import_batch_id, validation_status)`
-- `barcode_identifiers(identifier_type, identifier_value)` unique
+- first-party identity payload persist edilmez (`DEC-036`)
 - `audit_events(occurred_at)`, `(entity_type, entity_id)`
 - `inventory_baseline_transaction_links(inventory_baseline_id, scope_key)` unique ve transaction/operation unique indeksleri
 - `inventory_baseline_count_session_links(inventory_baseline_id, physical_count_session_id)` unique
@@ -822,7 +802,7 @@ Broader RETURN ve controlled correction semantics kesinleşmeden DB'ye ek zorunl
 | `physical_count_asset_lines` | RETAIN / NO HARD DELETE | Tekil sayım izi. |
 | `import_batches` | RETENTION TBD; COMMITTED RETAIN | Kaynak/commit denetimi. |
 | `import_rows` | RETENTION TBD; COMMITTED RETAIN | Satır doğrulama izi. |
-| `barcode_identifiers` | SOFT DELETE / DEACTIVATE | Yeniden etiketleme geçmişi/audit. |
+| first-party identity payload | NOT STORED | `DEC-036`; UUID already authoritative. |
 | `audit_events` | IMMUTABLE; RETENTION TBD | İdari denetim izi. |
 | `inventory_baselines` | IMMUTABLE / NO DELETE | Otorite cutover kanıtı. |
 | `inventory_baseline_count_session_links` | IMMUTABLE / NO DELETE | Baseline count evidence lineage'i. |
@@ -1089,7 +1069,7 @@ Sonraki uygulama ve schema implementation review aşağıdaki tasarım kararlar�
 10. Quantity ve serialized fiziksel sayım satırlarının ayrı tutulması.
 11. Import commit'in sıfır stock ledger/`StockBalance` etkisi; candidate data'nın staging-only olması.
 12. `INITIAL_BALANCE`ın yalnız `InventoryBaseline` üzerinden `1..N` scoped kontrollü ledger olayı olması.
-13. Barcode exactly-one-target ve identifier uniqueness kısıtları.
+13. First-party identity payload persist edilmez; Code128/QR aynı compact `TZ1M|A|L:<22-char-base64url-uuid>` metnini taşır (`DEC-036`).
 14. Ledger, balance, correction, import ve baseline için transaction/locking/idempotency gereksinimleri.
 15. `docs/06-DECISION-REGISTER.md` içindeki hard gate'lerin varsayımla kapatılmaması.
 

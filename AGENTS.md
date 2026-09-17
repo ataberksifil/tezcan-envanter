@@ -91,7 +91,7 @@ Yalnız şu ana modülleri kullan:
 | `reports` | Salt okunur sorgular ve Excel export | Business data mutation |
 | `audit` | Non-stock administrative audit | Ledger'ı gereksiz kopyalamak |
 | `core` | Teknik ortak yardımcılar/storage/error/clock | Domain logic dumping ground olmak |
-| `identification` (QR feature başladığında) | BarcodeIdentifier registry ve authenticated resolver | Stock mutation veya core modüllerin kendisine bağımlı olması |
+| `identification` | Carrier-neutral machine-readable identity codec, Code128/QR rendering, authenticated scanner/resolver ve printable labels | Stock mutation veya core modüllerin kendisine bağımlı olması |
 
 `attachments` V1'de ayrı app olmak zorunda değildir; correction modeli `corrections`, storage adaptörü `core` tarafından sahiplenilebilir.
 
@@ -105,7 +105,7 @@ Yalnız şu ana modülleri kullan:
 - `audit`, business modüllerini import edip workflow çalıştırmaz.
 - `core`, hiçbir business modülüne bağımlı olmaz.
 
-`BarcodeIdentifier`ı `catalog` içine kalıcı yerleştirme. QR feature başladığında neutral `identification` modülü oluşturulabilir; ihtiyaçtan önce oluşturma. `identification`, `catalog`, `inventory` ve `locations`a bağımlı olabilir; bu modüller core domain operasyonu için `identification`a bağımlı olmaz.
+V1 first-party makine okunur kimliği `catalog` içine yerleştirme. Neutral `identification` modülü `catalog`, `inventory` ve `locations`a bağımlı olabilir; bu modüller core domain operasyonu için `identification`a bağımlı olmaz. `DEC-036` deterministik UUID payload kullandığı için V1'de `BarcodeIdentifier` tablosu yoktur; Code128 ve QR aynı payload'u taşır ve carrier kimliğin parçası değildir. İleride external/legacy barcode registry ihtiyacı ayrı karardır.
 
 `InventoryTransaction`, downstream `corrections`, `counting` veya `imports` modellerine reverse FK taşıyamaz. Correction/baseline gibi workflow sonuç bağlantısının sahibi downstream module'dür; aynı ilişki iki yönde redundant FK ile tutulmaz. `source_transaction_id` inventory içinde self-reference olarak kalabilir.
 
@@ -179,7 +179,7 @@ Projection doğrulaması teorik olamaz. Pilot öncesinde ledger'dan expected qua
 - Serialized ledger satırı `asset_event_seq` taşır; değer asset row lock altında monotonic atanır. Projection verifier serialized history'yi `serialized_asset_id → asset_event_seq` ile replay eder; wall-clock timestamp/UUID nedensel sıra değildir.
 - Movement sırasında asset row concurrency-safe kilitlenir.
 - Quantity ve serialized transaction şekilleri karıştırılamaz.
-- Phase 5.3 serialized RECEIVE COMPLETE. Phase 5.6 backend `DEC-035` serialized ISSUE + linked unused RETURN + in-stock TRANSFER'i mevcut `ISSUE`/`RETURN`/`TRANSFER` type'ları ve `inventory.issue_stock` / `inventory.return_stock` / `inventory.transfer_stock` izinleriyle uygular. Phase 5.7 normal Django application workflow/UI wiring'i uygulanmış, review için uncommitted durumdadır; review/commit öncesi COMPLETE işaretlenmez. Serialized correction, used/removed/generic return, condition transformation, custody ve QR deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve non-authoritative'tir; sayım satırı authoritative `SerializedAsset` oluşturmaz. Phase 5.4D-B COMPLETE: baseline establishment, candidate serialized satırı kontrollü `INITIAL_BALANCE` ile authoritative `SerializedAsset`a yükseltebilir.
+- Phase 5.3 serialized RECEIVE COMPLETE. Phase 5.6 backend `DEC-035` serialized ISSUE + linked unused RETURN + in-stock TRANSFER'i mevcut `ISSUE`/`RETURN`/`TRANSFER` type'ları ve `inventory.issue_stock` / `inventory.return_stock` / `inventory.transfer_stock` izinleriyle uygular. Phase 5.7 normal Django application workflow/UI wiring'i commit `22c29deacb9247b3921a6f36a802ebe63ad9c341` üzerinde tamamlanmıştır. Phase 5.8 Machine-Readable Identification & Scanning katmanı `DEC-036` sözleşmesiyle review için uncommitted durumdadır; review/commit öncesi COMPLETE işaretlenmez. Serialized correction, used/removed/generic return, condition transformation ve custody deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve non-authoritative'tir; sayım satırı authoritative `SerializedAsset` oluşturmaz. Phase 5.4D-B COMPLETE: baseline establishment, candidate serialized satırı kontrollü `INITIAL_BALANCE` ile authoritative `SerializedAsset`a yükseltebilir.
 
 Geçerli tracking mode'lar:
 
@@ -352,7 +352,7 @@ Bir `InventoryBaseline`, downstream-owned association ile `1..N PhysicalCountSes
 
 `DEC-HG-001`, `DEC-OPEN-007` ve `DEC-OPEN-008`, `DEC-033` ile kapanmıştır. `DEC-OPEN-010` OPEN kalır ve Phase 5.4 unit conversion veya yeni rounding semantiği eklemez. Bu karar kaydı Phase 5.4A implementation'ını başlatmaz.
 
-Phase 5.4 — Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Backend: physical count session foundation; quantity count; serialized count; blind-count semantics; explicit zero; explicit NOT_COUNTED; routine quantity COUNT_RECONCILIATION; discrepancy decision separation-of-duties; combined QUANTITY+SERIALIZED baseline; INITIAL_BALANCE; scope-wide drift detection; serialized candidate opening promotion; projection verification; baseline/count permission rollout (Phase 5.4E). Count/baseline UI, serialized controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode uygulanmamıştır. Phase 5.6 serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend `DEC-035` ile commit `1947b8ab374510c8bafb5f58f160decc455969d6` üzerinde uygulanmıştır. Phase 5.7 state-aware movement web workflow/UI wiring'i uygulanmış, review için uncommitted durumdadır ve review/commit öncesi COMPLETE işaretlenmez. `DEC-OPEN-010` OPEN kalır.
+Phase 5.4 — Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Backend: physical count session foundation; quantity count; serialized count; blind-count semantics; explicit zero; explicit NOT_COUNTED; routine quantity COUNT_RECONCILIATION; discrepancy decision separation-of-duties; combined QUANTITY+SERIALIZED baseline; INITIAL_BALANCE; scope-wide drift detection; serialized candidate opening promotion; projection verification; baseline/count permission rollout (Phase 5.4E). Count/baseline UI, serialized controlled correction, serialized `COUNT_RECONCILIATION` ve custody uygulanmamıştır. Phase 5.6 serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend `DEC-035` ile commit `1947b8ab374510c8bafb5f58f160decc455969d6` üzerinde; Phase 5.7 state-aware web workflow/UI wiring'i commit `22c29deacb9247b3921a6f36a802ebe63ad9c341` üzerinde tamamlanmıştır. Phase 5.8 Machine-Readable Identification katmanı `DEC-036` ile uygulanmış ve review için uncommitted bırakılmıştır; review/commit öncesi COMPLETE işaretlenmez. `DEC-OPEN-010` OPEN kalır.
 
 ## 16. Locations, Quantities ve Database
 
@@ -411,9 +411,9 @@ Büyük image binary'sini PostgreSQL'e koyma. V1 retention: no automatic deletio
 
 File/DB commit sırası: validate/upload → persistent storage'da finalize → DB metadata/reference commit. DB rollback orphan file bırakabilir; V1'de otomatik cleanup worker yoktur. Committed DB row'un hiç oluşmamış file'a işaret ettiği ters sırayı kullanma.
 
-QR yalnız `Material`, `SerializedAsset` veya `Location`a çözülür. Scan authentication, permission veya inventory validation'ı bypass edemez. Unknown/invalid QR state değiştirmez ve anlaşılır hata verir. Payload formatı **TBD**'dir; vendor lock-in oluşturma.
+Makine okunur kimlik yalnız `Material`, `SerializedAsset` veya `Location`a çözülür. `DEC-036` V1 payload'ları sırasıyla `TZ1M:<token>`, `TZ1A:<token>`, `TZ1L:<token>` biçimindedir; `<token>` mevcut UUID'nin raw 16 byte'ının URL-safe Base64 temsilidir (`=` padding yok, tam 22 karakter). UUID authoritative technical identity kalır; token persist edilmez. Parser kasıtlı olarak strict'tir. Taslak verbose `TEZCAN:1:*:<uuid>` biçimi yayınlanmamıştır ve reddedilir. Payload carrier'dan bağımsızdır: Code128 (standart atölye etiketi, 100 mm-sınıfı) ve QR (kompakt/mobil kamera) aynı metni taşır. Payload mutable kod/ad/seri, URL veya mutation verisi taşımaz ve DB'de persist edilmez. Scan authentication, object-view permission veya inventory validation'ı bypass edemez. Unknown/invalid kod state değiştirmez ve anlaşılır hata verir; scan/view/print `InventoryTransaction`, `AuditEvent` veya projection mutation üretmez. DataMatrix V1'de yoktur. USB HID/klavye-wedge okuyucular manuel giriş alanını kullanır; tarayıcı kamera çok formatlı yerel ZXing ile Code128 ve QR okur.
 
-QR resolver authenticated olmalı; unrestricted enumeration/IDOR endpoint olamaz. Gerekirse QR feature'da Redis eklemeden application/proxy rate limiting değerlendirilebilir.
+Kimlik resolver authenticated olmalı; unrestricted enumeration/IDOR endpoint olamaz. Gerekirse identification feature'da Redis eklemeden application/proxy rate limiting değerlendirilebilir.
 
 ## 19. Audit, Security ve Logging
 

@@ -217,7 +217,7 @@ Düzeltme kanıtı dışındaki genel fotoğraf geçmişi ve montaj/kullanım ye
 - **QR-004:** Mevcut etiket basım ekipmanının kullanılabilirliği sonraki teknik doğrulamada değerlendirilmelidir.
 - **QR-005:** QR/barkod desteği en geç nihai V1 üretim devreye alımından önce hazır olmalıdır.
 
-QR içeriği, benzersiz tanımlayıcı standardı, barkod türü, etiket boyutu/dayanıklılığı, yazıcı uyumluluğu ve yeniden etiketleme süreci **TBD**'dir.
+`DEC-036` V1 yazılım sözleşmesini kapatır: carrier-neutral compact UUID payload (`TZ1M|A|L:<22-char-base64url-uuid>`), Code128 standart 100 mm-sınıfı etiket, kompakt QR, tek resolver, USB HID + tarayıcı kamera, no stored token. DataMatrix yoktur. Yazıcı sürücüsü/SDK ve fiziksel etiket malzemesi V1 yazılım kapsamı dışındadır; yazdırma tarayıcı print yoludur.
 
 ## 13. Reporting Requirements
 
@@ -368,8 +368,8 @@ Onaylanmış V1 taahhüdü oluşturmayan gelecek değerlendirmeleri:
 | TBD-012 | Düzeltme onay kuralları | Talep eden/onaylayan ayrımı, ret, iptal ve uygulama mekanizması belirlenecek. |
 | TBD-013 | Düzeltme fotoğrafı politikası | `DEC-034` ile V1 kapanmıştır: JPEG/PNG/WebP, HEIC/HEIF yok, 10 MiB/dosya, create-time mandatory, no auto-delete, protected retrieval. Uzun dönem silme süresi `DEC-OPEN-018`. |
 | TBD-014 | Daha geniş fotoğraf kapsamı | Fotoğraf geçmişi ile montaj/kullanım yeri fotoğrafları henüz onaylı değildir. |
-| TBD-015 | QR/barkod standardı | Yük, benzersiz kimlik, semboloji, etiket biçimi/dayanıklılığı ve yeniden basım süreci tasarlanacak. |
-| TBD-016 | Etiket ekipmanı uyumluluğu | Mevcut yazıcı ve sarf malzemeleri teknik olarak doğrulanacak. |
+| TBD-015 | QR/barkod standardı | `DEC-036`: compact reversible UUID token; Code128 standart / QR kompakt; tek resolver; no stored token. DataMatrix yok. |
+| TBD-016 | Etiket ekipmanı uyumluluğu | V1 yazdırma tarayıcı print'tir (`DEC-036`). Yazıcı sürücüsü/SDK ve fiziksel sarf malzemesi satın alma kararı yazılım kimlik politikası dışındadır. |
 | TBD-017 | Rapor ayrıntıları | Filtreler, dönem sınırları, kullanım tanımı, erişim ve azalış sıralaması hesap yöntemi belirlenecek. |
 | TBD-018 | Minimum stok uyarı yöntemi | Görünürlük ve olası bildirim kanalları ile yetkiler belirlenecek. |
 | TBD-019 | Excel kaynak yapısı ve kalitesi | Dosyalar, alanlar, sahiplik, mükerrerler ve veri temizleme gereksinimleri analiz edilecek. |
