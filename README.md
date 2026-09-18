@@ -25,7 +25,7 @@
 - **Phase 4.4:** Quantity unused linked RETURN — COMPLETE (2026-09-12; commits `e96ec2d`, `3e68f02`, `a98cf87`)
 - **Quantity RETURN first slice:** uçtan uca implement edilmiştir (kernel, service, UI, `inventory.return_stock` permission rollout)
 - **Phase 4.5:** Quantity TRANSFER — COMPLETE
-- **Phase 5.4:** Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE (Phase 5.4E permission rollout dahil)
+- **Phase 5.4:** Physical Count + Combined Quantity/Serialized Baseline backend + operational UI COMPLETE (Phase 5.4E permission rollout dahil; UI commit `1dedd34`)
 - **Phase 5.5:** Controlled Correction Evidence / Photo Closure COMPLETE (`DEC-034`)
 - **Son doğrulanmış test suite:** 1568 passed
 - **Managed permission count:** 28
@@ -216,7 +216,7 @@ Fresh-role policy (`inventory.transfer_stock`): TECHNICIAN no; STOREKEEPER yes; 
 
 Broader TRANSFER senaryoları deferred: serialized, condition-changing, multi-source/multi-target, FIFO/FEFO, technician custody, person-to-person handover, production usage, correction/count, QR/offline.
 
-**Phase 5.4:** Physical Count + Combined Quantity/Serialized Baseline backend — COMPLETE. Backend: count session foundation, quantity/serialized count, blind count, explicit zero/NOT_COUNTED, routine COUNT_RECONCILIATION, SoD discrepancy approval, combined baseline/INITIAL_BALANCE, drift detection, serialized candidate promotion, projection verification, permission rollout. Count / baseline operational UI mevcut servisler üzerinden web workflow kapanışı olarak uygulanmıştır; review/commit öncesi COMPLETE işaretlenmez. Serialized correction, serialized `COUNT_RECONCILIATION` ve custody uygulanmamıştır. `DEC-OPEN-010` OPEN kalır.
+**Phase 5.4:** Physical Count + Combined Quantity/Serialized Baseline backend + operational UI — COMPLETE. Backend: count session foundation, quantity/serialized count, blind count, explicit zero/NOT_COUNTED, routine COUNT_RECONCILIATION, SoD discrepancy approval, combined baseline/INITIAL_BALANCE, drift detection, serialized candidate promotion, projection verification, permission rollout. Operational UI COMPLETE at `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`); `/counts/` ve `/baselines/`; migration yok; kernels/services authoritative kaldı; serialized `COUNT_RECONCILIATION` backend'i icat edilmedi. Serialized correction, serialized `COUNT_RECONCILIATION` ve custody uygulanmamıştır. `DEC-OPEN-010` OPEN kalır.
 
 **Phase 5.5:** Controlled Correction Evidence / Photo Closure — COMPLETE (`DEC-034`). Yeni quantity `CorrectionRequest` için en az bir JPEG/PNG/WebP kanıt zorunludur; HEIC/HEIF desteklenmez; dosya başına 10 MiB; otomatik silme yoktur; authenticated `/corrections/evidence/<uuid>/` retrieval `corrections.view_correctionrequest` ile korunur; public `MEDIA_URL` yoktur; historical pre-5.5 talepler grandfathered'dır. Serialized correction deferred kalır.
 
@@ -226,11 +226,11 @@ Broader TRANSFER senaryoları deferred: serialized, condition-changing, multi-so
 
 **Phase 5.8:** `DEC-036` Machine-Readable Identification & Scanning katmanı COMPLETE at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`). Canonical payload `TZ1M:<22-char-base64url-uuid>`, `TZ1A:<22-char-base64url-uuid>`, `TZ1L:<22-char-base64url-uuid>`; Code128 standart 100 mm-sınıfı etiket / kompakt QR committed; USB HID/klavye-wedge, yerel kamera tarayıcı, manuel fallback ve mevcut state-aware movement aksiyonlarına güvenli navigation; şema/migration ve scan mutation engine yoktur.
 
-**Son doğrulanmış test suite:** 1746 passed (Phase 5.8 committed at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0`; reused test DB MaterialCondition seeds restored via committed `0004_seed_material_conditions`)
+**Son doğrulanmış test suite:** 1769 passed (Count/baseline UI commit `1dedd34051692e4c4743c63ead5fecd3c91e9229`; Phase 5.8 at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0`; reused test DB MaterialCondition seeds restored via committed `0004_seed_material_conditions`)
 
 **Managed permission count:** 28
 
-**Gate 3:** PASS (2026-09-12; audited HEAD `4cf89525`; bkz. [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) §4.5). Tarihsel kapsam: Phase 3 (Location, Employee, ProductionLine) ve quantity-only RECEIPT slice (4.0A–4.1). Phase 4.2 ISSUE, Phase 4.3 history, Phase 4.4 RETURN first slice ve Phase 4.5 quantity TRANSFER first slice sonradan implement edilmiştir; Gate 3 bunları audit etmemiştir. Serialized inventory, correction ve count/baseline sonradan Phase 5.3–5.4D-B backend dilimlerinde implement edilmiştir; Gate 3 bunları audit etmemiştir. Count/baseline UI ve sonraki fazlar başlamamıştır.
+**Gate 3:** PASS (2026-09-12; audited HEAD `4cf89525`; bkz. [docs/06-DECISION-REGISTER.md](docs/06-DECISION-REGISTER.md) §4.5). Tarihsel kapsam: Phase 3 (Location, Employee, ProductionLine) ve quantity-only RECEIPT slice (4.0A–4.1). Phase 4.2 ISSUE, Phase 4.3 history, Phase 4.4 RETURN first slice ve Phase 4.5 quantity TRANSFER first slice sonradan implement edilmiştir; Gate 3 bunları audit etmemiştir. Serialized inventory, correction ve count/baseline sonradan Phase 5.3–5.4D-B backend dilimlerinde implement edilmiştir; Gate 3 bunları audit etmemiştir. Count/baseline operational UI commit `1dedd34` üzerinde COMPLETE'tir.
 
 ### Sağlık kontrolü
 

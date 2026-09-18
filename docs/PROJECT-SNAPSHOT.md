@@ -11,10 +11,10 @@
 
 ## 1. Özet
 
-Modüler monolit Django 5.2 envanter sistemi; quantity envanter hareketleri, kontrollü düzeltme (kanıtlı), serialized RECEIVE, fiziksel sayım + combined baseline backend ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER akışları mevcuttur. Phase 5.7 state-aware normal Django web workflow'larını tamamlamıştır. Phase 5.8 carrier-neutral Machine-Readable Identification (Code128 standart 100 mm-sınıfı etiket, kompakt QR, canonical `TZ1M:<22-char-base64url-uuid>` / `TZ1A:<22-char-base64url-uuid>` / `TZ1L:<22-char-base64url-uuid>` payload, USB HID + kamera tarama, tek resolver) katmanı commit `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`) üzerinde COMPLETE'tir.
+Modüler monolit Django 5.2 envanter sistemi; quantity envanter hareketleri, kontrollü düzeltme (kanıtlı), serialized RECEIVE, fiziksel sayım + combined baseline backend/UI ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER akışları mevcuttur. Phase 5.7 state-aware normal Django web workflow'larını tamamlamıştır. Phase 5.8 carrier-neutral Machine-Readable Identification (Code128 standart 100 mm-sınıfı etiket, kompakt QR, canonical `TZ1M:<22-char-base64url-uuid>` / `TZ1A:<22-char-base64url-uuid>` / `TZ1L:<22-char-base64url-uuid>` payload, USB HID + kamera tarama, tek resolver) katmanı commit `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`) üzerinde COMPLETE'tir. Count / Baseline Operational UI Closure commit `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`) üzerinde COMPLETE'tir.
 
-**Son doğrulanmış full suite:** 1746 passed
-**Collected test count:** 1746
+**Son doğrulanmış full suite:** 1769 passed
+**Collected test count:** 1769
 **Managed permission count:** 28
 
 ---
@@ -85,6 +85,7 @@ Aşağıdaki sayılar **git object `5ec22eefc3cb80a355ce32d88170feef174d8a35`** 
 | Phase 5.6 | Backend implemented/committed at `1947b8a` — serialized ISSUE / linked unused RETURN / in-stock TRANSFER (`DEC-035`) |
 | Phase 5.7 | Web workflows committed at `22c29de` |
 | Phase 5.8 | **COMPLETE** — Code128 + QR machine-readable identification (`DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` |
+| Count / baseline operational UI | **COMPLETE** at `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`); migration yok; kernels/services authoritative kaldı |
 | Gate 3 | PASS (tarihsel; qty RECEIPT scope) |
 
 ---
@@ -104,6 +105,19 @@ Aşağıdaki sayılar **git object `5ec22eefc3cb80a355ce32d88170feef174d8a35`** 
 
 Phase 5.8 / `DEC-036` COMPLETE at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`).
 
+## 4B. Count / Baseline Operational UI — Tamamlanan Kapsam
+
+| Özellik | Durum |
+|---|---|
+| Physical count web workflow (`/counts/`) | Session list/detail, create/start, quantity/serialized count, unexpected/candidate observation, complete, quantity discrepancy review/approve/reject |
+| Baseline web workflow (`/baselines/`) | Prepare, readiness preview, establish; `INITIAL_BALANCE` yalnız kontrollü kesimden |
+| Service boundary | Mevut counting/imports authoritative servisleri; mutation kernel değişmedi |
+| Schema | Migration yok |
+| Serialized `COUNT_RECONCILIATION` | Backend servisi yok; UI bilgilendiricidir |
+| `DEC-OPEN-010` | OPEN kalır |
+
+Count / Baseline Operational UI Closure **COMPLETE** at `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`).
+
 ## 4A. Phase 5.5 — Tamamlanan Kapsam
 
 | Özellik | Durum |
@@ -118,12 +132,12 @@ Phase 5.8 / `DEC-036` COMPLETE at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`f
 
 ## 5. Kalan Backend İşi
 
-Correction evidence closure, Phase 5.6 serialized movement backend ve Phase 5.8 identification uygulanmıştır; kalan ürün işi:
+Correction evidence closure, Phase 5.6 serialized movement backend, Phase 5.8 identification ve Count / Baseline Operational UI Closure uygulanmıştır; kalan ürün işi:
 
 - Serialized correction
 - Real Excel import workflow (UI)
 - Reporting
-- Count / baseline operational UI (implemented for review, uncommitted; not marked COMPLETE) + remaining polish
+- Final/global UI polish ve production-readiness iyileştirmeleri
 
 ---
 
