@@ -23,6 +23,8 @@ ALLOWED_TRANSACTION_TYPE_FILTERS = frozenset(
         InventoryTransaction.TransactionType.RETURN,
         InventoryTransaction.TransactionType.TRANSFER,
         InventoryTransaction.TransactionType.CONTROLLED_CORRECTION,
+        InventoryTransaction.TransactionType.COUNT_RECONCILIATION,
+        InventoryTransaction.TransactionType.INITIAL_BALANCE,
     }
 )
 
@@ -148,6 +150,22 @@ def apply_transaction_history_filters(
                 ),
                 lines__target_location_id=location_id,
             )
+            | Q(
+                transaction_type=(
+                    InventoryTransaction.TransactionType.COUNT_RECONCILIATION
+                ),
+                lines__source_location_id=location_id,
+            )
+            | Q(
+                transaction_type=(
+                    InventoryTransaction.TransactionType.COUNT_RECONCILIATION
+                ),
+                lines__target_location_id=location_id,
+            )
+            | Q(
+                transaction_type=InventoryTransaction.TransactionType.INITIAL_BALANCE,
+                lines__target_location_id=location_id,
+            )
         ).distinct()
 
     if actor_id is not None:
@@ -226,6 +244,14 @@ def filter_form_context() -> dict:
             (
                 InventoryTransaction.TransactionType.CONTROLLED_CORRECTION,
                 "Kontrollü düzeltme",
+            ),
+            (
+                InventoryTransaction.TransactionType.COUNT_RECONCILIATION,
+                "Sayım mutabakatı",
+            ),
+            (
+                InventoryTransaction.TransactionType.INITIAL_BALANCE,
+                "Açılış bakiyesi",
             ),
         ],
     }

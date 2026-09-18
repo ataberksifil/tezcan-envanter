@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}{{ baseline.reference }} — Envanter kesimi{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">{{ baseline.reference }}</h1>
+    <a class="btn btn-outline-secondary" href="{% url 'imports:baseline-list' %}">Listeye dön</a>
+</div>
+
+<dl class="row">
+    <dt class="col-sm-3">Durum</dt>
+    <dd class="col-sm-9">{{ baseline.get_status_display }}</dd>
+    <dt class="col-sm-3">Hazırlayan</dt>
+    <dd class="col-sm-9">{{ baseline.created_by.get_username }} — {{ baseline.created_at }}</dd>
+    <dt class="col-sm-3">Kesim</dt>
+    <dd class="col-sm-9">
+        {% if baseline.established_at %}
+            {{ baseline.established_by.get_username }} — {{ baseline.established_at }}
+        {% else %}
+            —
+        {% endif %}
+    </dd>
+    {% if baseline.establishment_explanation %}
+        <dt class="col-sm-3">Açıklama</dt>
+        <dd class="col-sm-9">{{ baseline.establishment_explanation }}</dd>
+    {% endif %}
+</dl>
+
+<h2 class="h5">Bağlı sayım oturumları</h2>
+<ul>
+    {% for session in sessions %}
+        <li>
+            <a href="{% url 'counting:session-detail' session.pk %}">{{ session.reference_number }}</a>
+            — {{ session.scope_location.code }} ({{ session.get_status_display }})
+        </li>
+    {% empty %}
+        <li>Oturum yok.</li>
+    {% endfor %}
+</ul>
+
+<h2 class="h5">Hazırlık / engeller</h2>
+{% if readiness_issues %}
+    <div class="alert alert-danger">
+        <ul class="mb-0">
+            {% for issue in readiness_issues %}
+                <li>{{ issue }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% else %}
+    <p class="text-success">Görünen hazırlık engeli yok. Kesim yine de servis tarafından doğrulanır.</p>
+{% endif %}
+
+{% if transaction_links %}
+    <h2 class="h5">Açılış işlemleri</h2>
+    <ul>
+        {% for link in transaction_links %}
+            <li>
+                {{ link.physical_count_session.reference_number }}
+                {% if perms.inventory.view_inventorytransaction %}
+                    — <a href="{% url 'inventory:transaction-history-detail' link.inventory_transaction_id %}">{{ link.inventory_transaction.get_transaction_type_display }}</a>
+                {% else %}
+                    — {{ link.inventory_transaction_id }}
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+{% if can_establish %}
+    <div class="card card-body mt-4">
+        <h2 class="h5">Kesimi uygula</h2>
+        <p class="text-body-secondary">
+            Bu işlem hassastır. Başarılı kesim, bağlı kapsamlarda INITIAL_BALANCE üretir ve
+            projeksiyonu doğrular. Kısmi stok etkisi yoktur.
+        </p>
+        <form method="post" action="{% url 'imports:baseline-establish' baseline.pk %}">
+            {% csrf_token %}
+            {{ establish_form.operation_id }}
+            <div class="mb-3">
+                <label class="form-label" for="{{ establish_form.explanation.id_for_label }}">{{ establish_form.explanation.label }}</label>
+                {{ establish_form.explanation }}
+            </div>
+            <button type="submit" class="btn btn-danger">Kesimi uygula</button>
+        </form>
+    </div>
+{% endif %}
+{% endblock %}

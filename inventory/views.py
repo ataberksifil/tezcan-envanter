@@ -865,6 +865,8 @@ class TransactionHistoryDetailView(LoginRequiredMixin, PermissionRequiredMixin, 
                     InventoryTransaction.TransactionType.RETURN,
                     InventoryTransaction.TransactionType.TRANSFER,
                     InventoryTransaction.TransactionType.CONTROLLED_CORRECTION,
+                    InventoryTransaction.TransactionType.COUNT_RECONCILIATION,
+                    InventoryTransaction.TransactionType.INITIAL_BALANCE,
                 )
             )
             .select_related("acting_user", "issue_context")
@@ -874,7 +876,7 @@ class TransactionHistoryDetailView(LoginRequiredMixin, PermissionRequiredMixin, 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         lines = list(self.object.lines.all())
-        if len(lines) not in (1, 2):
+        if not lines:
             raise Http404("Transaction not found")
         context["line"] = lines[0]
         context["lines"] = lines

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Tekil sayım — {{ session.reference_number }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">Tekil varlık sayımı</h1>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-primary" href="{% url 'counting:serialized-candidate' session.pk %}">Aday / bilinmeyen gözlem</a>
+        <a class="btn btn-outline-primary" href="{% url 'counting:quantity-count' session.pk %}">Miktar sayımı</a>
+        <a class="btn btn-outline-secondary" href="{% url 'counting:session-detail' session.pk %}">Oturum</a>
+    </div>
+</div>
+
+<p class="text-body-secondary">
+    Kör sayım: beklenen konum ve kondisyon gösterilmez. Tarama yalnız kimlik çözer; sayım kaydı onay gerektirir.
+    Miktar=1 uydurulmaz.
+</p>
+
+<form method="get" class="row g-2 align-items-end mb-4">
+    <div class="col-md-8">
+        <label class="form-label" for="{{ lookup_form.identity.id_for_label }}">{{ lookup_form.identity.label }}</label>
+        {{ lookup_form.identity }}
+        <div class="form-text">{{ lookup_form.identity.help_text }}</div>
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-outline-primary">Kimliği çöz</button>
+    </div>
+</form>
+
+{% if lookup_error %}
+    <div class="alert alert-danger">{{ lookup_error }}</div>
+{% endif %}
+{% if resolved_location %}
+    <p class="alert alert-info">Lokasyon çözüldü: {{ resolved_location.code }}. Gözlem kaydı için varlık seçin.</p>
+{% endif %}
+{% if resolved_material %}
+    <p class="alert alert-info">Malzeme çözüldü: {{ resolved_material.material_code }}. Aday gözlem için kullanabilirsiniz.</p>
+{% endif %}
+
+{% if resolved_asset %}
+    <div class="card card-body mb-4">
+        <h2 class="h5">Gözlemi onayla</h2>
+        <p class="mb-1">Dahili kod: <strong>{{ resolved_asset.internal_asset_code }}</strong></p>
+        <p class="mb-3">Malzeme: {{ resolved_asset.material.material_code }}{% if resolved_asset.serial_number %} — seri {{ resolved_asset.serial_number }}{% endif %}</p>
+        <form method="post">
+            {% csrf_token %}
+            {% if observe_form.non_field_errors %}
+                <div class="alert alert-danger">{{ observe_form.non_field_errors }}</div>
+            {% endif %}
+            {{ observe_form.serialized_asset_id }}
+            {{ observe_form.counted_at_token }}
+            <div class="mb-3">
+                <label class="form-label" for="{{ observe_form.observed_location.id_for_label }}">{{ observe_form.observed_location.label }}</label>
+                {{ observe_form.observed_location }}
+                {% if observe_form.observed_location.errors %}<div class="invalid-feedback d-block">{{ observe_form.observed_location.errors }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="{{ observe_form.observed_condition.id_for_label }}">{{ observe_form.observed_condition.label }}</label>
+                {{ observe_form.observed_condition }}
+                {% if observe_form.observed_condition.errors %}<div class="invalid-feedback d-block">{{ observe_form.observed_condition.errors }}</div>{% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary">Gözlemi kaydet</button>
+        </form>
+    </div>
+{% endif %}
+
+<div class="table-responsive">
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr>
+                <th>Varlık kodu</th>
+                <th>Malzeme</th>
+                <th>Durum</th>
+                <th>Gözlem</th>
+                <th>İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in serialized_lines %}
+                <tr class="{% if line.resolution_status == 'PENDING_COUNT' %}table-light{% elif line.resolution_status == 'NOT_COUNTED' %}table-warning{% endif %}">
+                    <td>
+                        {{ line.internal_asset_code }}
+                        {% if line.serial_number %}<div class="small text-body-secondary">{{ line.serial_number }}</div>{% endif %}
+                        {% if not line.expected_present %}<span class="badge text-bg-info">Aday</span>{% endif %}
+                    </td>
+                    <td>{{ line.material.material_code }}</td>
+                    <td>{{ line.get_resolution_status_display }}</td>
+                    <td>
+                        {% if line.observed_present == True %}
+                            {{ line.observed_location.code }} / {{ line.observed_condition.name }}
+                        {% elif line.observed_present == False %}
+                            Eksik
+                        {% elif line.resolution_status == 'NOT_COUNTED' %}
+                            Sayılmadı
+                        {% else %}
+                            <span class="text-body-secondary">işlenmedi</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-nowrap">
+                        {% if line.serialized_asset_id %}
+                            <a class="btn btn-outline-primary btn-sm" href="?identity={{ line.internal_asset_code }}">Gözle</a>
+                        {% endif %}
+                        {% if line.expected_present %}
+                            <form method="post" action="{% url 'counting:serialized-missing' session.pk line.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="counted_at_token" value="{% if line.counted_at %}{{ line.counted_at|date:'c' }}{% endif %}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">Eksik</button>
+                            </form>
+                            <form method="post" action="{% url 'counting:serialized-not-counted' session.pk line.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="counted_at_token" value="{% if line.counted_at %}{{ line.counted_at|date:'c' }}{% endif %}">
+                                <button type="submit" class="btn btn-outline-warning btn-sm">Sayılmadı</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5" class="text-body-secondary">Tekil satır yok. Snapshot boş olabilir veya henüz aday gözlem eklenmedi.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

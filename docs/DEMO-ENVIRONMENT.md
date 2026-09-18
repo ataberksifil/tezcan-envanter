@@ -59,7 +59,7 @@ Komut idempotent'tir: demo marker lokasyonu (`G1`) zaten varsa stok hareketlerin
 | Malzeme (quantity) | `DEMO-KLEMENS` — terminal klemens |
 | Malzeme (serialized) | `DEMO-PLC-CPU` |
 | Çalışan | `DEMO-1001` Mehmet Teknisyen (demo.teknisyen ile bağlı) |
-| Üretim hattı | `H1` |
+| Sayım oturumu | `DEMO-SAYIM-G1` rutin taslak (`G1`), `DEMO-KESIM-G2` kesim adayı taslak (`G2`) |
 
 **Örnek ledger hareketleri (seed sonrası):**
 
@@ -105,13 +105,21 @@ Beklenen klemens bakiyesi: `G1` ≈ 80, `G2` ≈ 10.
 
 12. `/management/`, `/locations/`, `/catalog/materials/`
 
+### G. Fiziksel sayım ve kesim
+
+13. `/counts/` — `DEMO-SAYIM-G1` (rutin, G1) ve `DEMO-KESIM-G2` (kesim adayı, G2) taslak oturumlar
+14. `demo.depocu`: sayımı başlat, kör miktar/tekil sayım, tamamla
+15. `demo.yonetici`: rutin fark onayı veya G2 kesim hazırlığı / kesim (hassas)
+
+Ad-hoc açılış bakiyesi formu yoktur; INITIAL_BALANCE yalnız kontrollü kesimden oluşur.
+
 ---
 
 ## 5. Demo'da gösterilmeyecek özellikler
 
-- Fiziksel sayım, baseline cutover, Excel import UI
-- Serialized ISSUE/RETURN/TRANSFER
-- Raporlama, QR/barcode
+- Excel import UI
+- Raporlama dashboard
+- Serialized correction
 
 ---
 

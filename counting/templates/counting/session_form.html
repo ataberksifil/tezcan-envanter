@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Yeni fiziksel sayım — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">Yeni fiziksel sayım</h1>
+    <a class="btn btn-outline-secondary" href="{% url 'counting:session-list' %}">Listeye dön</a>
+</div>
+
+<p class="text-body-secondary">
+    Oturum tek bir lokasyon alt ağacını kapsar. Çakışan açık oturum kabul edilmez.
+    Sayım başlatılana kadar beklenen snapshot alınmaz.
+</p>
+
+{% if open_sessions %}
+    <div class="alert alert-warning">
+        <p class="mb-1 fw-semibold">Açık sayım oturumları</p>
+        <ul class="mb-0">
+            {% for session in open_sessions %}
+                <li>{{ session.reference_number }} — {{ session.scope_location.code }} ({{ session.get_status_display }})</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}
+
+<form method="post" class="card card-body">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.reference_number.id_for_label }}">{{ form.reference_number.label }}</label>
+        {{ form.reference_number }}
+        {% if form.reference_number.errors %}<div class="invalid-feedback d-block">{{ form.reference_number.errors }}</div>{% endif %}
+    </div>
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.scope_location.id_for_label }}">{{ form.scope_location.label }}</label>
+        {{ form.scope_location }}
+        <div class="form-text">{{ form.scope_location.help_text }}</div>
+        {% if form.scope_location.errors %}<div class="invalid-feedback d-block">{{ form.scope_location.errors }}</div>{% endif %}
+    </div>
+    <div class="form-check mb-3">
+        {{ form.baseline_candidate }}
+        <label class="form-check-label" for="{{ form.baseline_candidate.id_for_label }}">{{ form.baseline_candidate.label }}</label>
+        <div class="form-text">{{ form.baseline_candidate.help_text }}</div>
+        {% if form.baseline_candidate.errors %}<div class="invalid-feedback d-block">{{ form.baseline_candidate.errors }}</div>{% endif %}
+    </div>
+    <button type="submit" class="btn btn-primary">Oturumu oluştur</button>
+</form>
+{% endblock %}

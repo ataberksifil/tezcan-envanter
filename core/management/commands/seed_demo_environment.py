@@ -28,6 +28,8 @@ from accounts.roles import (
 from accounts.services.employees import create_employee
 from catalog.models import Category, Material, MaterialCondition, UnitOfMeasure
 from catalog.services.materials import create_material
+from counting.models import PhysicalCountSession
+from counting.services import create_physical_count_session
 from inventory.models import InventoryTransaction, ProductionLine, SerializedAsset
 from inventory.services.issues import issue_quantity
 from inventory.services.production_lines import create_production_line
@@ -57,6 +59,8 @@ def _demo_operation_id(label: str) -> uuid.UUID:
     return uuid.uuid5(_DEMO_NS, f"boss-demo-g1-h1/{label}")
 
 
+DEMO_ROUTINE_COUNT_REF = "DEMO-SAYIM-G1"
+DEMO_BASELINE_COUNT_REF = "DEMO-KESIM-G2"
 DEMO_SERIALIZED_ASSET_CODE = "DEMO-G1-0001"
 
 
@@ -91,25 +95,25 @@ class Command(BaseCommand):
             actor = self._ensure_demo_users(database, reset_passwords=reset_passwords)
 
             if self._demo_seed_complete(database):
-                if verbosity >= 1:
-                    self.stdout.write(
-                        self.style.WARNING(
-                            "Demo inventory already seeded; skipping stock movements. "
-                            "Use --reset-passwords to refresh demo credentials."
-                        )
-                    )
-                    self._print_credentials()
-                return
-
-            context = self._create_master_data(actor, using=database)
-            self._seed_inventory_movements(actor, context, using=database)
+                skipped_stock = True
+            else:
+                skipped_stock = False
+                context = self._create_master_data(actor, using=database)
+                self._seed_inventory_movements(actor, context, using=database)
+            self._ensure_demo_count_sessions(actor, using=database)
 
         if verbosity >= 1:
-            self.stdout.write(self.style.SUCCESS("Demo environment seeded."))
+            if skipped_stock:
+                self.stdout.write(
+                    self.style.WARNING(
+                        "Demo inventory already seeded; skipping stock movements. "
+                        "Use --reset-passwords to refresh demo credentials."
+                    )
+                )
+            else:
+                self.stdout.write(self.style.SUCCESS("Demo environment seeded."))
             self._print_credentials()
-            self.stdout.write(
-                "Walkthrough: docs/DEMO-ENVIRONMENT.md"
-            )
+            self.stdout.write("Walkthrough: docs/DEMO-ENVIRONMENT.md")
 
     def _demo_seed_complete(self, database: str) -> bool:
         if Location.objects.using(database).filter(code=DEMO_MARKER_LOCATION_CODE).exists():
@@ -380,6 +384,34 @@ class Command(BaseCommand):
             quantity=Decimal("10.000"),
             using=using,
         )
+
+    def _ensure_demo_count_sessions(self, actor, *, using: str) -> None:
+        storekeeper = User.objects.using(using).get(username="demo.depocu")
+        try:
+            depot_a = Location.objects.using(using).get(code=DEMO_MARKER_LOCATION_CODE)
+            depot_b = Location.objects.using(using).get(code=DEMO_SECONDARY_LOCATION_CODE)
+        except Location.DoesNotExist:
+            return
+        if not PhysicalCountSession.objects.using(using).filter(
+            reference_number=DEMO_ROUTINE_COUNT_REF
+        ).exists():
+            create_physical_count_session(
+                actor=storekeeper,
+                reference_number=DEMO_ROUTINE_COUNT_REF,
+                scope_location_id=depot_a.pk,
+                baseline_candidate=False,
+                using=using,
+            )
+        if not PhysicalCountSession.objects.using(using).filter(
+            reference_number=DEMO_BASELINE_COUNT_REF
+        ).exists():
+            create_physical_count_session(
+                actor=storekeeper,
+                reference_number=DEMO_BASELINE_COUNT_REF,
+                scope_location_id=depot_b.pk,
+                baseline_candidate=True,
+                using=using,
+            )
 
     def _print_credentials(self) -> None:
         self.stdout.write("")

@@ -78,6 +78,16 @@
                                 <a class="nav-link" href="{% url 'corrections:request-list' %}">Düzeltme talepleri</a>
                             </li>
                         {% endif %}
+                        {% if perms.counting.view_physicalcountsession %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'counting:session-list' %}">Fiziksel sayım</a>
+                            </li>
+                        {% endif %}
+                        {% if perms.imports.establish_baseline %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'imports:baseline-list' %}">Kesim</a>
+                            </li>
+                        {% endif %}
                         {% show_management_nav user as management_nav_visible %}
                         {% if management_nav_visible %}
                             <li class="nav-item">

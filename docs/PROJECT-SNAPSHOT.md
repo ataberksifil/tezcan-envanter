@@ -123,7 +123,7 @@ Correction evidence closure, Phase 5.6 serialized movement backend ve Phase 5.8 
 - Serialized correction
 - Real Excel import workflow (UI)
 - Reporting
-- Count / baseline UI + remaining polish
+- Count / baseline operational UI (implemented for review, uncommitted; not marked COMPLETE) + remaining polish
 
 ---
 

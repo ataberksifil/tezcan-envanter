@@ -15,6 +15,9 @@
         {% elif material.active and material.tracking_mode == "SERIALIZED" and perms.inventory.receive_stock %}
             <a class="btn btn-outline-success" href="{% url 'inventory:serialized-receipt-create' %}">Tekil varlık girişi</a>
         {% endif %}
+        {% if perms.counting.view_physicalcountsession %}
+            <a class="btn btn-outline-secondary" href="{% url 'counting:session-list' %}">Fiziksel sayımlar</a>
+        {% endif %}
         {% if perms.catalog.change_material %}
             <a class="btn btn-outline-primary" href="{% url 'catalog:material-update' material.pk %}">Düzenle</a>
             {% if material.active %}

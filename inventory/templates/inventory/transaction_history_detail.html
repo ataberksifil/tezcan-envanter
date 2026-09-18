@@ -79,7 +79,7 @@
     {% endif %}
 </dl>
 
-{% if perms.corrections.add_correctionrequest and transaction.transaction_type != "CONTROLLED_CORRECTION" and not line.serialized_asset_id %}
+{% if perms.corrections.add_correctionrequest and transaction.transaction_type != "CONTROLLED_CORRECTION" and transaction.transaction_type != "COUNT_RECONCILIATION" and transaction.transaction_type != "INITIAL_BALANCE" and not line.serialized_asset_id %}
     <a class="btn btn-primary mt-3" href="{% url 'corrections:request-create' transaction.pk %}">Düzeltme talebi oluştur</a>
 {% endif %}
 

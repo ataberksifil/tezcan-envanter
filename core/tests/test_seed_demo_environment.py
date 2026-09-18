@@ -53,3 +53,10 @@ def test_seed_demo_environment_is_idempotent():
     assert User.objects.filter(username="demo.yonetici").exists()
     assert User.objects.filter(username="demo.depocu").exists()
     assert User.objects.filter(username="demo.teknisyen").exists()
+
+    from counting.models import PhysicalCountSession
+
+    assert PhysicalCountSession.objects.filter(reference_number="DEMO-SAYIM-G1").exists()
+    assert PhysicalCountSession.objects.filter(
+        reference_number="DEMO-KESIM-G2", baseline_candidate=True
+    ).exists()

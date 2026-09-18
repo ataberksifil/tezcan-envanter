@@ -320,7 +320,7 @@ flowchart TD
 - Acting user, `occurred_at`, işlem detayı ledger'da.
 
 **Scope Boundary**
-- `DEC-032` identity + serialized RECEIVE korunur. `DEC-035` V1 states `IN_STOCK`/`ISSUED` ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend'ini tanımlar. Phase 5.7 normal application workflow/UI wiring'i state-aware tekil varlık detayından mevcut permission'larla uygular; review için uncommitted durumdadır ve COMPLETE işaretlenmemiştir. Serialized correction, QR, serialized `COUNT_RECONCILIATION` ve broader lifecycle deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve establishment öncesi non-authoritative'tir. Phase 5.4D-B COMPLETE: combined QUANTITY+SERIALIZED baseline establishment backend uygulanmıştır; count/baseline UI yoktur.
+- `DEC-032` identity + serialized RECEIVE korunur. `DEC-035` V1 states `IN_STOCK`/`ISSUED` ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend'ini tanımlar. Phase 5.7 normal application workflow/UI wiring'i state-aware tekil varlık detayından mevcut permission'larla uygular; review için uncommitted durumdadır ve COMPLETE işaretlenmemiştir. Serialized correction, QR, serialized `COUNT_RECONCILIATION` ve broader lifecycle deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve establishment öncesi non-authoritative'tir. Phase 5.4D-B COMPLETE: combined QUANTITY+SERIALIZED baseline establishment backend uygulanmıştır. Count / baseline operational UI review için uygulanmıştır; COMPLETE işaretlenmez.
 
 ### UF-INT-001 — Saha / Atölye Malzeme Alım Talebi
 
@@ -892,7 +892,7 @@ flowchart TD
 
 **Phase 5.4D-A implementation note:** Counting-owned `PhysicalCountSerializedLine` ve mevcut START içindeki serialized expected snapshot uygulanmıştır. Bir oturum QUANTITY + SERIALIZED kanıt taşıyabilir. Expected asset'ler authoritative `SerializedAsset` snapshot referansıdır; unexpected existing asset gözlemlenebilir; candidate item staging-only kaydedilir ve counting sırasında `SerializedAsset` oluşturmaz. Untouched expected ≠ explicit missing; routine `NOT_COUNTED` vardır; baseline-candidate completion serialized `NOT_COUNTED` reddeder. Counting establishment öncesi non-authoritative kalır. Serialized `COUNT_RECONCILIATION` yoktur.
 
-**Phase 5.4 implementation note:** Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Phase 5.4E default-role permission rollout tamamlanmıştır: fresh TECHNICIAN/STOREKEEPER `counting.view/add/change_physicalcountsession`; fresh ADMIN_MANAGER ayrıca `counting.decide_discrepancy` ve `imports.establish_baseline`. Count/baseline UI, serialized controlled correction, serialized `COUNT_RECONCILIATION`, custody ve QR/barcode yoktur. Phase 5.6 serialized movement backend `DEC-035` ile commit `1947b8ab374510c8bafb5f58f160decc455969d6` üzerinde uygulanmıştır; Phase 5.7 action UI/workflow wiring'i review için uncommitted durumdadır ve COMPLETE işaretlenmemiştir.
+**Phase 5.4 implementation note:** Physical Count + Combined Quantity/Serialized Baseline backend COMPLETE. Phase 5.4E default-role permission rollout tamamlanmıştır: fresh TECHNICIAN/STOREKEEPER `counting.view/add/change_physicalcountsession`; fresh ADMIN_MANAGER ayrıca `counting.decide_discrepancy` ve `imports.establish_baseline`. Count / baseline operational UI mevcut servisler üzerinden web workflow kapanışı olarak uygulanmıştır; review/commit öncesi COMPLETE işaretlenmez. Serialized controlled correction, serialized `COUNT_RECONCILIATION` ve custody yoktur.
 
 **Audit Effect**
 - Sayım aktörü ve zamanları.
@@ -920,7 +920,7 @@ flowchart TD
 7. Cutover session `COUNT_RECONCILIATION` oluşturmaz; sayılan inventory yalnız baseline'a beslenir.
 8. Oturum mutabakat durumu güncellenir.
 
-**Phase 5.4C implementation note:** Routine QUANTITY fark için `approve_quantity_discrepancy` ve `reject_quantity_discrepancy` application service'leri uygulanmıştır. Ret stok/ledger yazmaz; immutable ret snapshot kaydı oluşturur ve oturumu explicit recount/review için `STARTED/NOT_STARTED` durumuna döndürür. Onay atomik olarak tek `COUNT_RECONCILIATION` line'ı, projection update'i, approval metadata'sını ve counting-owned result link'ini yazar. Permission rollout Phase 5.4E'de tamamlanmıştır; UI yoktur.
+**Phase 5.4C implementation note:** Routine QUANTITY fark için `approve_quantity_discrepancy` ve `reject_quantity_discrepancy` application service'leri uygulanmıştır. Ret stok/ledger yazmaz; immutable ret snapshot kaydı oluşturur ve oturumu explicit recount/review için `STARTED/NOT_STARTED` durumuna döndürür. Onay atomik olarak tek `COUNT_RECONCILIATION` line'ı, projection update'i, approval metadata'sını ve counting-owned result link'ini yazar. Permission rollout Phase 5.4E'de tamamlanmıştır. Quantity discrepancy review/approve/reject UI review için uygulanmıştır; COMPLETE işaretlenmez.
 
 ```mermaid
 flowchart TD
@@ -1023,7 +1023,7 @@ flowchart LR
 
 ### UF-BASE-001 — Envanter Baseline / Go-Live
 
-**Phase 5.4D-B/5.4E implementation note:** Backend ve default-role permission rollout COMPLETE. UI/navigation yoktur; sensitive `imports.establish_baseline` service-side uygulanır ve fresh ADMIN_MANAGER şablonunda kalır.
+**Phase 5.4D-B/5.4E implementation note:** Backend ve default-role permission rollout COMPLETE. Operational baseline UI `/baselines/` altında review için uygulanmıştır; COMPLETE işaretlenmez. Sensitive `imports.establish_baseline` service-side uygulanır ve fresh ADMIN_MANAGER şablonunda kalır.
 
 **Actors:** Sensitive baseline-establishment permission'ı olan `ADMIN_MANAGER`.
 
@@ -1423,12 +1423,12 @@ flowchart LR
 | Transaction Detail | Yetkili kullanıcılar | UF-HIS-001, UF-COR-001 |
 | Correction Request | TECHNICIAN, STOREKEEPER, ADMIN_MANAGER | UF-COR-001 |
 | Correction Approval Queue | `corrections.decide_correctionrequest`; fresh ADMIN_MANAGER | UF-COR-002 |
-| Physical Count Sessions | `DEC-033` kararlı; Phase 5.4 backend COMPLETE; permission rollout COMPLETE; UI yok | UF-CNT-001 |
-| Physical Count Entry | `DEC-033` kararlı; Phase 5.4 backend COMPLETE; permission rollout COMPLETE; UI yok | UF-CNT-001 |
-| Reconciliation | `DEC-033` kararlı; QUANTITY kernel Phase 5.4C COMPLETE; permission rollout COMPLETE; serialized `COUNT_RECONCILIATION` ve UI yok | UF-CNT-002 |
+| Physical Count Sessions | `DEC-033` kararlı; Phase 5.4 backend COMPLETE; operational web UI review için uygulanmıştır, COMPLETE işaretlenmez | UF-CNT-001 |
+| Physical Count Entry | `DEC-033` kararlı; Phase 5.4 backend COMPLETE; operational web UI review için uygulanmıştır, COMPLETE işaretlenmez | UF-CNT-001 |
+| Reconciliation | `DEC-033` kararlı; QUANTITY kernel Phase 5.4C COMPLETE; quantity review/approve/reject UI review için uygulanmıştır; serialized `COUNT_RECONCILIATION` yoktur | UF-CNT-002 |
 | Import | ADMIN_MANAGER | UF-IMP-001 |
 | Import Preview | ADMIN_MANAGER | UF-IMP-001 |
-| Inventory Baseline / Cutover | Sensitive `imports.establish_baseline`; Phase 5.4 backend COMPLETE; permission rollout COMPLETE; UI yok | UF-BASE-001 |
+| Inventory Baseline / Cutover | Sensitive `imports.establish_baseline`; Phase 5.4 backend COMPLETE; operational web UI review için uygulanmıştır, COMPLETE işaretlenmez | UF-BASE-001 |
 | Low Stock | Yetkili kullanıcılar | UF-RPT-001 |
 | Reports | Yetkili kullanıcılar | UF-RPT-002 |
 | Material Management | ADMIN_MANAGER | UF-MST-001 |
@@ -1470,7 +1470,7 @@ Bu bölüm legacy `UF-O-*` kimliklerini korur. Güncel status, owner ve source-I
 
 | Decision | Bloke edilen alan |
 |---|---|
-| `DEC-HG-001` | **DECIDED** (`DEC-033`); Phase 5.4A–5.4D-B counting/baseline backend uygulanmıştır; count/baseline UI yoktur. |
+| `DEC-HG-001` | **DECIDED** (`DEC-033`); Phase 5.4A–5.4D-B counting/baseline backend uygulanmıştır. Count / baseline operational UI review için uygulanmıştır; COMPLETE işaretlenmez. |
 | `DEC-030` | Quantity correction first slice kararlı; serialized/non-stock/count interaction deferred. Evidence `DEC-034` ile V1 kapanmıştır. |
 | `DEC-HG-003` | **DECIDED** (`DEC-025`). ProductionLine foundation ve quantity ISSUE Phase 4.2 COMPLETE. |
 | `DEC-HG-004` | **DECIDED** (`DEC-024`). Employee foundation ve quantity ISSUE Phase 4.2 COMPLETE. |

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Envanter kesimleri — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">Envanter kesimleri</h1>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary" href="{% url 'counting:session-list' %}">Sayımlar</a>
+        <a class="btn btn-primary" href="{% url 'imports:baseline-create' %}">Yeni kesim hazırla</a>
+    </div>
+</div>
+
+{% if baselines %}
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Referans</th>
+                    <th>Durum</th>
+                    <th>Hazırlayan</th>
+                    <th>Oluşturulma</th>
+                    <th>Kesim</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for baseline in baselines %}
+                    <tr>
+                        <td><a href="{% url 'imports:baseline-detail' baseline.pk %}">{{ baseline.reference }}</a></td>
+                        <td>{{ baseline.get_status_display }}</td>
+                        <td>{{ baseline.created_by.get_username }}</td>
+                        <td>{{ baseline.created_at }}</td>
+                        <td>
+                            {% if baseline.established_at %}
+                                {{ baseline.established_by.get_username }} — {{ baseline.established_at }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <p class="text-body-secondary mb-0">Kesim kaydı yok.</p>
+{% endif %}
+{% endblock %}

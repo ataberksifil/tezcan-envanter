@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Kesim hazırla — Elektrik Atölyesi Envanter{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">Kesim hazırla</h1>
+    <a class="btn btn-outline-secondary" href="{% url 'imports:baseline-list' %}">Listeye dön</a>
+</div>
+
+<p class="text-body-secondary">
+    Hazırlama stok yazmaz. Açılış bakiyesi yalnız sonraki kontrollü kesim adımında,
+    scoped INITIAL_BALANCE ile oluşur. Ad-hoc açılış formu yoktur.
+</p>
+
+<form method="post" class="card card-body">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.reference.id_for_label }}">{{ form.reference.label }}</label>
+        {{ form.reference }}
+        <div class="form-text">{{ form.reference.help_text }}</div>
+        {% if form.reference.errors %}<div class="invalid-feedback d-block">{{ form.reference.errors }}</div>{% endif %}
+    </div>
+    <fieldset class="mb-3">
+        <legend class="form-label">{{ form.sessions.label }}</legend>
+        <div class="form-text mb-2">{{ form.sessions.help_text }}</div>
+        {% if form.sessions.errors %}<div class="invalid-feedback d-block">{{ form.sessions.errors }}</div>{% endif %}
+        {% for choice in form.sessions %}
+            <div class="form-check">{{ choice }}</div>
+        {% empty %}
+            <p class="text-body-secondary">Uygun kesim adayı oturum yok.</p>
+        {% endfor %}
+    </fieldset>
+    <button type="submit" class="btn btn-primary">Kesimi hazırla</button>
+</form>
+{% endblock %}

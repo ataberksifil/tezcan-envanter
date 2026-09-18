@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Sayım farkları — {{ session.reference_number }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">Sayım farkları</h1>
+    <a class="btn btn-outline-secondary" href="{% url 'counting:session-detail' session.pk %}">Oturum</a>
+</div>
+
+{% if session.baseline_candidate %}
+    <div class="alert alert-warning">Kesim adayı oturum COUNT_RECONCILIATION oluşturamaz. Farklar yalnız kesime beslenir.</div>
+{% endif %}
+
+<p class="text-body-secondary">
+    Onay, güncel stoku snapshot ile karşılaştırır. Sapma varsa otomatik onaylanmaz; yeniden sayım gerekir.
+    Sayımı yapan kişi kendi farkını onaylayamaz. Negatif stok yasaktır.
+</p>
+
+<h2 class="h5">Onay bekleyen miktar farkları</h2>
+{% for item in pending_items %}
+    <div class="card mb-3">
+        <div class="card-body">
+            <h3 class="h6">{{ item.line.material.material_code }} — {{ item.line.location.code }} — {{ item.line.condition.name }}</h3>
+            <p class="mb-1">Beklenen: {{ item.line.expected_quantity }} {{ item.line.material.unit.code }}</p>
+            <p class="mb-1">Sayılan: {{ item.line.counted_quantity }}</p>
+            <p class="mb-1">
+                Fark yönü:
+                {% if item.line.counted_quantity > item.line.expected_quantity %}pozitif / hedef artış
+                {% elif item.line.counted_quantity < item.line.expected_quantity %}negatif / kaynak azalış
+                {% else %}yok{% endif %}
+            </p>
+            <p class="mb-3">Sayaç: {{ item.line.counted_by_user.get_username }}</p>
+            <form method="post" action="{% url 'counting:quantity-approve' session.pk item.line.pk %}" class="mb-3">
+                {% csrf_token %}
+                {{ item.approval_form.operation_id }}
+                <div class="mb-2">
+                    <label class="form-label" for="{{ item.approval_form.explanation.id_for_label }}">{{ item.approval_form.explanation.label }}</label>
+                    {{ item.approval_form.explanation }}
+                </div>
+                <button type="submit" class="btn btn-success">Onayla</button>
+            </form>
+            <form method="post" action="{% url 'counting:quantity-reject' session.pk item.line.pk %}">
+                {% csrf_token %}
+                <div class="mb-2">
+                    <label class="form-label" for="id_reason_{{ item.line.pk }}">{{ rejection_form.reason.label }}</label>
+                    <textarea id="id_reason_{{ item.line.pk }}" name="reason" class="form-control" rows="2" maxlength="2000"></textarea>
+                    <div class="form-text">{{ rejection_form.reason.help_text }}</div>
+                </div>
+                <button type="submit" class="btn btn-outline-danger">Reddet ve yeniden sayıma aç</button>
+            </form>
+        </div>
+    </div>
+{% empty %}
+    <p class="text-body-secondary">Karar verilebilir miktar farkı yok.</p>
+{% endfor %}
+
+<h2 class="h5 mt-4">Diğer miktar satırları</h2>
+<div class="table-responsive">
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Malzeme</th>
+                <th>Lokasyon</th>
+                <th>Beklenen</th>
+                <th>Sayılan</th>
+                <th>Durum</th>
+                <th>Sonuç</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in other_quantity_lines %}
+                <tr>
+                    <td>{{ line.material.material_code }}</td>
+                    <td>{{ line.location.code }}</td>
+                    <td>{{ line.expected_quantity }}</td>
+                    <td>{% if line.counted_quantity != None %}{{ line.counted_quantity }}{% else %}—{% endif %}</td>
+                    <td>{{ line.get_resolution_status_display }}</td>
+                    <td>
+                        {% if line.reconciliation_transaction_id and perms.inventory.view_inventorytransaction %}
+                            <a href="{% url 'inventory:transaction-history-detail' line.reconciliation_transaction_id %}">Mutabakat işlemi</a>
+                        {% elif line.resolution_status == 'PENDING_APPROVAL' %}
+                            Kendi sayımınız; karar veremezsiniz
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="text-body-secondary">Yok.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h2 class="h5 mt-4">Tekil gözlemler</h2>
+<p class="small text-body-secondary">Serialized COUNT_RECONCILIATION bu sürümde yoktur. Aşağıdaki satırlar bilgilendirme içindir.</p>
+<div class="table-responsive">
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Kod</th>
+                <th>Beklenen</th>
+                <th>Gözlenen</th>
+                <th>Durum</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in serialized_lines %}
+                <tr>
+                    <td>{{ line.internal_asset_code }}</td>
+                    <td>
+                        {% if line.expected_present %}
+                            {{ line.expected_location.code }} / {{ line.expected_condition.name }}
+                        {% else %}
+                            Beklenmiyordu
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if line.observed_present == True %}
+                            {{ line.observed_location.code }} / {{ line.observed_condition.name }}
+                        {% elif line.observed_present == False %}
+                            Eksik
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>{{ line.get_resolution_status_display }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4" class="text-body-secondary">Tekil satır yok.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

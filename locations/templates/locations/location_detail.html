@@ -11,6 +11,9 @@
         {% if perms.inventory.view_stockbalance %}
             <a class="btn btn-outline-primary" href="{% url 'inventory:stock-list' %}?location={{ location.pk }}">Bu konumdaki stok</a>
         {% endif %}
+        {% if perms.counting.view_physicalcountsession %}
+            <a class="btn btn-outline-primary" href="{% url 'counting:session-list' %}?location={{ location.pk }}">Bu kapsamdaki sayımlar</a>
+        {% endif %}
         {% if perms.locations.change_location %}
             <a class="btn btn-outline-primary" href="{% url 'locations:location-update' location.pk %}">Düzenle</a>
             {% if location.active %}

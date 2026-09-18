@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}{{ session.reference_number }} — Fiziksel sayım{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">{{ session.reference_number }}</h1>
+    <div class="d-flex flex-wrap gap-2">
+        {% if actions.can_start %}
+            <a class="btn btn-primary" href="{% url 'counting:session-start' session.pk %}">Sayımı başlat</a>
+        {% endif %}
+        {% if actions.can_count %}
+            <a class="btn btn-outline-primary" href="{% url 'counting:quantity-count' session.pk %}">Miktar sayımı</a>
+            <a class="btn btn-outline-primary" href="{% url 'counting:serialized-count' session.pk %}">Tekil sayım</a>
+            <a class="btn btn-primary" href="{% url 'counting:session-complete' session.pk %}">Sayımı tamamla</a>
+        {% endif %}
+        {% if actions.can_review_discrepancies %}
+            <a class="btn btn-warning" href="{% url 'counting:discrepancy-review' session.pk %}">Farkları incele</a>
+        {% endif %}
+        {% if actions.can_prepare_baseline %}
+            <a class="btn btn-warning" href="{% url 'imports:baseline-create' %}?session={{ session.pk }}">Kesime bağla</a>
+        {% endif %}
+        <a class="btn btn-outline-secondary" href="{% url 'counting:session-list' %}">Listeye dön</a>
+    </div>
+</div>
+
+<dl class="row">
+    <dt class="col-sm-3">Kimlik</dt>
+    <dd class="col-sm-9 font-monospace">{{ session.pk }}</dd>
+    <dt class="col-sm-3">Kapsam</dt>
+    <dd class="col-sm-9">
+        {% if perms.locations.view_location %}
+            <a href="{% url 'locations:location-detail' session.scope_location_id %}">{{ session.scope_location.code }}</a>
+        {% else %}
+            {{ session.scope_location.code }}
+        {% endif %}
+        — {{ session.scope_location.name }}
+    </dd>
+    <dt class="col-sm-3">Tür</dt>
+    <dd class="col-sm-9">
+        {% if session.baseline_candidate %}Kesim adayı{% else %}Rutin sayım{% endif %}
+    </dd>
+    <dt class="col-sm-3">Durum</dt>
+    <dd class="col-sm-9">{{ session.get_status_display }}</dd>
+    <dt class="col-sm-3">Mutabakat</dt>
+    <dd class="col-sm-9">{{ session.get_reconciliation_status_display }}</dd>
+    <dt class="col-sm-3">Başlatan</dt>
+    <dd class="col-sm-9">{% if session.started_by_user %}{{ session.started_by_user.get_username }} — {{ session.started_at }}{% else %}—{% endif %}</dd>
+    <dt class="col-sm-3">Tamamlayan</dt>
+    <dd class="col-sm-9">{% if session.completed_by_user %}{{ session.completed_by_user.get_username }} — {{ session.completed_at }}{% else %}—{% endif %}</dd>
+    <dt class="col-sm-3">Oluşturulma</dt>
+    <dd class="col-sm-9">{{ session.created_at }}</dd>
+</dl>
+
+{% if baseline_link %}
+    <p>
+        Bağlı kesim:
+        {% if perms.imports.establish_baseline %}
+            <a href="{% url 'imports:baseline-detail' baseline_link.inventory_baseline_id %}">{{ baseline_link.inventory_baseline.reference }}</a>
+        {% else %}
+            {{ baseline_link.inventory_baseline.reference }}
+        {% endif %}
+        ({{ baseline_link.inventory_baseline.get_status_display }})
+    </p>
+{% endif %}
+{% if baseline_result_link %}
+    <p>
+        Açılış işlemi:
+        {% if perms.inventory.view_inventorytransaction %}
+            <a href="{% url 'inventory:transaction-history-detail' baseline_result_link.inventory_transaction_id %}">{{ baseline_result_link.inventory_transaction_id }}</a>
+        {% else %}
+            {{ baseline_result_link.inventory_transaction_id }}
+        {% endif %}
+    </p>
+{% endif %}
+
+<h2 class="h5 mt-4">İlerleme</h2>
+<ul>
+    <li>Miktar satırları: {{ progress.quantity_total }} — bekleyen {{ progress.quantity_pending }}, sayılmadı {{ progress.quantity_not_counted }}, fiziksel sayılmış {{ progress.quantity_counted }}, fark {{ progress.quantity_pending_approval }}</li>
+    <li>Tekil satırlar: {{ progress.serialized_total }} — bekleyen {{ progress.serialized_pending }}, sayılmadı {{ progress.serialized_not_counted }}, gözlenen {{ progress.serialized_observed }}, aday {{ progress.serialized_candidates }}</li>
+</ul>
+<p class="text-body-secondary">
+    Snapshot sayım başlangıcında alınır. Hareketler durdurulmaz.
+    Boş bırakılan satır sayılmamış kabul edilmez; açık sıfır ve açık “sayılmadı” ayrıdır.
+</p>
+
+<h2 class="h5 mt-4">Miktar satırları</h2>
+{% if quantity_lines %}
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Malzeme</th>
+                    <th>Lokasyon</th>
+                    <th>Kondisyon</th>
+                    <th>Birim</th>
+                    {% if show_expected %}<th>Beklenen</th>{% endif %}
+                    <th>Sayılan</th>
+                    <th>Durum</th>
+                    <th>Sayaç</th>
+                    {% if show_expected %}<th>Sonuç</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in quantity_lines %}
+                    <tr class="{% if line.resolution_status == 'PENDING_COUNT' %}table-light{% elif line.resolution_status == 'NOT_COUNTED' %}table-warning{% elif line.resolution_status == 'PENDING_APPROVAL' %}table-danger{% endif %}">
+                        <td>
+                            {% if perms.catalog.view_material %}
+                                <a href="{% url 'catalog:material-detail' line.material_id %}">{{ line.material.material_code }}</a>
+                            {% else %}
+                                {{ line.material.material_code }}
+                            {% endif %}
+                            <div class="small text-body-secondary">{{ line.material.name }}</div>
+                        </td>
+                        <td>
+                            {% if perms.locations.view_location %}
+                                <a href="{% url 'locations:location-detail' line.location_id %}">{{ line.location.code }}</a>
+                            {% else %}
+                                {{ line.location.code }}
+                            {% endif %}
+                        </td>
+                        <td>{{ line.condition.name }}</td>
+                        <td>{{ line.material.unit.code }}</td>
+                        {% if show_expected %}<td>{{ line.expected_quantity }}</td>{% endif %}
+                        <td>
+                            {% if line.counted_quantity != None %}
+                                {{ line.counted_quantity }}
+                            {% elif line.resolution_status == 'NOT_COUNTED' %}
+                                —
+                            {% else %}
+                                <span class="text-body-secondary">işlenmedi</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ line.get_resolution_status_display }}</td>
+                        <td>{% if line.counted_by_user %}{{ line.counted_by_user.get_username }}{% else %}—{% endif %}</td>
+                        {% if show_expected %}
+                            <td>
+                                {% if line.reconciliation_transaction_id and perms.inventory.view_inventorytransaction %}
+                                    <a href="{% url 'inventory:transaction-history-detail' line.reconciliation_transaction_id %}">Mutabakat işlemi</a>
+                                {% elif line.reconciliation_transaction_id %}
+                                    {{ line.reconciliation_transaction_id }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <p class="text-body-secondary">Miktar satırı yok.</p>
+{% endif %}
+
+<h2 class="h5 mt-4">Tekil satırlar</h2>
+{% if serialized_lines %}
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Varlık kodu</th>
+                    <th>Malzeme</th>
+                    <th>Durum</th>
+                    <th>Gözlem</th>
+                    {% if show_expected %}<th>Beklenen konum / kondisyon</th>{% endif %}
+                    <th>Sayaç</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in serialized_lines %}
+                    <tr class="{% if line.resolution_status == 'PENDING_COUNT' %}table-light{% elif line.resolution_status == 'NOT_COUNTED' %}table-warning{% elif line.resolution_status == 'PENDING_APPROVAL' %}table-danger{% endif %}">
+                        <td>
+                            {% if line.serialized_asset_id and perms.inventory.view_stockbalance %}
+                                <a href="{% url 'inventory:serialized-asset-detail' line.serialized_asset_id %}">{{ line.internal_asset_code }}</a>
+                            {% else %}
+                                {{ line.internal_asset_code }}
+                            {% endif %}
+                            {% if line.serial_number %}<div class="small text-body-secondary">{{ line.serial_number }}</div>{% endif %}
+                            {% if not line.expected_present %}<span class="badge text-bg-info">Aday / beklenmeyen</span>{% endif %}
+                        </td>
+                        <td>{{ line.material.material_code }}</td>
+                        <td>{{ line.get_resolution_status_display }}</td>
+                        <td>
+                            {% if line.observed_present == True %}
+                                {{ line.observed_location.code }} / {{ line.observed_condition.name }}
+                            {% elif line.observed_present == False %}
+                                Eksik
+                            {% elif line.resolution_status == 'NOT_COUNTED' %}
+                                Sayılmadı
+                            {% else %}
+                                <span class="text-body-secondary">işlenmedi</span>
+                            {% endif %}
+                        </td>
+                        {% if show_expected %}
+                            <td>
+                                {% if line.expected_present %}
+                                    {{ line.expected_location.code }} / {{ line.expected_condition.name }}
+                                {% else %}
+                                    Beklenmiyordu
+                                {% endif %}
+                            </td>
+                        {% endif %}
+                        <td>{% if line.counted_by_user %}{{ line.counted_by_user.get_username }}{% else %}—{% endif %}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if session.status == "COMPLETED" and not session.baseline_candidate %}
+        <p class="small text-body-secondary">Serialized COUNT_RECONCILIATION bu sürümde yoktur; tekil farklar stok değiştirmez.</p>
+    {% endif %}
+{% else %}
+    <p class="text-body-secondary">Tekil satır yok.</p>
+{% endif %}
+
+{% if show_expected and rejections %}
+    <h2 class="h5 mt-4">Ret geçmişi</h2>
+    <ul>
+        {% for rejection in rejections %}
+            <li>
+                {{ rejection.rejected_at }} — {{ rejection.rejected_by_user.get_username }}
+                (sayılan {{ rejection.counted_quantity }})
+                {% if rejection.reason %}: {{ rejection.reason }}{% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+{% endblock %}

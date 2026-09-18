@@ -21,6 +21,9 @@
         {% elif asset.current_state == "ISSUED" and active_issue_line and perms.inventory.return_stock %}
             <a class="btn btn-success" href="{% url 'inventory:serialized-return-create' asset.pk active_issue_line.pk %}">İade al</a>
         {% endif %}
+        {% if perms.counting.view_physicalcountsession %}
+            <a class="btn btn-outline-secondary" href="{% url 'counting:session-list' %}">Fiziksel sayımlar</a>
+        {% endif %}
         <a class="btn btn-outline-secondary" href="{% url 'catalog:material-detail' asset.material.pk %}">Malzemeye dön</a>
     </div>
 </div>

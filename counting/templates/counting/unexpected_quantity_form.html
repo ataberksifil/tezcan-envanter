@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Beklenmeyen miktar — {{ session.reference_number }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <h1 class="h3 mb-0">Beklenmeyen miktar stoku</h1>
+    <a class="btn btn-outline-secondary" href="{% url 'counting:quantity-count' session.pk %}">Miktar sayımına dön</a>
+</div>
+
+<p class="text-body-secondary">
+    Yalnız katalogda tanımlı QUANTITY malzeme kaydedilir. Beklenen sistem bakiyesi sıfırdır.
+    Bu işlem stok veya ledger yazmaz. Bilinmeyen malzeme oluşturulmaz.
+</p>
+
+<form method="post" class="card card-body">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for field in form %}
+        <div class="mb-3">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors }}</div>{% endif %}
+        </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Gözlemi kaydet</button>
+</form>
+{% endblock %}
