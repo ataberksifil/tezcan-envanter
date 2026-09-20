@@ -447,7 +447,32 @@ Akış:
 4. Kullanıcı canonical detay sayfasına yönlenir.
 5. Sonraki action için normal server-side permission ve inventory validation uygulanır.
 
-Bilinmeyen/geçersiz kod stok etkisi oluşturmadan hata verir. Resolve endpoint authenticated'tır, permission bypass veya unrestricted identifier enumeration endpoint olamaz. Risk doğrulanırsa Redis gerektirmeyen application/proxy rate limiting değerlendirilir. Standart etiket Code128, kompakt etiket QR'dır. DataMatrix V1'de yoktur. Mimari donanım üreticisine kilitlenmez; yazıcı sürücüsü/SDK V1 dışıdır.
+Bilinmeyen/geçersiz kod stok etkisi oluşturmadan hata verir. Resolve endpoint authenticated'tır, permission bypass veya unrestricted identifier enumeration endpoint olamaz. Risk doğrulanırsa Redis gerektirmeyen application/proxy rate limiting değerlendirilir. Standart etiket Code128, kompakt etiket QR'dır. DataMatrix V1'de yoktur. Yazılım kimliği üretici SDK'sına kilitlenmez; yazıcı sürücüsü/proprietary SDK V1 dışıdır.
+
+### Atölye donanım hedef profili (`DEC-038`)
+
+Onaylı workshop cihazları yazılım codec'ini değiştirmez. `DEC-036` payload ve carrier politikası korunur: Material `TZ1M`, SerializedAsset `TZ1A`, Location `TZ1L`; Code128 normal atölye etiketi, QR kompakt/mobil form.
+
+| Cihaz | Model | Kayıtlı operasyonel gerçekler |
+|---|---|---|
+| Barkod okuyucu | Kodscan KDS-5040 | 1D + 2D; USB; Bluetooth (HID dahil); 2.4 GHz kablosuz adaptör; Windows uyumlu |
+| Etiket yazıcısı | Kodprint DT-482 | Direct Thermal; 203 DPI; azami baskı genişliği 104 mm; USB |
+
+Birincil masaüstü tarama HID klavye-wedge'dir: okuyucu çözülmüş metni odaklı alana yazar; Enter soneki submit/resolve akışları için yapılandırılabilir. Normal çalışma Kodscan SDK gerektirmez. Tarayıcı kamerası ikincil/browser seçenektir. Okuyucu belleğine alınan offline batch ve offline senkronizasyon V1 değildir.
+
+Yazdırma açık kullanıcı eylemidir. Tarayıcı / işletim sistemi yazdırma akışı V1 için yeterlidir. Ethernet, thermal-transfer ribbon, sunucu tarafı proprietary yazıcı sürücüsü ve otomatik sessiz basım zorunlu değildir. Etiketler 203 DPI ve 104 mm baskı genişliğinde okunabilir kalmalıdır.
+
+Cihazın başka sembolojileri okuyabilmesi onları kanonik Tezcan kimliği yapmaz. Tedarikçi/üretici koli barkodu yetkili envanter kimliği değildir.
+
+### Fiziksel etiket kullanımı
+
+- **Location (raf/göz/çekmece):** `TZ1L`, insan-okunur lokasyon/yol, uygun olduğunda Code128 ve/veya QR.
+- **QUANTITY Material (kutu/bin/rafa bakan etiket):** `TZ1M`, insan-okunur Material kodu, ad ve yer kaldıkça kısa tanıtım alanları. Direnç/vida gibi her parça için unique etiket üretilmez.
+- **SERIALIZED fiziksel cihaz:** `TZ1A`; yüzey dar ise kompakt QR tercih; alan yeterse Code128 kullanılabilir.
+
+### Tarayıcı UX ilkesi
+
+Uygun operasyonel formlar `Barkodu okut veya ara` davranışını desteklemelidir. Odaklı metin alanı HID klavye-wedge ile uyumlu kalır. Tarama fare/kamera kullanımını zorunlu kılmaz. Manuel arama/giriş fallback'tir. Kavramsal olarak Material, Location, SerializedAsset kimliği ve model/MPN yardımcısına uygulanır.
 
 ## 18. File / Attachment Architecture
 
@@ -834,7 +859,7 @@ Bu legacy özet tüm projeyi bloke etmez. Güncel status, owner, source mapping 
 ### B. SAFE TO DEFER UNTIL FEATURE PHASE
 
 - Kategoriye özgü technical specs ve JSON schema: gerçek workbook/material örnekleri gelene kadar.
-- QR payload, semboloji, etiket formatı ve yazıcı entegrasyonu: QR feature fazına kadar.
+- QR/barkod yazılım kimliği `DEC-036` ile kapanmıştır; atölye hedef cihaz profili `DEC-038` (Kodscan KDS-5040, Kodprint DT-482, HID + browser/OS print). Proprietary yazıcı/okuyucu SDK ve offline scan-queue V1 dışıdır.
 - Report week boundaries, usage/decrease tanımı ve report permission: reports feature'ına kadar.
 - Ret gerekçesinin zorunluluğu: correction reject formuna kadar; şimdilik nullable ve PROPOSED.
 - Authentication/security event audit kapsamı: güvenlik hardening fazına kadar.

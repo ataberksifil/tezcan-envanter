@@ -555,7 +555,25 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
   13. **Talep Takip — onaylı gelecek iş.** Talep No şirketin verdiği numaradır; ADMIN_MANAGER veya STOREKEEPER girer. Kısmi teslimat serbesttir. Talep stoğu tek başına oluşturmaz. Bu dilimde Talep modeli/UI yoktur.
   14. **Mevcut Excel inbound sözleşmesi.** `depo-gelen-giden` ve `depo-stok` operational kolonları gelecekteki inbound/receipt metadata ve Talep eşlemesi için kanıt olarak korunur; bu dilim Excel import UI veya mapping uydurmaz.
 - **Consequence:** First slice Material create/search/model-scan helper, quantity RECEIVE UX foundation, demo staging Location, mevcut TRANSFER putaway devamı ve mevcut Phase 5.8 etiket devamını uygular. Inventory kernel math değişmez. Talep, SKT, paket conversion ve usage-place receipt modeli sonraki dilimdir.
-- **Implementation status:** First slice implemented, uncommitted, review bekliyor. COMPLETE işaretlenmez.
+- **Implementation status:** First slice committed at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`feat: add inbound inventory foundation`). `DEC-037` implemented. Inbound / Mal Kabul programı COMPLETE işaretlenmez.
+
+### DEC-038 — Barcode Scanner and Label Printer Hardware Profile
+
+- **Status:** `DECIDED`
+- **Required before / recorded with:** Inbound / Mal Kabul V1 Foundation documentation closeout
+- **Extends:** `DEC-036` software identity/carriers; `DEC-037` inbound label/scan policy
+- **Does not resolve:** payload/carrier architecture (`DEC-036` değişmez); DataMatrix as internal V1 carrier; proprietary scanner/printer SDK; automatic/silent printing; Ethernet or thermal-transfer ribbon requirement; offline scanner-memory batch workflows; `DEC-OPEN-023` offline sync
+- **Decision:**
+  1. **Workshop scanner target:** Kodscan KDS-5040. Confirmed operational facts: 1D + 2D reader; USB; Bluetooth including HID; 2.4 GHz wireless adapter; Windows-compatible.
+  2. **Primary desktop usage:** HID keyboard-wedge. Scanner decoded text enters the focused field. An Enter suffix may be configured/used for submit/resolve flows. Normal operation must not require a proprietary Kodscan SDK. Browser camera scanning remains a secondary option.
+  3. **Offline scan memory:** Scanner-memory batch workflows are not part of V1. Offline synchronization is not designed or implied.
+  4. **Workshop printer target:** Kodprint DT-482. Confirmed operational facts: Direct Thermal; 203 DPI; maximum print width 104 mm; USB.
+  5. **Print constraints:** Generated labels must remain legible at 203 DPI and inside the 104 mm printable width. V1 does not require Ethernet, thermal-transfer ribbon, proprietary server-side printer drivers, or automatic silent printing. Printing remains an explicit user action. Browser / operating-system print flow is acceptable.
+  6. **Architecture unchanged:** Canonical identities remain Material `TZ1M`, SerializedAsset `TZ1A`, Location `TZ1L`. Code128 remains the normal workshop label; QR remains the compact/mobile form. Payloads are not modified. Device capability to read other symbologies does not make those codes canonical Tezcan identities. DataMatrix is not an internal V1 carrier.
+  7. **Physical label use:** Shelf/bin/drawer → `TZ1L` plus human-readable location/path, Code128 and/or QR as appropriate. QUANTITY Material box/bin/shelf-facing label → `TZ1M` plus human-readable Material code, name, and concise identification fields where space permits; one unique label per resistor/screw is not created. SERIALIZED physical device → `TZ1A`; compact QR preferred where surface area is limited; Code128 may be used where label area permits. Supplier/manufacturer carton barcode is not the authoritative Tezcan inventory identity.
+  8. **Scanner UX principle:** Where practical, operational forms should support `Barkodu okut veya ara`. A focused text field must remain compatible with HID keyboard-wedge scanning. Scanner flow must not make mouse/camera use mandatory. Manual search/input remains the fallback. This applies conceptually to Material, Location, SerializedAsset identification and the model/MPN helper.
+- **Consequence:** Software remains vendor-neutral HID + existing camera + browser/OS print. Workshop procurement/target devices are recorded without locking the identification codec to a manufacturer SDK. Label geometry must respect 203 DPI / 104 mm.
+- **Implementation status:** Documentation-only closeout. No production code, migration, payload, or scan-screen change in this decision.
 
 ## 3. Açık İş Kararları
 
@@ -583,7 +601,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | `DEC-OPEN-013` | Photo format/size/currentness/retention | `DECIDED` (V1 correction evidence) | OD-018, COR-013, DM-P01, TBD-013 | Attachment feature | — | `DEC-034` ile V1 kapatıldı: JPEG/PNG/WebP; HEIC/HEIF yok; 10 MiB/dosya; create-time mandatory; no auto-delete; protected retrieval. Uzun dönem silme süreleri `DEC-OPEN-018` açık kalır. |
 | `DEC-OPEN-014` | Report periods, usage/decrease definitions | `OPEN` | OD-019, REP-007, UF-O-10 | Reporting implementation | İş sahibi | Europe/Istanbul presentation default'u korunur. |
 | `DEC-OPEN-015` | Excel workbook mapping ve cleansing | `OPEN` | OD-020, IMP-006 | Import implementation | Gerçek workbook + iş sahibi | Candidate stock yasağı `DEC-001` ile kararlıdır. |
-| `DEC-OPEN-016` | QR/barcode payload, labels ve device rules | `DECIDED` | OD-021, OD-029, DM-P02, UF-O-21 | Phase 5.8 identification | — | `DEC-036` ile kapatıldı: compact reversible UUID token (`TZ1M\|A\|L:<22-char-base64url-uuid>`); Code128 standart / QR kompakt; tek resolver; no stored token; USB HID + kamera; DataMatrix yok; browser print. Yazıcı sürücüsü/SDK V1 dışı kalır. |
+| `DEC-OPEN-016` | QR/barcode payload, labels ve device rules | `DECIDED` | OD-021, OD-029, DM-P02, UF-O-21 | Phase 5.8 identification | — | `DEC-036` ile kapatıldı: compact reversible UUID token (`TZ1M\|A\|L:<22-char-base64url-uuid>`); Code128 standart / QR kompakt; tek resolver; no stored token; USB HID + kamera; DataMatrix yok; browser print. Yazıcı sürücüsü/SDK V1 dışı kalır. Atölye hedef cihaz profili `DEC-038` (Kodscan KDS-5040, Kodprint DT-482). |
 | `DEC-OPEN-017` | Report timezone/week boundary | `OPEN` | OD-023, TIME-005, UF-O-10 | Reporting implementation | İş sahibi | Storage timezone-aware'dır. |
 | `DEC-OPEN-018` | Ledger/audit/photo/import retention periods | `OPEN` | OD-024, TIME-006, DM-P01, UF-O-24 | Pilot/go-live policy | İş sahibi + legal/privacy + IT | Karar çıkana kadar destructive deletion yok. |
 | `DEC-OPEN-019` | Category-specific technical attribute schema | `OPEN` | OD-025, MAT-004, Ürün TBD-001/TBD-002 | Catalog/import mapping | Gerçek material/workbook examples | JSONB teknik yönü korunur. |
@@ -626,8 +644,8 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Counting/reconciliation | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout + operational UI at `1dedd34`, `DEC-033`). Serialized `COUNT_RECONCILIATION` sonraki ayrı görevdir. |
 | Baseline schema/cutover | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout + operational UI at `1dedd34`). `InventoryBaseline`, scoped `INITIAL_BALANCE`, combined QUANTITY+SERIALIZED establishment. `DEC-002` / `DEC-015` / `DEC-032` / `DEC-033` korunur. |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |
-| Machine-readable identification | **COMPLETE** (Phase 5.8, `DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0`. Code128 standart / QR kompakt; canonical `TZ1M`/`TZ1A`/`TZ1L` payload. `DEC-037` tedarikçi barkodunun yetkili kimlik olmadığını teyit eder. `DEC-IT-006` mobile/tablet intranet; ownership `DEC-011` |
-| Inbound / Mal Kabul V1 first slice | **IMPLEMENTED, UNCOMMITTED** (`DEC-037`). Sistem üretilen Material kodu, STOREKEEPER+ADMIN Material create, model barkod yardımcısı, keyword search, quantity RECEIVE UX + demo staging Location + TRANSFER putaway/etiket devamı. Talep, SKT, paket conversion ve inbound usage-place metadata sonraki dilimdir. |
+| Machine-readable identification | **COMPLETE** (Phase 5.8, `DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0`. Code128 standart / QR kompakt; canonical `TZ1M`/`TZ1A`/`TZ1L` payload. `DEC-037` tedarikçi barkodunun yetkili kimlik olmadığını teyit eder. Workshop hardware profile `DEC-038`. `DEC-IT-006` mobile/tablet intranet; ownership `DEC-011` |
+| Inbound / Mal Kabul V1 first slice | **COMMITTED** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`). Sistem üretilen Material kodu, STOREKEEPER+ADMIN Material create, model barkod yardımcısı, keyword search, quantity RECEIVE UX + demo staging Location + TRANSFER putaway/etiket devamı. Program COMPLETE değildir. Talep, SKT, paket conversion, inbound usage-place/packaging/supplier metadata ve production staging-location configuration sonraki dilimdir. |
 | Deployment/pilot | `DEC-IT-001`–`DEC-IT-005`, restore drill; uzun dönem retention için `DEC-OPEN-018` |
 | Phase 2 catalog/configuration UI | `DEC-021`: dynamic configuration principle, seed≠whitelist, UoM/role/technical-spec boundaries |
 | Phase 2.9B-0 access management policy | `DEC-022`: management capability, allowlist, anti-escalation, audit identity, Admin/UI boundary |
@@ -654,7 +672,8 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 5.2 quantity controlled correction | **COMPLETE** (`DEC-030`, `DEC-031`, 2026-09-13; 1242 test passed). Evidence Phase 5.5 / `DEC-034` ile kapanmıştır. |
 | Phase 5.5 correction evidence | **COMPLETE** (`DEC-034`). Quantity controlled correction V1 photographic evidence kapanmıştır. Serialized correction deferred. |
 | Phase 5.8 machine-readable identification | **COMPLETE** (`DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`). Code128 + QR; canonical `TZ1M:<22-char-base64url-uuid>`, `TZ1A:<22-char-base64url-uuid>`, `TZ1L:<22-char-base64url-uuid>`. |
-| Inbound / Mal Kabul V1 first slice | **IMPLEMENTED, UNCOMMITTED** (`DEC-037`). COMPLETE işaretlenmez. Talep Takip ve SKT uygulanmamıştır. `DEC-OPEN-010` OPEN kalır. |
+| Inbound / Mal Kabul V1 first slice | **COMMITTED** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`). First slice implemented. Program COMPLETE işaretlenmez. Talep Takip ve SKT uygulanmamıştır. `DEC-OPEN-010` OPEN kalır. |
+| Workshop barcode hardware profile | **DECIDED** (`DEC-038`). Kodscan KDS-5040 + Kodprint DT-482 target profile; HID + browser/OS print; `DEC-036` unchanged. |
 | Phase 5.3 serialized inventory foundation + serialized RECEIVE | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; `DEC-OPEN-004` kapandı. |
 | Phase 5.4 decision pack | **COMPLETE** (`DEC-033`). 5.4A–5.4E backend + Count / Baseline Operational UI Closure at `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`). Migration yok; kernels/services authoritative kaldı. Serialized `COUNT_RECONCILIATION` ve serialized mutation workflow'ları uygulanmamıştır. `DEC-OPEN-010` OPEN kalır. |
 | Gate 1 | Phase 1.1–1.8 foundation — **Disposition: `PASS`** (tarihsel kayıt/backfill 2026-09-11). Bkz. §4.3. |

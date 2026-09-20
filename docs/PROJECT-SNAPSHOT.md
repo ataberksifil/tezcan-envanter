@@ -6,12 +6,14 @@
 **Phase 5.6 backend:** implemented/committed (`DEC-035`)
 **Phase 5.7 web workflows:** implemented/committed at `22c29de`
 **Phase 5.8 identification:** COMPLETE at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`, `DEC-036`)
+**Inbound / Mal Kabul V1 Foundation first slice:** committed at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`feat: add inbound inventory foundation`, `DEC-037`)
+**Workshop barcode hardware profile:** `DEC-038` (`DECIDED`)
 
 ---
 
 ## 1. Özet
 
-Modüler monolit Django 5.2 envanter sistemi; quantity envanter hareketleri, kontrollü düzeltme (kanıtlı), serialized RECEIVE, fiziksel sayım + combined baseline backend/UI ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER akışları mevcuttur. Phase 5.7 state-aware normal Django web workflow'larını tamamlamıştır. Phase 5.8 carrier-neutral Machine-Readable Identification (Code128 standart 100 mm-sınıfı etiket, kompakt QR, canonical `TZ1M:<22-char-base64url-uuid>` / `TZ1A:<22-char-base64url-uuid>` / `TZ1L:<22-char-base64url-uuid>` payload, USB HID + kamera tarama, tek resolver) katmanı commit `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`) üzerinde COMPLETE'tir. Count / Baseline Operational UI Closure commit `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`) üzerinde COMPLETE'tir.
+Modüler monolit Django 5.2 envanter sistemi; quantity envanter hareketleri, kontrollü düzeltme (kanıtlı), serialized RECEIVE, fiziksel sayım + combined baseline backend/UI ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER akışları mevcuttur. Phase 5.7 state-aware normal Django web workflow'larını tamamlamıştır. Phase 5.8 carrier-neutral Machine-Readable Identification (Code128 standart 100 mm-sınıfı etiket, kompakt QR, canonical `TZ1M:<22-char-base64url-uuid>` / `TZ1A:<22-char-base64url-uuid>` / `TZ1L:<22-char-base64url-uuid>` payload, USB HID + kamera tarama, tek resolver) katmanı commit `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`) üzerinde COMPLETE'tir. Count / Baseline Operational UI Closure commit `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`) üzerinde COMPLETE'tir. Inbound / Mal Kabul V1 Foundation first slice commit `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`feat: add inbound inventory foundation`, `DEC-037`) üzerinde uygulanmıştır; Inbound / Mal Kabul programı COMPLETE değildir. Atölye barkod okuyucu/yazıcı hedef profili `DEC-038` ile kayıtlıdır.
 
 **Son doğrulanmış full suite:** 1769 passed
 **Collected test count:** 1769
@@ -86,6 +88,7 @@ Aşağıdaki sayılar **git object `5ec22eefc3cb80a355ce32d88170feef174d8a35`** 
 | Phase 5.7 | Web workflows committed at `22c29de` |
 | Phase 5.8 | **COMPLETE** — Code128 + QR machine-readable identification (`DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` |
 | Count / baseline operational UI | **COMPLETE** at `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`); migration yok; kernels/services authoritative kaldı |
+| Inbound / Mal Kabul V1 Foundation first slice | **Committed** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`); program COMPLETE değil |
 | Gate 3 | PASS (tarihsel; qty RECEIPT scope) |
 
 ---
@@ -118,6 +121,25 @@ Phase 5.8 / `DEC-036` COMPLETE at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`f
 
 Count / Baseline Operational UI Closure **COMPLETE** at `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`).
 
+## 4C. Inbound / Mal Kabul V1 Foundation — First Slice
+
+First slice **committed** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`feat: add inbound inventory foundation`). `DEC-037` **DECIDED** ve uygulanmıştır. Inbound / Mal Kabul programı COMPLETE işaretlenmez.
+
+| Özellik | Durum |
+|---|---|
+| Generated Material code `MAT-########` | Implemented |
+| STOREKEEPER + ADMIN_MANAGER Material create | Implemented (`catalog.add_material`; STOREKEEPER change yok) |
+| Model/MPN barkod yardımcısı | Implemented |
+| Keyword search | Implemented |
+| Quantity RECEIVE UX + demo staging Location | Implemented (`MK` / `MK-BEKLEYEN`) |
+| Putaway | Existing `TRANSFER` |
+| Canonical identities | Unchanged `TZ1M` / `TZ1A` / `TZ1L` (`DEC-036`) |
+| Workshop scanner/printer profile | Recorded (`DEC-038`) |
+| Talep Takip | Not started |
+| SKT / expiry warning + manual control | Not started |
+| Inbound receipt metadata (usage/application place, packaging, supplier-related) | Not started |
+| Production staging-location configuration | If needed; not started |
+
 ## 4A. Phase 5.5 — Tamamlanan Kapsam
 
 | Özellik | Durum |
@@ -132,12 +154,12 @@ Count / Baseline Operational UI Closure **COMPLETE** at `1dedd34051692e4c4743c63
 
 ## 5. Kalan Backend İşi
 
-Correction evidence closure, Phase 5.6 serialized movement backend, Phase 5.8 identification ve Count / Baseline Operational UI Closure uygulanmıştır; kalan ürün işi:
+Correction evidence closure, Phase 5.6 serialized movement backend, Phase 5.8 identification, Count / Baseline Operational UI Closure ve Inbound / Mal Kabul V1 Foundation first slice uygulanmıştır; kalan ürün işi:
 
-- Inbound / Mal Kabul first slice (`DEC-037`) implemented but uncommitted; review sonrası commit bekler
 - Talep Takip (şirket Talep No, kısmi teslimat, stok oluşturmama)
-- SKT/expiry uyarısı ve manuel ayırma (Material master'da değil; FEFO/otomatik düşüm yok)
-- Inbound receipt metadata (usage/application place, packaging context, supplier)
+- SKT / expiry uyarısı ve manuel ayırma/kontrol workflow'u (Material master'da değil; FEFO/otomatik düşüm yok)
+- Inbound receipt metadata: usage/application place, packaging metadata, later-approved supplier-related receipt metadata
+- Production staging-location configuration if needed
 - Serialized correction
 - Real Excel import workflow (UI)
 - Reporting

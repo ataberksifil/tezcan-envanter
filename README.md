@@ -226,7 +226,9 @@ Broader TRANSFER senaryoları deferred: serialized, condition-changing, multi-so
 
 **Phase 5.8:** `DEC-036` Machine-Readable Identification & Scanning katmanı COMPLETE at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`). Canonical payload `TZ1M:<22-char-base64url-uuid>`, `TZ1A:<22-char-base64url-uuid>`, `TZ1L:<22-char-base64url-uuid>`; Code128 standart 100 mm-sınıfı etiket / kompakt QR committed; USB HID/klavye-wedge, yerel kamera tarayıcı, manuel fallback ve mevcut state-aware movement aksiyonlarına güvenli navigation; şema/migration ve scan mutation engine yoktur.
 
-**Inbound / Mal Kabul V1 first slice (`DEC-037`):** Implemented, uncommitted, review bekliyor. Sistem üretilen `MAT-########` kodu, STOREKEEPER+ADMIN Material create, model barkod yardımcısı, keyword search, quantity RECEIVE UX + demo staging Location + mevcut TRANSFER putaway/etiket devamı. Talep Takip, SKT ve generic UoM conversion bu dilimde yoktur; TZ1 payload değişmez.
+**Inbound / Mal Kabul V1 first slice (`DEC-037`):** Committed at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`feat: add inbound inventory foundation`). Sistem üretilen `MAT-########` kodu, STOREKEEPER+ADMIN Material create, model barkod yardımcısı, keyword search, quantity RECEIVE UX + demo staging Location + mevcut TRANSFER putaway/etiket devamı. Inbound / Mal Kabul programı COMPLETE değildir. Talep Takip, SKT, inbound usage/packaging/supplier metadata ve generic UoM conversion bu dilimde yoktur; TZ1 payload değişmez.
+
+**Workshop barcode hardware (`DEC-038`):** Hedef okuyucu Kodscan KDS-5040 (1D+2D, USB/Bluetooth HID/2.4 GHz, Windows); hedef yazıcı Kodprint DT-482 (Direct Thermal, 203 DPI, 104 mm, USB). Birincil tarama HID keyboard-wedge; yazdırma açık kullanıcı eylemi ve tarayıcı/OS print. Proprietary SDK, sessiz otomatik basım ve offline scanner-memory sync V1 değildir.
 
 **Son doğrulanmış test suite:** 1769 passed (Count/baseline UI commit `1dedd34051692e4c4743c63ead5fecd3c91e9229`; Phase 5.8 at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0`; reused test DB MaterialCondition seeds restored via committed `0004_seed_material_conditions`)
 

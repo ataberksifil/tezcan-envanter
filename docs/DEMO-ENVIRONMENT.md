@@ -115,6 +115,10 @@ Beklenen klemens bakiyesi: `G1` ≈ 80, `G2` ≈ 10.
 
 Ad-hoc açılış bakiyesi formu yoktur; INITIAL_BALANCE yalnız kontrollü kesimden oluşur.
 
+### H. Barkod / etiket (donanım hedefi)
+
+Atölye hedef profili `DEC-038`'dir: Kodscan KDS-5040 (HID klavye-wedge birincil), Kodprint DT-482 (203 DPI, 104 mm, USB, Direct Thermal). Demo yazılımı proprietary SDK, sessiz otomatik basım veya offline okuyucu-bellek senkronizasyonu gerektirmez. Odaklı alana HID metin yazmak ve tarayıcı/OS yazdırma yeterlidir. Kamera tarama ikincildir. Kanonik kimlikler `TZ1M` / `TZ1A` / `TZ1L` kalır (`DEC-036`).
+
 ---
 
 ## 5. Demo'da gösterilmeyecek özellikler
