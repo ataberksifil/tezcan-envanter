@@ -36,6 +36,8 @@ Kural kimlikleri kalıcı referans olarak kullanılmalıdır. Bir kural değişi
 | MAT-003 | CONFIRMED | Malzeme kataloğu, kategoriye göre farklılaşabilen esnek teknik nitelikleri desteklemelidir. | Ayrıntılı alan listesi olmadan da farklı kategori şemalarının desteklenebilirliği korunmalıdır. |
 | MAT-004 | TBD DEPENDENCY | Kategoriye özgü teknik nitelikler gerçek malzeme örnekleri ve Excel analizi sonrası kesinleştirilecektir. | Henüz hiçbir teknik alan zorunlu kabul edilemez. |
 | MAT-005 | CONFIRMED | Takip modu kategori tarafından değişmez biçimde belirlenemez; her malzeme için yapılandırılabilir olmalıdır. | Aynı kategoride farklı takip ihtiyaçları desteklenebilmelidir. |
+| MAT-006 | CONFIRMED | Yeni oluşturulan Material iş kodu sistem tarafından `MAT-########` olarak üretilir; kullanıcı kod uydurmak zorunda değildir (`DEC-037`). UUID ve TZ1M authoritative kalır. | Historical kodlar geçerli kalır; global uniqueness `DEC-OPEN-021` açık kalır. |
+| MAT-007 | CONFIRMED | Malzeme araması sistem kodu, ad, marka, model/MPN ve explicit arama anahtarlarını destekler; `technical_specs` JSON'undan anlam çıkarılmaz (`DEC-037`). | Atölye personeli `bant` ile `Teflon Bant` gibi ilişkili kaydı bulabilmelidir. |
 | QTY-001 | CONFIRMED | Sistem miktar bazlı stok takibini desteklemelidir. | Miktar bazlı bir malzemenin bakiyesi hareketlerden hesaplanabilir veya doğrulanabilir olmalıdır. |
 | QTY-002 | CONFIRMED | Miktar, malzeme için geçerli ölçü birimine uygun olarak kaydedilmelidir. | Birimsiz veya malzemenin birimiyle uyumsuz miktar kabul edilmemelidir. |
 | QTY-003 | CONFIRMED | Gelecekteki sistem en az adet, metre, makara, set ve paket gibi birimleri destekleyebilecek yapıda olmalıdır. | Bu liste birimler arası dönüşüm tanımlamaz. |
@@ -84,6 +86,8 @@ Bilinen başlangıç alanları Elektrik Deposu, Alkali Elektrik alanındaki kabl
 | RCV-003 | CONFIRMED | Tamamlanan stok girişi denetlenebilir bir stok iş olayı oluşturmalıdır. | Girişin kullanıcı, zaman, malzeme, miktar/varlık ve lokasyon bilgisi izlenebilmelidir. |
 | RCV-004 | CONFIRMED | Stok girişi, malzemenin takip moduna uygun miktar veya tekil varlık bilgisiyle ve geçerli hedef lokasyonla kaydedilmelidir. | Miktar ve tekil takip birbirine karıştırılmamalıdır. |
 | RCV-005 | TBD DEPENDENCY | Satın alma, sipariş, tedarikçi, irsaliye ve kabul kontrolü kuralları onaylanmamıştır. | Bu bilgiler stok girişi için zorunlu kabul edilemez. |
+| RCV-006 | CONFIRMED | Gelen malzeme fiziksel son rafa ulaşmadan, gerçek stok tutan bir mal kabul / yerleştirme bekleyen Location'a `RECEIVE` edilebilir; raf yerleşimi mevcut `TRANSFER` ile yapılır (`DEC-037`). Sahte son-raf stoğu yazılmaz. | Fiziksel konum gerçeği korunur. |
+| RCV-007 | CONFIRMED | Malzemenin stok birimi authoritative'dir; paket adedi stoğu sessizce çarpmaz. Generic birim dönüşümü yoktur (`DEC-037`, `DEC-OPEN-010` OPEN). | `2 KUTU × 1000 ADET` örneği ancak açık miktar olarak `2000 ADET` kaydedilir. |
 
 ### 7.1 Saha / Atölye Malzeme Alım Talepleri
 
@@ -171,7 +175,7 @@ Kavramsal iş senaryoları (hareket türü eşlemesi yapılmaz): tamamen kullan�
 | AUTH-012 | CONFIRMED | Yönetici/Müdür, Teknisyen tarafından başlatılan saha/atölye malzeme alım taleplerini onaylayabilir veya reddedebilir. | Onay, otoritatif envanter etkisinin önkoşuludur; red envanter etkisi oluşturmaz (`INT-002`, `INT-004`, `DEC-020`). |
 | AUTH-004 | CONFIRMED | Teknisyen uygulanabilir durumda düzeltme talebi oluşturabilir. | Talep oluşturmak, talebi onaylama yetkisi vermez. |
 | AUTH-005 | CONFIRMED | Teknisyen envanter ana verisini serbestçe yönetemez ve düzeltme talebi onaylayamaz. | Ana veri değişikliği ve karar işlemi reddedilmelidir. |
-| AUTH-006 | CONFIRMED | Depo Görevlisi stok görüntüleyebilir, katalog verisini görüntüleyebilir, olağan giriş ve çıkış yapabilir. | Her işlem kendi doğrulama kurallarına tabidir. |
+| AUTH-006 | CONFIRMED | Depo Görevlisi stok görüntüleyebilir, katalog verisini görüntüleyebilir, uygulama üzerinden Material oluşturup düzenleyebilir, olağan giriş, çıkış, iade ve transfer yapabilir (`DEC-037`). | Her işlem kendi doğrulama kurallarına ve permission'ına tabidir; Group adı kontrolü yeterli değildir. |
 | AUTH-007 | CONFIRMED | Depo Görevlisi yetkisi kapsamındaki operasyonel depo işlerini yapabilir. | Ayrıntılı işlem listesi TBD'dir. |
 | AUTH-008 | CONFIRMED | Depo Görevlisi ayrıca açıkça yetkilendirilmedikçe düzeltme talebi onaylayamaz veya reddedemez. | Mevcut onay yetkisi Yönetici/Müdür rolündedir. |
 | AUTH-009 | CONFIRMED | Yönetici/Müdür uygulama içinde tam yönetim yetkisine, ana veri yönetimine ve kontrollü düzeltme yönetimine sahiptir. | Bu rol giriş, çıkış ve düzeltme kararlarını gerçekleştirebilmelidir. |

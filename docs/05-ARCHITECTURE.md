@@ -380,7 +380,7 @@ Django Auth, Groups ve Permissions kullanılır. `TECHNICIAN`, `STOREKEEPER`, `A
 | Issue | Üç şablon rol |
 | Correction request | Yetkili operasyon kullanıcıları |
 | Correction approve/reject | ADMIN_MANAGER |
-| Material/location master data | ADMIN_MANAGER; storekeeper kapsamı TBD |
+| Material/location master data | ADMIN_MANAGER create+change; fresh STOREKEEPER Material create only (`DEC-037`); Location write ADMIN_MANAGER |
 | Import | ADMIN_MANAGER |
 | Return | `DEC-028` direct quantity slice: fresh STOREKEEPER ve ADMIN_MANAGER; TECHNICIAN değil. Runtime authorization permission tabanlıdır. |
 | Transfer | `DEC-029` quantity first slice: fresh STOREKEEPER ve ADMIN_MANAGER; TECHNICIAN değil. Runtime authorization permission tabanlıdır. Broader TRANSFER TBD. |
@@ -815,7 +815,7 @@ Bu legacy özet tüm projeyi bloke etmez. Güncel status, owner, source mapping 
 
 | Konu | İlgili feature/modül | Kaynak |
 |---|---|---|
-| Employee number ve material code uniqueness/reuse | accounts, catalog, imports | Employee number `DEC-024`; Location code `DEC-023`; Material code remainder `DEC-OPEN-021` |
+| Employee number ve material code uniqueness/reuse | accounts, catalog, imports | Employee number `DEC-024`; Location code `DEC-023`; yeni Material kodu `DEC-037`; historical uniqueness `DEC-OPEN-021` |
 | Serialized identifier ve ilk state kodu | Phase 5.3 foundation + RECEIVE; Phase 5.6 movements | `DEC-032` identity; `DEC-035` V1 `IN_STOCK`/`ISSUED`; serialized correction/custody/QR deferred |
 | Kondisyonun available/minimum stok etkisi | inventory, low stock, return | DM-B04 |
 | Minimum stok aggregation | reports/low stock | DM-B05 |

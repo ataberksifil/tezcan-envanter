@@ -14,7 +14,7 @@ from django.core.management import call_command
 from django.db import connection
 from django.urls import reverse
 
-from accounts.roles import ADMIN_MANAGER, TECHNICIAN
+from accounts.roles import ADMIN_MANAGER, STOREKEEPER, TECHNICIAN
 from audit.models import AuditEvent
 from catalog.models import Category, Material, UnitOfMeasure
 from catalog.services.categories import set_category_active
@@ -41,6 +41,7 @@ CANONICAL_FIELDS = {
     "tracking_mode",
     "minimum_stock_value",
     "technical_specs",
+    "search_keywords",
     "active",
 }
 FORBIDDEN_SNAPSHOT_KEYS = {
@@ -466,19 +467,19 @@ def test_create_normalizes_trimmed_fields():
     assert material.model is None
 
 
-def test_create_rejects_blank_code_or_name():
+def test_create_rejects_blank_name_but_blank_code_is_generated():
     actor = _admin_actor()
     category = _category()
     unit = _unit()
-    with pytest.raises(ValidationError):
-        create_material(
-            actor=actor,
-            material_code="   ",
-            name="Valid",
-            category_id=category.pk,
-            unit_id=unit.pk,
-            tracking_mode=Material.TrackingMode.QUANTITY,
-        )
+    generated = create_material(
+        actor=actor,
+        material_code="   ",
+        name="Valid",
+        category_id=category.pk,
+        unit_id=unit.pk,
+        tracking_mode=Material.TrackingMode.QUANTITY,
+    )
+    assert generated.material.material_code.startswith("MAT-")
     with pytest.raises(ValidationError):
         create_material(
             actor=actor,
@@ -1047,6 +1048,7 @@ def _valid_material_post(category, unit, **overrides):
         "unit": str(unit.pk) if unit is not None else "",
         "tracking_mode": overrides.get("tracking_mode", Material.TrackingMode.QUANTITY),
         "minimum_stock_value": overrides.get("minimum_stock_value", ""),
+        "search_keywords": overrides.get("search_keywords", ""),
     }
     data.update(overrides)
     return data
@@ -1107,14 +1109,18 @@ def test_http_create_and_update_work(app_client):
     category = _category()
     unit = _unit()
     _login(app_client, user)
+    post_data = _valid_material_post(category, unit, name="HTTP Created")
     create = app_client.post(
         reverse("catalog:material-create"),
-        _valid_material_post(category, unit, name="HTTP Created"),
+        post_data,
         follow=True,
     )
     assert create.status_code == 200
     assert "Malzeme oluşturuldu." in create.content.decode()
     material = Material.objects.get(name="HTTP Created")
+    assert material.material_code.startswith("MAT-")
+    assert len(material.material_code) == 12
+    assert material.material_code != post_data["material_code"]
     update = app_client.post(
         reverse("catalog:material-update", args=[material.pk]),
         _valid_material_post(
@@ -1152,7 +1158,6 @@ def test_form_exact_fields_and_forged_post_ignored(app_client):
     _login(app_client, user)
     form = app_client.get(reverse("catalog:material-create")).context["form"]
     assert list(form.fields) == [
-        "material_code",
         "name",
         "category",
         "brand",
@@ -1160,7 +1165,9 @@ def test_form_exact_fields_and_forged_post_ignored(app_client):
         "unit",
         "tracking_mode",
         "minimum_stock_value",
+        "search_keywords",
     ]
+    assert "material_code" not in form.fields
     assert "active" not in form.fields
     assert "technical_specs" not in form.fields
     assert "id" not in form.fields

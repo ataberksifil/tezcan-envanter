@@ -1,0 +1,30 @@
+{% if selected_material %}
+    <div class="border rounded p-3 bg-body-tertiary">
+        <dl class="row mb-0 small">
+            <dt class="col-sm-4">Sistem kodu</dt>
+            <dd class="col-sm-8">{{ selected_material.material_code }}</dd>
+            <dt class="col-sm-4">Ad</dt>
+            <dd class="col-sm-8">{{ selected_material.name }}</dd>
+            <dt class="col-sm-4">Marka</dt>
+            <dd class="col-sm-8">{% if selected_material.brand %}{{ selected_material.brand }}{% else %}—{% endif %}</dd>
+            <dt class="col-sm-4">Model</dt>
+            <dd class="col-sm-8">{% if selected_material.model %}{{ selected_material.model }}{% else %}—{% endif %}</dd>
+            <dt class="col-sm-4">Takip modu</dt>
+            <dd class="col-sm-8">{{ selected_material.get_tracking_mode_display }}</dd>
+            <dt class="col-sm-4">Stok birimi</dt>
+            <dd class="col-sm-8">{% if selected_material.unit %}{{ selected_material.unit.code }} ({{ selected_material.unit.name }}){% else %}—{% endif %}</dd>
+        </dl>
+        {% if selected_material_balances is not None %}
+            <p class="fw-semibold mt-3 mb-1">Mevcut stok konumları</p>
+            {% if selected_material_balances %}
+                <ul class="mb-0 small">
+                    {% for balance in selected_material_balances %}
+                        <li>{{ balance.location.path_label }} — {{ balance.quantity }} {% if selected_material.unit %}{{ selected_material.unit.code }}{% endif %} ({{ balance.condition.name }})</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-body-secondary small mb-0">Pozitif bakiye yok. Gelen malzeme mal kabul konumuna alınabilir.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+{% endif %}

@@ -4,8 +4,56 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import CharField, F, Func, Q, Value
+from django.db.models import CharField, F, Func, Q, TextField, Value
+from django.db.models.functions import Cast, Lower, Replace
 from django.db.models.lookups import Exact
+
+
+def turkish_casefold(value: str) -> str:
+    """Deterministic Turkish I/i fold for compare and search.
+
+    Maps ``İ`` → ``i`` and ``I`` → ``ı`` before Unicode ``lower()``. This
+    avoids Python ``str.lower()`` turning ``İ`` into ``i`` plus U+0307.
+    Dotted and dotless I families stay distinct. Does not use ICU.
+    """
+    if not value:
+        return ""
+    return str(value).replace("İ", "i").replace("I", "ı").lower()
+
+
+def turkish_fold_expr(field_name: str):
+    """SQL equivalent of ``turkish_casefold`` for queryset filtering."""
+    source = Cast(F(field_name), TextField())
+    return Lower(
+        Replace(
+            Replace(source, Value("İ"), Value("i"), output_field=TextField()),
+            Value("I"),
+            Value("ı"),
+            output_field=TextField(),
+        ),
+        output_field=TextField(),
+    )
+
+
+def normalize_material_search_keywords(value) -> str:
+    """Whitespace/comma-split workshop aliases; preserve entered spelling.
+
+    Dedup uses ``turkish_casefold`` and keeps the first spelling. Stored
+    text is not lowercased.
+    """
+    if not value:
+        return ""
+    tokens: list[str] = []
+    seen: set[str] = set()
+    for raw in str(value).replace(",", " ").split():
+        token = raw.strip()
+        if not token:
+            continue
+        key = turkish_casefold(token)
+        if key not in seen:
+            seen.add(key)
+            tokens.append(token)
+    return ", ".join(tokens)
 
 
 class Category(models.Model):
@@ -199,6 +247,7 @@ class Material(models.Model):
         validators=[MinValueValidator(Decimal("0"))],
     )
     technical_specs = models.JSONField(default=dict, blank=True)
+    search_keywords = models.TextField(blank=True, default="")
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -244,6 +293,11 @@ class Material(models.Model):
                 ),
                 name="catalog_mat_tech_specs_obj",
             ),
+            models.UniqueConstraint(
+                fields=["material_code"],
+                condition=Q(material_code__regex=r"^MAT-[0-9]{8}$"),
+                name="catalog_mat_generated_code_uniq",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -255,7 +309,10 @@ class Material(models.Model):
         if self.material_code is not None:
             self.material_code = self.material_code.strip()
             if not self.material_code:
-                raise ValidationError({"material_code": "Malzeme kodu boş olamaz."})
+                if self._state.adding:
+                    self.material_code = ""
+                else:
+                    raise ValidationError({"material_code": "Malzeme kodu boş olamaz."})
 
         if self.name is not None:
             self.name = self.name.strip()
@@ -269,6 +326,13 @@ class Material(models.Model):
         if self.model is not None:
             trimmed_model = self.model.strip()
             self.model = trimmed_model if trimmed_model else None
+
+        if self.search_keywords is None:
+            self.search_keywords = ""
+        else:
+            self.search_keywords = normalize_material_search_keywords(
+                self.search_keywords
+            )
 
         if not isinstance(self.technical_specs, dict):
             raise ValidationError(

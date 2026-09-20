@@ -841,6 +841,50 @@ def test_admin_manager_sees_mutation_buttons(app_client):
     assert "Pasifleştir" in detail_content
 
 
+def test_storekeeper_sees_create_not_edit_buttons(app_client):
+    material = _material(name="SK-MUT-BUTTONS")
+    user = _role_user(STOREKEEPER, "mat-storekeeper-buttons")
+    _login(app_client, user)
+    list_content = app_client.get("/catalog/materials/").content.decode()
+    detail_content = app_client.get(
+        reverse("catalog:material-detail", args=[material.pk])
+    ).content.decode()
+    assert "Yeni malzeme" in list_content
+    assert "Düzenle" not in detail_content
+    assert "Pasifleştir" not in detail_content
+    assert app_client.get(
+        reverse("catalog:material-update", args=[material.pk])
+    ).status_code == 403
+    assert app_client.post(
+        reverse("catalog:material-deactivate", args=[material.pk])
+    ).status_code == 403
+
+
+def test_search_by_keywords_and_combined_tokens(app_client):
+    _material(
+        material_code="KW-TEFLON",
+        name="PTFE Tape",
+        brand="Generic",
+        model="X1",
+        search_keywords="teflon, bant, ptfe",
+    )
+    _material(
+        material_code="KW-MISS",
+        name="Other Tape",
+        brand="Other",
+        model="Y2",
+        search_keywords="encoder",
+    )
+    user = _role_user(TECHNICIAN, "mat-keyword-search")
+    _login(app_client, user)
+    content = app_client.get("/catalog/materials/", {"q": "bant"}).content.decode()
+    assert "KW-TEFLON" in content
+    assert "KW-MISS" not in content
+    combined = app_client.get("/catalog/materials/", {"q": "ptfe tape"}).content.decode()
+    assert "KW-TEFLON" in combined
+    assert "KW-MISS" not in combined
+
+
 def test_status_routes_reject_get(app_client):
     material = _material(name="STATUS-GET")
     user = _role_user(ADMIN_MANAGER, "mat-status-get")

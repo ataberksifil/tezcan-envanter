@@ -56,6 +56,7 @@ Komut idempotent'tir: demo marker lokasyonu (`G1`) zaten varsa stok hareketlerin
 | Tür | Kod / tanım |
 |---|---|
 | Lokasyon | `G1`, `G2` |
+| Mal kabul staging | `MK` (Mal Kabul, stok tutmaz), `MK-BEKLEYEN` (Yerleştirme Bekleyen, stok tutar). Production kodu bu kodlara sihirli sabit olarak bağlanmaz. |
 | Malzeme (quantity) | `DEMO-KLEMENS` — terminal klemens |
 | Malzeme (serialized) | `DEMO-PLC-CPU` |
 | Çalışan | `DEMO-1001` Mehmet Teknisyen (demo.teknisyen ile bağlı) |
@@ -83,33 +84,34 @@ Beklenen klemens bakiyesi: `G1` ≈ 80, `G2` ≈ 10.
 
 ### B. Stok girişi (`demo.depocu`)
 
-4. `/inventory/receipts/new/`
-5. `/inventory/serialized-receipts/new/` (isteğe bağlı)
+4. `/catalog/materials/new/` — sistem kod üretir; model alanında Barkod Tara yardımcıdır
+5. `/inventory/receipts/new/` — malzeme özeti, tam Location yolu, mal kabul konumuna kayıt; onay sonrası `Yerleştir / Transfer Et`
+6. `/inventory/serialized-receipts/new/` (isteğe bağlı)
 
 ### C. Stok çıkışı (`demo.teknisyen`)
 
-6. `/inventory/issues/new/` — hat seçiminde `H1`
+7. `/inventory/issues/new/` — hat seçiminde `H1`
 
 ### D. İade ve transfer (`demo.depocu`)
 
-7. `/inventory/returns/new/`
-8. `/inventory/transfers/new/`
+8. `/inventory/returns/new/`
+9. `/inventory/transfers/new/`
 
 ### E. Düzeltme + kanıt (Phase 5.5)
 
-9. Transaction detayından düzeltme talebi + fotoğraf kanıtı
-10. `demo.yonetici`: `/corrections/` — onay/red
-11. Authenticated evidence retrieval
+10. Transaction detayından düzeltme talebi + fotoğraf kanıtı
+11. `demo.yonetici`: `/corrections/` — onay/red
+12. Authenticated evidence retrieval
 
 ### F. Yönetim (`demo.yonetici`)
 
-12. `/management/`, `/locations/`, `/catalog/materials/`
+13. `/management/`, `/locations/`, `/catalog/materials/`
 
 ### G. Fiziksel sayım ve kesim
 
-13. `/counts/` — `DEMO-SAYIM-G1` (rutin, G1) ve `DEMO-KESIM-G2` (kesim adayı, G2) taslak oturumlar
-14. `demo.depocu`: sayımı başlat, kör miktar/tekil sayım, tamamla
-15. `demo.yonetici`: rutin fark onayı veya G2 kesim hazırlığı / kesim (hassas)
+14. `/counts/` — `DEMO-SAYIM-G1` (rutin, G1) ve `DEMO-KESIM-G2` (kesim adayı, G2) taslak oturumlar
+15. `demo.depocu`: sayımı başlat, kör miktar/tekil sayım, tamamla
+16. `demo.yonetici`: rutin fark onayı veya G2 kesim hazırlığı / kesim (hassas)
 
 Ad-hoc açılış bakiyesi formu yoktur; INITIAL_BALANCE yalnız kontrollü kesimden oluşur.
 
@@ -120,6 +122,8 @@ Ad-hoc açılış bakiyesi formu yoktur; INITIAL_BALANCE yalnız kontrollü kesi
 - Excel import UI
 - Raporlama dashboard
 - Serialized correction
+- Talep Takip
+- SKT / expiry workflow
 
 ---
 

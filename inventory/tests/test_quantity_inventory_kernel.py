@@ -1119,6 +1119,7 @@ def test_receipt_and_issue_routes_are_operational_not_management_and_admin_stays
     assert {pattern.name for pattern in receipt_patterns} == {
         "receipt-create",
         "receipt-detail",
+        "receipt-material-summary",
     }
     assert {pattern.name for pattern in issue_patterns} == {
         "issue-create",

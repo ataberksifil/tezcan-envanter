@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ form_title }} — Elektrik Atölyesi Envanter{% endblock %}
 
@@ -9,7 +10,13 @@
             <div class="card-body p-4">
                 <h1 class="h3 mb-3">{{ form_title }}</h1>
 
-                <form method="post" novalidate>
+                {% if code_is_generated %}
+                    <p class="text-body-secondary">Malzeme kodu kayıt sırasında sistem tarafından üretilir. Kullanıcının kod uydurması gerekmez. Makine okunur kimlik TZ1M olarak kalır.</p>
+                {% elif material %}
+                    <p class="mb-3"><strong>Malzeme kodu:</strong> <span class="font-monospace">{{ material.material_code }}</span> (değiştirilmez)</p>
+                {% endif %}
+
+                <form method="post" novalidate id="material-form">
                     {% csrf_token %}
 
                     {% if form.non_field_errors %}
@@ -23,7 +30,14 @@
                     {% for field in form %}
                         <div class="mb-3">
                             <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                            {{ field }}
+                            {% if field.name == "model" %}
+                                <div class="input-group">
+                                    {{ field }}
+                                    <button class="btn btn-outline-secondary" type="button" id="model-scan-toggle">Barkod Tara</button>
+                                </div>
+                            {% else %}
+                                {{ field }}
+                            {% endif %}
                             {% if field.help_text %}
                                 <div class="form-text">{{ field.help_text }}</div>
                             {% endif %}
@@ -32,6 +46,24 @@
                             {% endfor %}
                         </div>
                     {% endfor %}
+
+                    <div id="model-scan-panel" class="border rounded p-3 mb-3 d-none" data-model-scan-root="true">
+                        <p class="fw-semibold mb-1">Üretici / model barkodu</p>
+                        <p class="text-body-secondary small mb-2">Okunan değer model alanına yazılır; form kaydedilmez ve stok oluşmaz. USB okuyucu doğrudan model alanına yazabilir.</p>
+                        <p id="model-scan-status" class="text-body-secondary" role="status" aria-live="polite">Kamera Code 128 ve QR okur; yalnız siz başlattığınızda açılır.</p>
+                        <div id="model-scan-video-wrap" class="ratio ratio-4x3 bg-dark rounded overflow-hidden d-none mb-3">
+                            <video id="model-scan-video" class="w-100 h-100 object-fit-cover" muted playsinline></video>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <button class="btn btn-primary btn-sm" type="button" id="model-scan-start">Kamerayı başlat</button>
+                            <button class="btn btn-outline-secondary btn-sm d-none" type="button" id="model-scan-stop">Kamerayı durdur</button>
+                        </div>
+                        <label class="form-label" for="model-scan-helper">USB / elle okunan değer</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="model-scan-helper" autocomplete="off" placeholder="Barkodu okutun veya yazın">
+                            <button class="btn btn-outline-primary" type="button" id="model-scan-apply">Alana yaz</button>
+                        </div>
+                    </div>
 
                     <div class="d-flex flex-wrap gap-2">
                         <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
@@ -42,4 +74,9 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/zxing/zxing-browser.min.js' %}"></script>
+<script src="{% static 'catalog/js/model_scan_helper.js' %}"></script>
 {% endblock %}

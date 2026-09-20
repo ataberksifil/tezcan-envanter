@@ -4,10 +4,11 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Prefetch, Q, Sum
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from catalog.models import Material
 from inventory.forms import (
     ProductionLineForm,
     QuantityIssueForm,
@@ -38,9 +39,11 @@ from inventory.stock_list import (
     STOCK_LIST_PAGE_SIZE,
     STOCK_LIST_PERMISSION,
     build_stock_balance_queryset,
+    current_stock_balances_for_material,
     filter_params_from_request as stock_filter_params_from_request,
     stock_list_filter_form_context,
 )
+from locations.display import location_path_label
 from inventory.transaction_history import (
     TRANSACTION_HISTORY_PAGE_SIZE,
     TRANSACTION_HISTORY_PERMISSION,
@@ -241,30 +244,90 @@ class ReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
     permission_required = "inventory.receive_stock"
     template_name = "inventory/receipt_form.html"
 
-    def get(self, request):
-        form = QuantityReceiptForm()
+    def _initial_from_get(self, request):
+        initial = {}
+        material = request.GET.get("material", "").strip()
+        target_location = request.GET.get("target_location", "").strip()
+        condition = request.GET.get("condition", "").strip()
+        if material:
+            initial["material"] = material
+        if target_location:
+            initial["target_location"] = target_location
+        if condition:
+            initial["condition"] = condition
+        return initial
+
+    def _render(self, request, form, *, preview=None):
+        selected_material = None
+        if form.is_bound:
+            selected_material = form.cleaned_data.get("material") if form.is_valid() else None
+            if selected_material is None:
+                raw = form.data.get("material")
+                if raw:
+                    selected_material = Material.objects.filter(
+                        pk=raw,
+                        tracking_mode=Material.TrackingMode.QUANTITY,
+                    ).select_related("unit", "category").first()
+        elif form.initial.get("material"):
+            selected_material = Material.objects.filter(
+                pk=form.initial["material"],
+                tracking_mode=Material.TrackingMode.QUANTITY,
+            ).select_related("unit", "category").first()
         return render(
             request,
             self.template_name,
             {
                 "form": form,
-                "form_title": "Stok girişi",
-                "submit_label": "Kaydet",
+                "form_title": "Stok girişi / mal kabul",
+                "submit_label": "Girişi kaydet" if preview else "Önizle",
+                "preview": preview,
+                "selected_material": selected_material,
+                "selected_material_balances": (
+                    current_stock_balances_for_material(selected_material.pk)
+                    if selected_material is not None
+                    and request.user.has_perm(STOCK_LIST_PERMISSION)
+                    else None
+                ),
             },
         )
+
+    def _preview_context(self, form):
+        material = form.cleaned_data["material"]
+        location = form.cleaned_data["target_location"]
+        condition = form.cleaned_data["condition"]
+        quantity = form.cleaned_data["quantity"]
+        return {
+            "material": material,
+            "location": location,
+            "location_path": location_path_label(location),
+            "condition": condition,
+            "quantity": quantity,
+            "unit": material.unit,
+        }
+
+    def get(self, request):
+        material_id = request.GET.get("material", "").strip()
+        if material_id:
+            material = Material.objects.filter(pk=material_id).first()
+            if (
+                material is not None
+                and material.tracking_mode == Material.TrackingMode.SERIALIZED
+            ):
+                return redirect(
+                    f"{reverse('inventory:serialized-receipt-create')}?material={material.pk}"
+                )
+        return self._render(request, QuantityReceiptForm(initial=self._initial_from_get(request)))
 
     def post(self, request):
         form = QuantityReceiptForm(request.POST)
         if not form.is_valid():
-            return render(
-                request,
-                self.template_name,
-                {
-                    "form": form,
-                    "form_title": "Stok girişi",
-                    "submit_label": "Kaydet",
-                },
-            )
+            return self._render(request, form)
+
+        if request.POST.get("intent") == "edit":
+            return self._render(request, form)
+
+        if request.POST.get("confirm") != "1":
+            return self._render(request, form, preview=self._preview_context(form))
 
         material = form.cleaned_data["material"]
         try:
@@ -281,21 +344,44 @@ class ReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
             raise
         except ValidationError as exc:
             attach_receipt_validation_error(form, exc)
-            return render(
-                request,
-                self.template_name,
-                {
-                    "form": form,
-                    "form_title": "Stok girişi",
-                    "submit_label": "Kaydet",
-                },
-            )
+            return self._render(request, form)
 
         if result.replayed:
             messages.info(request, "Bu stok girişi daha önce kaydedilmişti.")
         else:
             messages.success(request, "Stok girişi kaydedildi.")
         return redirect("inventory:receipt-detail", pk=result.transaction.pk)
+
+
+class ReceiptMaterialSummaryView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "inventory.receive_stock"
+    http_method_names = ["get", "head"]
+    template_name = "inventory/_receipt_material_summary.html"
+
+    def get(self, request):
+        material_id = request.GET.get("material", "").strip()
+        material = None
+        balances = None
+        if material_id:
+            material = (
+                Material.objects.filter(pk=material_id)
+                .select_related("unit", "category")
+                .first()
+            )
+            if (
+                material is not None
+                and material.tracking_mode == Material.TrackingMode.QUANTITY
+                and request.user.has_perm(STOCK_LIST_PERMISSION)
+            ):
+                balances = current_stock_balances_for_material(material.pk)
+        return render(
+            request,
+            self.template_name,
+            {
+                "selected_material": material,
+                "selected_material_balances": balances,
+            },
+        )
 
 
 class SerializedReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
@@ -314,7 +400,14 @@ class SerializedReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, V
         )
 
     def get(self, request):
-        return self._render(request, SerializedReceiptForm())
+        initial = {}
+        material = request.GET.get("material", "").strip()
+        target_location = request.GET.get("target_location", "").strip()
+        if material:
+            initial["material"] = material
+        if target_location:
+            initial["target_location"] = target_location
+        return self._render(request, SerializedReceiptForm(initial=initial))
 
     def post(self, request):
         form = SerializedReceiptForm(request.POST)
@@ -911,7 +1004,12 @@ class TransferCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
         )
 
     def get(self, request):
-        return self._render(request, QuantityTransferForm())
+        initial = {}
+        for field_name in ("material", "source_location", "target_location", "condition"):
+            value = request.GET.get(field_name, "").strip()
+            if value:
+                initial[field_name] = value
+        return self._render(request, QuantityTransferForm(initial=initial))
 
     def post(self, request):
         form = QuantityTransferForm(request.POST)
@@ -989,6 +1087,7 @@ class ReceiptDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
             .select_related("acting_user")
             .prefetch_related(
                 "lines__material__unit",
+                "lines__serialized_asset",
                 "lines__condition",
                 "lines__target_location",
             )
@@ -999,5 +1098,27 @@ class ReceiptDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
         lines = list(self.object.lines.all())
         if len(lines) != 1:
             raise Http404("Receipt not found")
-        context["line"] = lines[0]
+        line = lines[0]
+        context["line"] = line
+        context["location_path"] = (
+            location_path_label(line.target_location)
+            if line.target_location_id
+            else ""
+        )
+        context["resulting_balance"] = None
+        if (
+            line.serialized_asset_id is None
+            and line.material_id
+            and line.target_location_id
+            and line.condition_id
+        ):
+            context["resulting_balance"] = (
+                StockBalance.objects.filter(
+                    material_id=line.material_id,
+                    location_id=line.target_location_id,
+                    condition_id=line.condition_id,
+                )
+                .select_related("location", "condition")
+                .first()
+            )
         return context

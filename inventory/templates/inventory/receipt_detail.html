@@ -8,8 +8,15 @@
     <div class="d-flex flex-wrap gap-2">
         {% if line.serialized_asset_id %}
             <a class="btn btn-outline-primary" href="{% url 'inventory:serialized-receipt-create' %}">Yeni tekil varlık girişi</a>
+            <a class="btn btn-outline-dark" href="{% url 'identification:asset-label' line.serialized_asset_id %}">Etiket yazdır</a>
+            <a class="btn btn-outline-secondary" href="{% url 'identification:asset-label-compact' line.serialized_asset_id %}">Kompakt QR</a>
         {% else %}
             <a class="btn btn-outline-primary" href="{% url 'inventory:receipt-create' %}">Yeni stok girişi</a>
+            {% if perms.inventory.transfer_stock %}
+                <a class="btn btn-primary" href="{% url 'inventory:transfer-create' %}?material={{ line.material_id }}&amp;source_location={{ line.target_location_id }}&amp;condition={{ line.condition_id }}">Yerleştir / Transfer Et</a>
+            {% endif %}
+            <a class="btn btn-outline-dark" href="{% url 'identification:material-label' line.material_id %}">Etiket yazdır</a>
+            <a class="btn btn-outline-secondary" href="{% url 'identification:material-label-compact' line.material_id %}">Kompakt QR</a>
         {% endif %}
         <a class="btn btn-outline-secondary" href="{% url 'home' %}">Ana sayfa</a>
     </div>
@@ -42,7 +49,7 @@
         <dd class="col-sm-9">{{ line.serialized_asset.get_current_state_display }}</dd>
     {% else %}
         <dt class="col-sm-3">Miktar</dt>
-        <dd class="col-sm-9">{{ line.quantity }}</dd>
+        <dd class="col-sm-9">{{ line.quantity }} {{ line.unit.code }}</dd>
 
         <dt class="col-sm-3">Birim</dt>
         <dd class="col-sm-9">{{ line.unit.code }} ({{ line.unit.name }})</dd>
@@ -51,7 +58,18 @@
     <dt class="col-sm-3">Kondisyon</dt>
     <dd class="col-sm-9">{{ line.condition.name }}</dd>
 
-    <dt class="col-sm-3">Hedef konum</dt>
-    <dd class="col-sm-9">{{ line.target_location.code }} ({{ line.target_location.name }})</dd>
+    <dt class="col-sm-3">Kaydedilen konum</dt>
+    <dd class="col-sm-9">
+        {% if location_path %}{{ location_path }}{% else %}{{ line.target_location.code }} ({{ line.target_location.name }}){% endif %}
+    </dd>
+
+    {% if resulting_balance %}
+        <dt class="col-sm-3">Güncel bakiye</dt>
+        <dd class="col-sm-9">{{ resulting_balance.quantity }} {{ line.unit.code }} — {{ location_path }}</dd>
+    {% endif %}
 </dl>
+
+{% if not line.serialized_asset_id and perms.inventory.transfer_stock %}
+    <p class="mt-4 mb-0">Bu kayıt malzemenin bulunduğu konumdur. Fiziksel rafa yerleştirmek için <strong>Yerleştir / Transfer Et</strong> kullanın; stok doğrudan son rafa yazılmaz.</p>
+{% endif %}
 {% endblock %}

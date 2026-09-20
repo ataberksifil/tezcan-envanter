@@ -484,11 +484,10 @@ def test_manage_access_only_user_still_sees_management_hub(app_client):
     assert reverse("locations:location-list") not in content
 
 
-@pytest.mark.parametrize("role_name", (TECHNICIAN, STOREKEEPER))
-def test_view_only_role_templates_do_not_show_management_nav(app_client, role_name):
+def test_technician_role_template_does_not_show_management_nav(app_client):
     call_command("setup_roles", verbosity=0)
-    user = _create_ordinary_user(f"mgmt-nav-{role_name.lower()}")
-    user.groups.add(Group.objects.get(name=role_name))
+    user = _create_ordinary_user("mgmt-nav-technician")
+    user.groups.add(Group.objects.get(name=TECHNICIAN))
     user = _refresh_user_permissions(user)
     _login(app_client, user)
 
@@ -497,3 +496,24 @@ def test_view_only_role_templates_do_not_show_management_nav(app_client, role_na
     assert ">Kategoriler</a>" not in content
     assert ">Ölçü Birimleri</a>" not in content
     assert ">Yönetim</a>" not in content
+
+
+def test_fresh_storekeeper_sees_management_materials_card_only(app_client):
+    call_command("setup_roles", verbosity=0)
+    user = _create_ordinary_user("mgmt-nav-storekeeper")
+    user.groups.add(Group.objects.get(name=STOREKEEPER))
+    user = _refresh_user_permissions(user)
+    _login(app_client, user)
+
+    home = app_client.get("/").content.decode()
+    assert ">Malzemeler</a>" in home
+    assert ">Yönetim</a>" in home
+    page = app_client.get(_management_url())
+    assert page.status_code == 200
+    content = page.content.decode()
+    assert reverse("catalog:material-list") in content
+    assert reverse("catalog:category-list") not in content
+    assert reverse("catalog:unit-list") not in content
+    assert reverse("locations:location-list") not in content
+    assert reverse("accounts:employee-list") not in content
+    assert reverse("inventory:production-line-list") not in content

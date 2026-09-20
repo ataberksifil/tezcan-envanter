@@ -160,6 +160,7 @@ def _valid_post_data(receipt_master_data, **overrides):
         "quantity": "2.500",
         "condition": str(receipt_master_data["condition"].pk),
         "target_location": str(receipt_master_data["location"].pk),
+        "confirm": "1",
     }
     values.update(overrides)
     return values
@@ -435,3 +436,202 @@ def test_new_technician_from_setup_roles_cannot_access_receipt(app_client):
     assert user.has_perm("inventory.receive_stock") is False
     app_client.force_login(user)
     assert app_client.get("/inventory/receipts/new/").status_code == 403
+
+
+def test_get_does_not_mutate_and_preselects_quantity_material(app_client, receipt_master_data):
+    user = _grant_receive_stock(_create_ordinary_user("receipt-preselect"))
+    app_client.force_login(user)
+    material = receipt_master_data["material"]
+    response = app_client.get(
+        "/inventory/receipts/new/",
+        {"material": str(material.pk)},
+    )
+    assert response.status_code == 200
+    assert InventoryTransaction.objects.count() == 0
+    assert StockBalance.objects.count() == 0
+    content = response.content.decode()
+    assert str(material.pk) in content
+    assert material.material_code in content
+    assert material.name in content
+    assert f"Miktar ({receipt_master_data['unit'].code})" in content
+    assert "Yerleştirme Bekleyen" in content or "mal kabul" in content.lower()
+    form = response.context["form"]
+    assert str(form["material"].value()) == str(material.pk)
+
+
+def test_serialized_material_get_redirects_to_serialized_receipt(
+    app_client, receipt_master_data
+):
+    user = _grant_receive_stock(_create_ordinary_user("receipt-serialized-redirect"))
+    app_client.force_login(user)
+    serialized = receipt_master_data["serialized_material"]
+    response = app_client.get(
+        "/inventory/receipts/new/",
+        {"material": str(serialized.pk)},
+    )
+    assert response.status_code == 302
+    assert response.url == (
+        f"{reverse('inventory:serialized-receipt-create')}?material={serialized.pk}"
+    )
+    assert InventoryTransaction.objects.count() == 0
+
+
+def test_preview_post_does_not_mutate_and_shows_full_location_path(
+    app_client, receipt_master_data
+):
+    parent = Location.objects.create(
+        code="EA-INB",
+        name="Elektrik Ambarı",
+        can_hold_stock=False,
+    )
+    staging = Location.objects.create(
+        code="MK-BEKLEYEN-INB",
+        name="Yerleştirme Bekleyen",
+        parent=parent,
+        active=True,
+        can_hold_stock=True,
+    )
+    user = _grant_receive_stock(_create_ordinary_user("receipt-preview"))
+    app_client.force_login(user)
+    get_response = app_client.get("/inventory/receipts/new/")
+    operation_id = get_response.context["form"]["operation_id"].value()
+    post_data = _valid_post_data(
+        receipt_master_data,
+        operation_id=operation_id,
+        target_location=str(staging.pk),
+    )
+    post_data.pop("confirm", None)
+    response = app_client.post("/inventory/receipts/new/", post_data)
+    assert response.status_code == 200
+    assert InventoryTransaction.objects.count() == 0
+    assert StockBalance.objects.count() == 0
+    content = response.content.decode()
+    assert "Kayıt önizlemesi" in content
+    assert "Elektrik Ambarı (EA-INB) → Yerleştirme Bekleyen (MK-BEKLEYEN-INB)" in content
+    assert receipt_master_data["unit"].code in content
+    assert "Girişi kaydet" in content
+
+
+def test_confirmed_receipt_uses_service_and_offers_putaway_and_labels(
+    app_client, receipt_master_data
+):
+    user = _grant_permissions(
+        _grant_receive_stock(_create_ordinary_user("receipt-putaway")),
+        "inventory.transfer_stock",
+        "inventory.view_stockbalance",
+        "catalog.view_material",
+    )
+    app_client.force_login(user)
+    post_data = _valid_post_data(
+        receipt_master_data,
+        operation_id=str(uuid.uuid4()),
+    )
+    response = app_client.post("/inventory/receipts/new/", post_data)
+    assert response.status_code == 302
+    receipt = InventoryTransaction.objects.get()
+    detail = app_client.get(response.url)
+    content = detail.content.decode()
+    assert receipt_master_data["unit"].code in content
+    assert "Yerleştir / Transfer Et" in content
+    transfer_url = (
+        f"{reverse('inventory:transfer-create')}"
+        f"?material={receipt_master_data['material'].pk}"
+        f"&source_location={receipt_master_data['location'].pk}"
+        f"&condition={receipt_master_data['condition'].pk}"
+    )
+    assert transfer_url in content.replace("&amp;", "&") or (
+        str(receipt_master_data["material"].pk) in content
+        and str(receipt_master_data["location"].pk) in content
+    )
+    assert reverse("identification:material-label", args=[receipt_master_data["material"].pk]) in content
+    assert "Güncel bakiye" in content
+    assert StockBalance.objects.get().quantity == Decimal("2.500")
+
+    transfer_page = app_client.get(transfer_url)
+    assert transfer_page.status_code == 200
+    transfer_form = transfer_page.context["form"]
+    assert str(transfer_form["material"].value()) == str(receipt_master_data["material"].pk)
+    assert str(transfer_form["source_location"].value()) == str(
+        receipt_master_data["location"].pk
+    )
+    assert InventoryTransaction.objects.filter(
+        transaction_type=InventoryTransaction.TransactionType.TRANSFER
+    ).count() == 0
+    assert StockBalance.objects.get().location_id == receipt_master_data["location"].pk
+
+
+def test_preview_back_with_confirm_and_intent_edit_does_not_mutate(
+    app_client, receipt_master_data
+):
+    user = _grant_receive_stock(_create_ordinary_user("receipt-preview-back"))
+    app_client.force_login(user)
+    get_response = app_client.get("/inventory/receipts/new/")
+    operation_id = get_response.context["form"]["operation_id"].value()
+    post_data = _valid_post_data(
+        receipt_master_data,
+        operation_id=operation_id,
+        quantity="3.250",
+        confirm="1",
+        intent="edit",
+    )
+    response = app_client.post("/inventory/receipts/new/", post_data)
+    assert response.status_code == 200
+    assert InventoryTransaction.objects.count() == 0
+    assert InventoryTransactionLine.objects.count() == 0
+    assert StockBalance.objects.count() == 0
+    form = response.context["form"]
+    assert response.context["preview"] is None
+    assert str(form["operation_id"].value()) == str(operation_id)
+    assert str(form["material"].value()) == str(receipt_master_data["material"].pk)
+    assert str(form["quantity"].value()) == "3.250"
+    assert str(form["condition"].value()) == str(receipt_master_data["condition"].pk)
+    assert str(form["target_location"].value()) == str(receipt_master_data["location"].pk)
+    content = response.content.decode()
+    assert "Kayıt önizlemesi" not in content
+    assert "Önizle" in content
+
+
+def test_explicit_confirm_after_preview_back_creates_exactly_one_receipt(
+    app_client, receipt_master_data
+):
+    user = _grant_receive_stock(_create_ordinary_user("receipt-confirm-once"))
+    app_client.force_login(user)
+    get_response = app_client.get("/inventory/receipts/new/")
+    operation_id = get_response.context["form"]["operation_id"].value()
+    back_data = _valid_post_data(
+        receipt_master_data,
+        operation_id=operation_id,
+        confirm="1",
+        intent="edit",
+    )
+    back = app_client.post("/inventory/receipts/new/", back_data)
+    assert back.status_code == 200
+    assert InventoryTransaction.objects.count() == 0
+
+    confirm_data = _valid_post_data(
+        receipt_master_data,
+        operation_id=operation_id,
+        confirm="1",
+    )
+    confirmed = app_client.post("/inventory/receipts/new/", confirm_data)
+    assert confirmed.status_code == 302
+    assert InventoryTransaction.objects.count() == 1
+    assert InventoryTransactionLine.objects.count() == 1
+    assert StockBalance.objects.get().quantity == Decimal("2.500")
+
+
+def test_material_summary_endpoint_is_read_only(app_client, receipt_master_data):
+    user = _grant_permissions(
+        _grant_receive_stock(_create_ordinary_user("receipt-summary")),
+        "inventory.view_stockbalance",
+    )
+    app_client.force_login(user)
+    response = app_client.get(
+        reverse("inventory:receipt-material-summary"),
+        {"material": str(receipt_master_data["material"].pk)},
+    )
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert receipt_master_data["material"].material_code in content
+    assert receipt_master_data["material"].name in content
+    assert InventoryTransaction.objects.count() == 0

@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import redirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
@@ -19,6 +19,7 @@ from catalog.services.categories import (
     update_category,
 )
 from catalog.services.materials import (
+    apply_material_search,
     create_material,
     set_material_active,
     update_material,
@@ -58,7 +59,10 @@ def _attach_validation_error(form, exc: ValidationError) -> None:
                     form.add_error(None, error)
             else:
                 for error in errors:
-                    form.add_error(field, error)
+                    if field in form.fields:
+                        form.add_error(field, error)
+                    else:
+                        form.add_error(None, error)
     else:
         form.add_error(None, exc)
 
@@ -381,12 +385,7 @@ class MaterialListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         )
         query = self.request.GET.get("q", "").strip()
         if query:
-            queryset = queryset.filter(
-                Q(material_code__icontains=query)
-                | Q(name__icontains=query)
-                | Q(brand__icontains=query)
-                | Q(model__icontains=query)
-            )
+            queryset = apply_material_search(queryset, query)
 
         category_id = normalize_category_uuid_filter(self.request.GET.get("category"))
         if category_id is not None:
@@ -458,12 +457,15 @@ class MaterialCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
     permission_required = "catalog.add_material"
     form_class = MaterialForm
     template_name = "catalog/material_form.html"
-    success_url = reverse_lazy("catalog:material-list")
+
+    def get_success_url(self):
+        return reverse("catalog:material-detail", args=[self.object.pk])
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["form_title"] = "Yeni malzeme"
         context["submit_label"] = "Kaydet"
+        context["code_is_generated"] = True
         return context
 
     def form_valid(self, form):
@@ -472,7 +474,6 @@ class MaterialCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
         try:
             result = create_material(
                 actor=self.request.user,
-                material_code=form.cleaned_data["material_code"],
                 name=form.cleaned_data["name"],
                 category_id=category.pk,
                 brand=form.cleaned_data.get("brand"),
@@ -480,12 +481,16 @@ class MaterialCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
                 unit_id=unit.pk if unit is not None else None,
                 tracking_mode=form.cleaned_data["tracking_mode"],
                 minimum_stock_value=form.cleaned_data.get("minimum_stock_value"),
+                search_keywords=form.cleaned_data.get("search_keywords") or "",
             )
         except ValidationError as exc:
             _attach_validation_error(form, exc)
             return self.form_invalid(form)
         self.object = result.material
-        messages.success(self.request, "Malzeme oluşturuldu.")
+        messages.success(
+            self.request,
+            f"Malzeme oluşturuldu. Sistem kodu: {result.material.material_code}",
+        )
         return redirect(self.get_success_url())
 
 
@@ -494,13 +499,16 @@ class MaterialUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
     model = Material
     form_class = MaterialForm
     template_name = "catalog/material_form.html"
-    success_url = reverse_lazy("catalog:material-list")
     context_object_name = "material"
+
+    def get_success_url(self):
+        return reverse("catalog:material-detail", args=[self.object.pk])
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["form_title"] = "Malzemeyi düzenle"
         context["submit_label"] = "Kaydet"
+        context["code_is_generated"] = False
         return context
 
     def form_valid(self, form):
@@ -510,7 +518,7 @@ class MaterialUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
             result = update_material(
                 actor=self.request.user,
                 material_id=self.object.pk,
-                material_code=form.cleaned_data["material_code"],
+                material_code=self.object.material_code,
                 name=form.cleaned_data["name"],
                 category_id=category.pk,
                 brand=form.cleaned_data.get("brand"),
@@ -518,6 +526,7 @@ class MaterialUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
                 unit_id=unit.pk if unit is not None else None,
                 tracking_mode=form.cleaned_data["tracking_mode"],
                 minimum_stock_value=form.cleaned_data.get("minimum_stock_value"),
+                search_keywords=form.cleaned_data.get("search_keywords") or "",
             )
         except Material.DoesNotExist as exc:
             raise Http404("No material found matching the query") from exc

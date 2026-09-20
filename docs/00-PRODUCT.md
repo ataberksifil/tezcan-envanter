@@ -217,7 +217,7 @@ Düzeltme kanıtı dışındaki genel fotoğraf geçmişi ve montaj/kullanım ye
 - **QR-004:** Mevcut etiket basım ekipmanının kullanılabilirliği sonraki teknik doğrulamada değerlendirilmelidir.
 - **QR-005:** QR/barkod desteği en geç nihai V1 üretim devreye alımından önce hazır olmalıdır.
 
-`DEC-036` V1 yazılım sözleşmesini kapatır: carrier-neutral compact UUID payload (`TZ1M|A|L:<22-char-base64url-uuid>`), Code128 standart 100 mm-sınıfı etiket, kompakt QR, tek resolver, USB HID + tarayıcı kamera, no stored token. DataMatrix yoktur. Yazıcı sürücüsü/SDK ve fiziksel etiket malzemesi V1 yazılım kapsamı dışındadır; yazdırma tarayıcı print yoludur.
+`DEC-036` V1 yazılım sözleşmesini kapatır: carrier-neutral compact UUID payload (`TZ1M|A|L:<22-char-base64url-uuid>`), Code128 standart 100 mm-sınıfı etiket, kompakt QR, tek resolver, USB HID + tarayıcı kamera, no stored token. DataMatrix yoktur. Yazıcı sürücüsü/SDK ve fiziksel etiket malzemesi V1 yazılım kapsamı dışındadır; yazdırma tarayıcı print yoludur. `DEC-037` tedarikçi/üretici barkodunun yetkili envanter kimliği olmadığını teyit eder; model/MPN alanında yardımcı girdi olabilir.
 
 ## 13. Reporting Requirements
 

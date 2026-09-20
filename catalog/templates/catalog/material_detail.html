@@ -9,11 +9,11 @@
         <a class="btn btn-outline-dark" href="{% url 'identification:material-label' material.pk %}">Etiket yazdır</a>
         <a class="btn btn-outline-secondary" href="{% url 'identification:material-label-compact' material.pk %}">Kompakt QR</a>
         {% if material.active and material.tracking_mode == "QUANTITY" %}
-            {% if perms.inventory.receive_stock %}<a class="btn btn-outline-success" href="{% url 'inventory:receipt-create' %}">Stok girişi</a>{% endif %}
+            {% if perms.inventory.receive_stock %}<a class="btn btn-outline-success" href="{% url 'inventory:receipt-create' %}?material={{ material.pk }}">Stok girişi</a>{% endif %}
             {% if perms.inventory.issue_stock %}<a class="btn btn-outline-primary" href="{% url 'inventory:issue-create' %}">Stok çıkışı</a>{% endif %}
-            {% if perms.inventory.transfer_stock %}<a class="btn btn-outline-primary" href="{% url 'inventory:transfer-create' %}">Transfer</a>{% endif %}
+            {% if perms.inventory.transfer_stock %}<a class="btn btn-outline-primary" href="{% url 'inventory:transfer-create' %}?material={{ material.pk }}">Transfer</a>{% endif %}
         {% elif material.active and material.tracking_mode == "SERIALIZED" and perms.inventory.receive_stock %}
-            <a class="btn btn-outline-success" href="{% url 'inventory:serialized-receipt-create' %}">Tekil varlık girişi</a>
+            <a class="btn btn-outline-success" href="{% url 'inventory:serialized-receipt-create' %}?material={{ material.pk }}">Tekil varlık girişi</a>
         {% endif %}
         {% if perms.counting.view_physicalcountsession %}
             <a class="btn btn-outline-secondary" href="{% url 'counting:session-list' %}">Fiziksel sayımlar</a>
@@ -56,6 +56,9 @@
 
     <dt class="col-sm-3">Model</dt>
     <dd class="col-sm-9">{% if material.model %}{{ material.model }}{% else %}—{% endif %}</dd>
+
+    <dt class="col-sm-3">Arama anahtarları</dt>
+    <dd class="col-sm-9">{% if material.search_keywords %}{{ material.search_keywords }}{% else %}—{% endif %}</dd>
 
     <dt class="col-sm-3">Takip modu</dt>
     <dd class="col-sm-9">{{ material.get_tracking_mode_display }}</dd>
@@ -125,7 +128,7 @@
                         {% for balance in current_stock_balances %}
                             <tr>
                                 <td>
-                                    <span title="{{ balance.location.id }}">{{ balance.location.code }} ({{ balance.location.name }})</span>
+                                    <span title="{{ balance.location.id }}">{{ balance.location.path_label }}</span>
                                     {% if not balance.location.active %}
                                         <span class="badge text-bg-secondary">Pasif referans</span>
                                     {% endif %}

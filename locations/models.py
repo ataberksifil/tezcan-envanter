@@ -49,6 +49,11 @@ class Location(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    def path_label(self) -> str:
+        from locations.display import location_path_label
+
+        return location_path_label(self)
+
     def clean(self) -> None:
         super().clean()
 

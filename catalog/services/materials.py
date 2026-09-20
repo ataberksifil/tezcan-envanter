@@ -1,14 +1,23 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.db import IntegrityError, connections, transaction
+from django.db.models import Q
 
 from audit.services import record_audit_event
-from catalog.models import Category, Material, UnitOfMeasure
+from catalog.models import (
+    Category,
+    Material,
+    UnitOfMeasure,
+    normalize_material_search_keywords,
+    turkish_casefold,
+    turkish_fold_expr,
+)
 
 MATERIAL_ENTITY_TYPE = "catalog.material"
 MATERIAL_CREATED = "catalog.material.created"
@@ -23,8 +32,16 @@ INACTIVE_CATEGORY_MESSAGE = "Pasif kategori atanamaz."
 INACTIVE_UNIT_MESSAGE = "Pasif ölçü birimi atanamaz."
 INVALID_CATEGORY_MESSAGE = "Geçersiz kategori."
 INVALID_UNIT_MESSAGE = "Geçersiz ölçü birimi."
+GENERATED_CODE_CONFLICT_MESSAGE = "Bu sistem malzeme kodu zaten kullanılıyor."
+GENERATED_CODE_ALLOCATION_MESSAGE = "Sistem malzeme kodu üretilemedi. Tekrar deneyin."
 
 MINIMUM_STOCK_VALUE_STORAGE_QUANTIZE = Decimal("0.001")
+
+GENERATED_MATERIAL_CODE_PREFIX = "MAT-"
+GENERATED_MATERIAL_CODE_WIDTH = 8
+GENERATED_MATERIAL_CODE_SEQUENCE = "catalog_material_generated_code_seq"
+GENERATED_MATERIAL_CODE_PATTERN = re.compile(r"^MAT-[0-9]{8}$")
+MAX_GENERATED_CODE_ATTEMPTS = 16
 
 
 @dataclass(frozen=True)
@@ -48,14 +65,69 @@ def canonical_material_snapshot(material: Material) -> dict[str, Any]:
             material.minimum_stock_value
         ),
         "technical_specs": material.technical_specs,
+        "search_keywords": material.search_keywords or "",
         "active": bool(material.active),
     }
+
+
+def is_generated_material_code(code: str | None) -> bool:
+    if not code:
+        return False
+    return bool(GENERATED_MATERIAL_CODE_PATTERN.fullmatch(code))
+
+
+def apply_material_search(queryset, query: str):
+    """Filter materials by code, name, brand, model, and explicit keywords.
+
+    Lookup uses a deterministic Turkish I/i fold, not Python ``str.lower()``
+    and not locale-dependent PostgreSQL ``ILIKE`` for dotted/dotless I.
+    """
+    normalized = (query or "").strip()
+    if not normalized:
+        return queryset
+    queryset = queryset.annotate(
+        _search_code_fold=turkish_fold_expr("material_code"),
+        _search_name_fold=turkish_fold_expr("name"),
+        _search_brand_fold=turkish_fold_expr("brand"),
+        _search_model_fold=turkish_fold_expr("model"),
+        _search_keywords_fold=turkish_fold_expr("search_keywords"),
+    )
+    for token in normalized.split():
+        folded = turkish_casefold(token)
+        queryset = queryset.filter(
+            Q(_search_code_fold__contains=folded)
+            | Q(_search_name_fold__contains=folded)
+            | Q(_search_brand_fold__contains=folded)
+            | Q(_search_model_fold__contains=folded)
+            | Q(_search_keywords_fold__contains=folded)
+        )
+    return queryset
+
+
+def allocate_generated_material_code(*, using: str = "default") -> str:
+    """Allocate the next opaque MAT-######## code.
+
+    Historical material_code values stay untouched. Only the generated
+    ``MAT-[0-9]{8}`` pattern is unique (DEC-037). Category/location meaning
+    is not encoded.
+    """
+    cursor = connections[using].cursor()
+    for _ in range(MAX_GENERATED_CODE_ATTEMPTS):
+        cursor.execute(
+            "SELECT nextval(%s)",
+            [GENERATED_MATERIAL_CODE_SEQUENCE],
+        )
+        number = int(cursor.fetchone()[0])
+        code = f"{GENERATED_MATERIAL_CODE_PREFIX}{number:0{GENERATED_MATERIAL_CODE_WIDTH}d}"
+        if not Material.objects.using(using).filter(material_code=code).exists():
+            return code
+    raise ValidationError({"material_code": GENERATED_CODE_ALLOCATION_MESSAGE})
 
 
 def create_material(
     *,
     actor,
-    material_code,
+    material_code=None,
     name,
     category_id,
     brand=None,
@@ -63,10 +135,14 @@ def create_material(
     unit_id=None,
     tracking_mode,
     minimum_stock_value=None,
+    search_keywords="",
     using: str = "default",
 ) -> MaterialWriteResult:
     _require_permission(actor, ADD_MATERIAL_PERMISSION)
     _ensure_actor_database(actor, using)
+
+    requested_code = _normalize_optional_code(material_code)
+    generate_code = requested_code is None
 
     with transaction.atomic(using=using):
         _validate_category_assignment(
@@ -80,20 +156,43 @@ def create_material(
             using=using,
         )
 
-        material = Material(
-            material_code=material_code,
-            name=name,
-            category_id=category_id,
-            brand=brand,
-            model=model,
-            unit_id=_normalize_unit_id(unit_id),
-            tracking_mode=tracking_mode,
-            minimum_stock_value=minimum_stock_value,
-            active=True,
-        )
-        material._state.db = using
-        _validate_material(material)
-        material.save(using=using)
+        last_error: Exception | None = None
+        attempts = MAX_GENERATED_CODE_ATTEMPTS if generate_code else 1
+        for _ in range(attempts):
+            assigned_code = requested_code or allocate_generated_material_code(
+                using=using
+            )
+            material = Material(
+                material_code=assigned_code,
+                name=name,
+                category_id=category_id,
+                brand=brand,
+                model=model,
+                unit_id=_normalize_unit_id(unit_id),
+                tracking_mode=tracking_mode,
+                minimum_stock_value=minimum_stock_value,
+                search_keywords=normalize_material_search_keywords(search_keywords),
+                active=True,
+            )
+            material._state.db = using
+            _validate_material(material)
+            try:
+                with transaction.atomic(using=using):
+                    material.save(using=using)
+                break
+            except IntegrityError as exc:
+                last_error = exc
+                if not generate_code:
+                    if is_generated_material_code(assigned_code):
+                        raise ValidationError(
+                            {"material_code": GENERATED_CODE_CONFLICT_MESSAGE}
+                        ) from exc
+                    raise
+        else:
+            raise ValidationError(
+                {"material_code": GENERATED_CODE_ALLOCATION_MESSAGE}
+            ) from last_error
+
         record_audit_event(
             actor=actor,
             event_type=MATERIAL_CREATED,
@@ -118,6 +217,7 @@ def update_material(
     unit_id=None,
     tracking_mode,
     minimum_stock_value=None,
+    search_keywords=None,
     using: str = "default",
 ) -> MaterialWriteResult:
     _require_permission(actor, CHANGE_MATERIAL_PERMISSION)
@@ -150,6 +250,11 @@ def update_material(
             unit_id=unit_id,
             tracking_mode=tracking_mode,
             minimum_stock_value=minimum_stock_value,
+            search_keywords=(
+                material.search_keywords
+                if search_keywords is None
+                else search_keywords
+            ),
         )
         _validate_material(material)
 
@@ -157,20 +262,28 @@ def update_material(
         if before == after:
             return MaterialWriteResult(material=material, changed=False)
 
-        material.save(
-            using=using,
-            update_fields=[
-                "material_code",
-                "name",
-                "category",
-                "brand",
-                "model",
-                "unit",
-                "tracking_mode",
-                "minimum_stock_value",
-                "updated_at",
-            ],
-        )
+        try:
+            material.save(
+                using=using,
+                update_fields=[
+                    "material_code",
+                    "name",
+                    "category",
+                    "brand",
+                    "model",
+                    "unit",
+                    "tracking_mode",
+                    "minimum_stock_value",
+                    "search_keywords",
+                    "updated_at",
+                ],
+            )
+        except IntegrityError as exc:
+            if is_generated_material_code(material.material_code):
+                raise ValidationError(
+                    {"material_code": GENERATED_CODE_CONFLICT_MESSAGE}
+                ) from exc
+            raise
         record_audit_event(
             actor=actor,
             event_type=MATERIAL_UPDATED,
@@ -225,6 +338,15 @@ def _serialize_minimum_stock_value(value: Decimal | None) -> str | None:
     return format(quantized, "f")
 
 
+def _normalize_optional_code(material_code):
+    if material_code in (None, ""):
+        return None
+    if not isinstance(material_code, str):
+        return str(material_code)
+    trimmed = material_code.strip()
+    return trimmed or None
+
+
 def _apply_base_fields(
     material: Material,
     *,
@@ -236,6 +358,7 @@ def _apply_base_fields(
     unit_id=None,
     tracking_mode,
     minimum_stock_value=None,
+    search_keywords="",
 ) -> None:
     material.material_code = material_code
     material.name = name
@@ -245,6 +368,7 @@ def _apply_base_fields(
     material.unit_id = _normalize_unit_id(unit_id)
     material.tracking_mode = tracking_mode
     material.minimum_stock_value = minimum_stock_value
+    material.search_keywords = normalize_material_search_keywords(search_keywords)
 
 
 def _normalize_unit_id(unit_id):

@@ -138,26 +138,27 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 | Column | Conceptual Type | Null | Constraint | Description |
 |---|---|---:|---|---|
 | `id` | UUID | Hayır | PK | Malzeme kimliği. |
-| `material_code` | VARCHAR | Hayır | Benzersizlik TBD | İş/malzeme kodu. |
+| `material_code` | VARCHAR | Hayır | Historical uniqueness TBD; generated `MAT-[0-9]{8}` kısmi unique (`DEC-037`) | İnsan-facing iş kodu. Yeni kayıtlarda sistem üretir. |
 | `name` | VARCHAR | Hayır | Boş olamaz | Malzeme adı. |
 | `category_id` | UUID | Hayır | FK | Malzeme kategorisi. |
 | `brand` | VARCHAR | Evet | — | Marka. |
-| `model` | VARCHAR | Evet | — | Model. |
+| `model` | VARCHAR | Evet | — | Model / üretici parça no; üretici barkodu yardımcı girdi olabilir (`DEC-037`). |
 | `unit_id` | UUID | Evet | FK; QUANTITY için zorunlu | Temel ölçü birimi; Phase 5.3 serialized slice'ında varsa yalnız katalog metadata'sıdır (`DEC-032`). |
 | `tracking_mode` | VARCHAR | Hayır | CHECK | `QUANTITY` veya `SERIALIZED`. |
 | `minimum_stock_value` | NUMERIC(18,3) | Evet | `>= 0` | Basit malzeme geneli eşik; kapsam TBD. |
 | `technical_specs` | JSONB | Hayır | Default empty object | Esnek teknik nitelikler; unrestricted raw JSON editor olarak expose edilmez (`DEC-021`). |
+| `search_keywords` | TEXT | Hayır | Default empty | Explicit atölye arama token'ları; yazım korunur; synonym engine değildir (`DEC-037`). |
 | `active` | BOOLEAN | Hayır | Default true | Yeni işlemlerde kullanılabilirlik. |
 | `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Oluşturma zamanı. |
 | `updated_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Son güncelleme zamanı. |
 
 - **Primary Key:** `id`
 - **Foreign Keys:** `category_id → categories.id`; nullable `unit_id → units_of_measure.id`; delete restricted.
-- **Unique Constraints:** `material_code` için global unique tercih edilir, ancak Excel analizi ve iş doğrulaması olmadan kesinleştirilmez.
+- **Unique Constraints:** Historical `material_code` global unique değildir (`DEC-OPEN-021`). Yalnız sistem üretilen `MAT-[0-9]{8}` deseni kısmi unique constraint taşır (`DEC-037`).
 - **Check Constraints:** `tracking_mode IN (QUANTITY, SERIALIZED)`; `minimum_stock_value IS NULL OR minimum_stock_value >= 0`; `technical_specs` JSON object olmalıdır.
 - **Recommended Indexes:** `material_code`, `name`, `category_id`, `active`. GIN yalnızca gerçek JSONB arama ihtiyacı ölçüldüğünde.
 - **Delete Policy:** Referans varsa `SOFT DELETE / DEACTIVATE`; history sonrası hard delete yok.
-- **Notes / TBD:** `stock_quantity` alanı kesinlikle yoktur. Bir material herhangi bir inventory ledger history'ye sahip olduktan sonra `tracking_mode` normal uygulama yollarında immutable'dır (`DEC-013`). Exceptional veri dönüşümü ayrı iş kararı ve migration projesidir. Material code benzersizliği ve kategori teknik şemaları TBD'dir. Kategori-özel teknik alanlar controlled `TechnicalFieldDefinition`-style metadata ile yönetilir (`DEC-021`, `DEC-OPEN-019`).
+- **Notes / TBD:** `stock_quantity` alanı kesinlikle yoktur. Bir material herhangi bir inventory ledger history'ye sahip olduktan sonra `tracking_mode` normal uygulama yollarında immutable'dır (`DEC-013`). Exceptional veri dönüşümü ayrı iş kararı ve migration projesidir. Historical material code uniqueness ve import matching `DEC-OPEN-021` açık kalır. Kategori-özel teknik alanlar controlled `TechnicalFieldDefinition`-style metadata ile yönetilir (`DEC-021`, `DEC-OPEN-019`). Inbound Talep/SKT/paket/usage-place tabloları bu dilimde yoktur.
 
 ## 6. Location Tabloları
 

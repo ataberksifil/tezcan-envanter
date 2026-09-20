@@ -121,11 +121,12 @@ Bir kategori sıfır veya bir üst kategoriye, birden çok alt kategoriye sahip 
 Kavramsal olarak şunları taşır:
 
 - benzersiz sistem kimliği,
-- iş/malzeme kodu,
+- iş/malzeme kodu (yeni kayıtlarda sistem üretilen opak `MAT-########`; UUID ve TZ1M authoritative, `DEC-037`),
 - ad,
 - kategori,
 - marka,
-- model,
+- model / üretici parça no (üretici barkodu yardımcı girdi olabilir),
+- explicit arama anahtarları,
 - ölçü birimi,
 - takip modu,
 - minimum stok politikası/değeri,
@@ -502,7 +503,9 @@ V1 first-party kimlik, persisted `BarcodeIdentifier` tablosu değildir (`DEC-036
 - `TZ1A:<token>`
 - `TZ1L:<token>`
 
-Carrier entity identity'nin parçası değildir. Neutral `identification` modülü codec, rendering, scan ve resolver'ı sahiplenilir; `Catalog`, `Inventory` ve `Locations` core domain operasyonu için `identification`'a bağımlı olmaz (`DEC-011`). Bir taranabilir kod aynı anda birden fazla nesneye çözülemez. Koda sahip olmak yetki vermez; tarama stok değiştirmez. DataMatrix V1'de yoktur. External/legacy barcode registry ayrı gelecekteki karardır.
+Carrier entity identity'nin parçası değildir. Neutral `identification` modülü codec, rendering, scan ve resolver'ı sahiplenilir; `Catalog`, `Inventory` ve `Locations` core domain operasyonu için `identification`'a bağımlı olmaz (`DEC-011`). Bir taranabilir kod aynı anda birden fazla nesneye çözülemez. Koda sahip olmak yetki vermez; tarama stok değiştirmez. DataMatrix V1'de yoktur. External/legacy barcode registry ayrı gelecekteki karardır. `DEC-037`: tedarikçi barkodu TZ1M/A/L yerine geçmez; Material model alanında düzeltilebilir yardımcı metin olabilir.
+
+Kullanıldığı yer (hat/uygulama alanı) ile fiziksel stok `Location` ayrı kavramlardır. Inbound receipt metadata (Talep, SKT, paket, kullanım yeri) bu dilimde domain modeli olarak eklenmez.
 
 ## 15. Attachment ve Audit Domaini
 

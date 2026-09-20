@@ -124,12 +124,9 @@ def test_newly_created_groups_receive_initial_template_permissions(role_name):
     )
 
 
-@pytest.mark.parametrize("role_name", (TECHNICIAN, STOREKEEPER))
-def test_new_view_only_templates_receive_no_catalog_write_or_delete_permissions(
-    role_name,
-):
+def test_new_technician_template_receives_no_catalog_write_or_delete_permissions():
     _run_setup_roles()
-    codenames = _template_codenames_for_group(role_name)
+    codenames = _template_codenames_for_group(TECHNICIAN)
     non_catalog_write_exceptions = {
         "add_correctionrequest",
         "add_physicalcountsession",
@@ -151,6 +148,20 @@ def test_new_view_only_templates_receive_no_catalog_write_or_delete_permissions(
     assert "change_employee" not in codenames
     assert {"view_correctionrequest", "add_correctionrequest"} <= codenames
     assert "decide_correctionrequest" not in codenames
+
+
+def test_fresh_storekeeper_receives_material_create_not_change_or_other_catalog_writes():
+    _run_setup_roles()
+    codenames = _template_codenames_for_group(STOREKEEPER)
+    assert {"view_material", "add_material"} <= codenames
+    assert "change_material" not in codenames
+    assert "add_category" not in codenames
+    assert "change_category" not in codenames
+    assert "add_unitofmeasure" not in codenames
+    assert "change_unitofmeasure" not in codenames
+    assert "delete_material" not in codenames
+    assert "add_employee" not in codenames
+    assert "change_employee" not in codenames
 
 
 def test_new_admin_manager_receives_catalog_view_add_change_not_delete():
@@ -281,6 +292,21 @@ def test_existing_storekeeper_customized_catalog_permissions_are_preserved(
         "add_physicalcountsession",
         "change_physicalcountsession",
     }
+
+
+def test_existing_storekeeper_keeps_manually_granted_change_material(
+    catalog_permissions,
+):
+    _run_setup_roles()
+    storekeeper = Group.objects.get(name=STOREKEEPER)
+    storekeeper.permissions.add(catalog_permissions["change_material"])
+    before = _permission_pks_for_group(STOREKEEPER)
+    assert "change_material" in _template_codenames_for_group(STOREKEEPER)
+
+    _run_setup_roles()
+
+    assert _permission_pks_for_group(STOREKEEPER) == before
+    assert "change_material" in _template_codenames_for_group(STOREKEEPER)
 
 
 def test_existing_admin_manager_customized_catalog_permissions_are_preserved(
@@ -632,7 +658,8 @@ def test_ordinary_user_has_perm_follows_actual_group_permissions_after_customiza
         (TECHNICIAN, "catalog.view_category", True),
         (TECHNICIAN, "catalog.add_category", False),
         (STOREKEEPER, "catalog.view_material", True),
-        (STOREKEEPER, "catalog.add_material", False),
+        (STOREKEEPER, "catalog.add_material", True),
+        (STOREKEEPER, "catalog.change_material", False),
         (ADMIN_MANAGER, "catalog.view_unitofmeasure", True),
         (ADMIN_MANAGER, "catalog.add_unitofmeasure", True),
         (ADMIN_MANAGER, "catalog.change_unitofmeasure", True),

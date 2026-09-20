@@ -134,6 +134,10 @@ Count / Baseline Operational UI Closure **COMPLETE** at `1dedd34051692e4c4743c63
 
 Correction evidence closure, Phase 5.6 serialized movement backend, Phase 5.8 identification ve Count / Baseline Operational UI Closure uygulanmıştır; kalan ürün işi:
 
+- Inbound / Mal Kabul first slice (`DEC-037`) implemented but uncommitted; review sonrası commit bekler
+- Talep Takip (şirket Talep No, kısmi teslimat, stok oluşturmama)
+- SKT/expiry uyarısı ve manuel ayırma (Material master'da değil; FEFO/otomatik düşüm yok)
+- Inbound receipt metadata (usage/application place, packaging context, supplier)
 - Serialized correction
 - Real Excel import workflow (UI)
 - Reporting

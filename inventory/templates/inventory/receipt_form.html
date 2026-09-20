@@ -8,10 +8,24 @@
         <div class="card shadow-sm">
             <div class="card-body p-4">
                 <h1 class="h3 mb-3">{{ form_title }}</h1>
+                <p class="text-body-secondary">Gelen malzeme fiziksel rafa ulaşmadan önce stok tutan mal kabul konumuna kaydedilir. Raf yerleşimi bu kayıttan sonra Transfer ile yapılır. Kullanıldığı yer (hat/uygulama) stok rafı değildir.</p>
+
+                {% if preview %}
+                    <div class="alert alert-info" role="status">
+                        <p class="fw-semibold mb-2">Kayıt önizlemesi — henüz stok değişmedi</p>
+                        <ul class="mb-0">
+                            <li>Malzeme: {{ preview.material.material_code }} — {{ preview.material.name }}</li>
+                            <li>Miktar: {{ preview.quantity }} {{ preview.unit.code }}</li>
+                            <li>Kondisyon: {{ preview.condition.name }}</li>
+                            <li>Kaydedilecek konum: {{ preview.location_path }}</li>
+                        </ul>
+                    </div>
+                {% endif %}
 
                 <form method="post" novalidate>
                     {% csrf_token %}
                     {{ form.operation_id }}
+                    {% if preview %}<input type="hidden" name="confirm" value="1">{% endif %}
 
                     {% if form.non_field_errors %}
                         <div class="alert alert-danger" role="alert">
@@ -31,11 +45,19 @@
                             {% for error in field.errors %}
                                 <div class="invalid-feedback d-block">{{ error }}</div>
                             {% endfor %}
+                            {% if field.name == "material" %}
+                                <div id="receipt-material-summary" class="mt-3">
+                                    {% include "inventory/_receipt_material_summary.html" %}
+                                </div>
+                            {% endif %}
                         </div>
                     {% endfor %}
 
                     <div class="d-flex flex-wrap gap-2">
                         <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+                        {% if preview %}
+                            <button type="submit" class="btn btn-outline-secondary" name="intent" value="edit">Geri dön</button>
+                        {% endif %}
                         <a class="btn btn-outline-secondary" href="{% url 'home' %}">İptal</a>
                     </div>
                 </form>

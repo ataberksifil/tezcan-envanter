@@ -43,6 +43,8 @@ User = get_user_model()
 
 DEMO_MARKER_LOCATION_CODE = "G1"
 DEMO_SECONDARY_LOCATION_CODE = "G2"
+DEMO_STAGING_PARENT_CODE = "MK"
+DEMO_STAGING_LOCATION_CODE = "MK-BEKLEYEN"
 # Local demo credential only; never use in production.
 DEMO_PASSWORD = "Demo2026!"
 DEMO_USERS = (
@@ -101,6 +103,7 @@ class Command(BaseCommand):
                 context = self._create_master_data(actor, using=database)
                 self._seed_inventory_movements(actor, context, using=database)
             self._ensure_demo_count_sessions(actor, using=database)
+            self._ensure_staging_location(actor, using=database)
 
         if verbosity >= 1:
             if skipped_stock:
@@ -197,7 +200,16 @@ class Command(BaseCommand):
                 "Catalog reference data missing. Run migrate before seed_demo_environment."
             ) from exc
 
-    def _get_or_create_location(self, actor, *, code: str, name: str, using: str) -> Location:
+    def _get_or_create_location(
+        self,
+        actor,
+        *,
+        code: str,
+        name: str,
+        using: str,
+        parent_id=None,
+        can_hold_stock: bool = True,
+    ) -> Location:
         try:
             return Location.objects.using(using).get(code=code)
         except Location.DoesNotExist:
@@ -205,7 +217,8 @@ class Command(BaseCommand):
                 actor=actor,
                 code=code,
                 name=name,
-                can_hold_stock=True,
+                parent_id=parent_id,
+                can_hold_stock=can_hold_stock,
                 using=using,
             ).location
 
@@ -412,6 +425,23 @@ class Command(BaseCommand):
                 baseline_candidate=True,
                 using=using,
             )
+
+    def _ensure_staging_location(self, actor, *, using: str) -> None:
+        parent = self._get_or_create_location(
+            actor,
+            code=DEMO_STAGING_PARENT_CODE,
+            name="Mal Kabul",
+            can_hold_stock=False,
+            using=using,
+        )
+        self._get_or_create_location(
+            actor,
+            code=DEMO_STAGING_LOCATION_CODE,
+            name="Yerleştirme Bekleyen",
+            parent_id=parent.pk,
+            can_hold_stock=True,
+            using=using,
+        )
 
     def _print_credentials(self) -> None:
         self.stdout.write("")

@@ -69,6 +69,7 @@ DEFAULT_ROLE_TEMPLATES: dict[str, frozenset[str]] = {
     | _VIEW_ADD_CORRECTION
     | _VIEW_ADD_CHANGE_PHYSICAL_COUNT,
     STOREKEEPER: _VIEW_ONLY_CATALOG
+    | frozenset({"add_material"})
     | frozenset({"view_location"})
     | _VIEW_ONLY_EMPLOYEE
     | _RECEIVE_STOCK

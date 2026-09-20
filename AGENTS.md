@@ -260,7 +260,7 @@ Server-side authorization zorunludur; gizli/disabled button güvenlik değildir.
 | Rol | Onaylı yetkiler |
 |---|---|
 | `TECHNICIAN` | View inventory, issue, correction request; normal receipt ve correction approval yok |
-| `STOREKEEPER` | View, receipt, issue; diğer operational permissions TBD |
+| `STOREKEEPER` | View; Material create (`catalog.add_material`); receipt, issue, return, transfer; varsayılan Material change yok; TECHNICIAN Material create almaz (`DEC-037`) |
 | `ADMIN_MANAGER` | Full application management, master data, correction approval ve controlled correction |
 
 Phase 3 managed Location permissions (`DEC-023`, `DEC-022` item 13): `locations.view_location`, `locations.add_location`, `locations.change_location`. Application access management `delete_location` expose etmez. `add_location` veya `change_location`, `view_location` gerektirir. Varsayılan şablonlar ileride `TECHNICIAN`/`STOREKEEPER` için `view_location`, `ADMIN_MANAGER` için view/add/change içerebilir. `setup_roles` non-destructive kalır; mevcut Group'lara sessizce yeni izin verilmez.

@@ -244,3 +244,52 @@ def test_material_has_no_authoritative_stock_field():
         "current_stock",
     }
     assert authoritative_stock_fields.isdisjoint(field_names)
+
+
+def test_generated_material_code_pattern_is_unique(category, unit):
+    Material.objects.create(
+        material_code="MAT-00000001",
+        name="Generated A",
+        category=category,
+        unit=unit,
+        tracking_mode=Material.TrackingMode.QUANTITY,
+    )
+    with transaction.atomic():
+        with pytest.raises(IntegrityError):
+            Material.objects.create(
+                material_code="MAT-00000001",
+                name="Generated B",
+                category=category,
+                unit=unit,
+                tracking_mode=Material.TrackingMode.QUANTITY,
+            )
+
+
+def test_search_keywords_preserve_spelling_and_dedupe_without_dot_artifacts(
+    category, unit
+):
+    from catalog.models import normalize_material_search_keywords, turkish_casefold
+
+    assert (
+        normalize_material_search_keywords("Teflon, bant  PTFE, bant")
+        == "Teflon, bant, PTFE"
+    )
+    assert normalize_material_search_keywords("İZOLASYON") == "İZOLASYON"
+    assert "\u0307" not in normalize_material_search_keywords("İZOLASYON")
+    assert normalize_material_search_keywords("Işık") == "Işık"
+    assert turkish_casefold("İZOLASYON") == "izolasyon"
+    assert turkish_casefold("Işık") == "ışık"
+    assert (
+        normalize_material_search_keywords("İzolasyon, izolasyon,  İzolasyon")
+        == "İzolasyon"
+    )
+    material = Material(
+        material_code="KW-1",
+        name="Teflon Bant",
+        category=category,
+        unit=unit,
+        tracking_mode=Material.TrackingMode.QUANTITY,
+        search_keywords="Teflon, Bant, PTFE",
+    )
+    material.full_clean()
+    assert material.search_keywords == "Teflon, Bant, PTFE"

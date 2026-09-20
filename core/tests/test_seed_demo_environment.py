@@ -39,6 +39,12 @@ def test_seed_demo_environment_is_idempotent():
 
     depot_a = Location.objects.get(code="G1")
     depot_b = Location.objects.get(code="G2")
+    staging_parent = Location.objects.get(code="MK")
+    staging = Location.objects.get(code="MK-BEKLEYEN")
+    assert staging_parent.can_hold_stock is False
+    assert staging.can_hold_stock is True
+    assert staging.parent_id == staging_parent.pk
+    assert staging.name == "Yerleştirme Bekleyen"
     material = Material.objects.get(material_code="DEMO-KLEMENS")
 
     balance_a = StockBalance.objects.get(

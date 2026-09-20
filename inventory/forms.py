@@ -7,6 +7,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.db.models import DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import Employee
@@ -18,6 +19,7 @@ from inventory.models import (
     SerializedAsset,
     StockBalance,
 )
+from locations.display import location_path_label
 from locations.models import Location
 
 
@@ -41,9 +43,17 @@ def descendant_ids(production_line: ProductionLine) -> set[uuid.UUID]:
 
 
 def material_choice_label(material: Material) -> str:
-    parts = [material.material_code, f"({material.name})"]
+    parts = [material.material_code, material.name]
+    identity = []
+    if material.brand:
+        identity.append(material.brand)
+    if material.model:
+        identity.append(material.model)
+    if identity:
+        parts.append("— " + " / ".join(identity))
     if material.unit_id is not None:
         parts.append(f"[{material.unit.code}]")
+    parts.append(f"({material.get_tracking_mode_display()})")
     parts.append(f"— {material.pk}")
     return " ".join(parts)
 
@@ -57,9 +67,10 @@ def condition_choice_label(condition: MaterialCondition) -> str:
 
 
 def stock_location_choice_label(location: Location) -> str:
-    parts = [location.code]
+    parts = [location_path_label(location)]
     if not location.active:
         parts.append("[Pasif]")
+    parts.append(f"— {location.pk}")
     return " ".join(parts)
 
 
@@ -105,9 +116,14 @@ class QuantityReceiptForm(forms.Form):
         widget=forms.Select(attrs={"class": "form-select"}),
     )
     target_location = forms.ModelChoiceField(
-        label="Hedef konum",
+        label="Kayıt konumu (mal kabul / yerleştirme bekleyen veya raf)",
         queryset=Location.objects.none(),
         widget=forms.Select(attrs={"class": "form-select"}),
+        help_text=(
+            "Gelen malzeme önce mal kabul / yerleştirme bekleyen stok konumuna "
+            "alınabilir. Raf yerleşimi kayıt sonrası mevcut Transfer ile yapılır. "
+            "Sistem tek bir sabit raf zorlamaz."
+        ),
     )
 
     def __init__(self, *args, **kwargs):
@@ -126,6 +142,14 @@ class QuantityReceiptForm(forms.Form):
         )
         self.fields["material"].queryset = receipt_materials
         self.fields["material"].label_from_instance = material_choice_label
+        self.fields["material"].widget.attrs.update(
+            {
+                "hx-get": reverse("inventory:receipt-material-summary"),
+                "hx-trigger": "change",
+                "hx-target": "#receipt-material-summary",
+                "hx-include": "[name='material']",
+            }
+        )
 
         receipt_conditions = MaterialCondition.objects.filter(active=True).order_by(
             "sort_order", "name", "id"
@@ -136,9 +160,30 @@ class QuantityReceiptForm(forms.Form):
         receipt_locations = Location.objects.filter(
             active=True,
             can_hold_stock=True,
-        ).order_by("code", "name", "id")
+        ).select_related("parent").order_by("code", "name", "id")
         self.fields["target_location"].queryset = receipt_locations
         self.fields["target_location"].label_from_instance = stock_location_choice_label
+
+        selected_material = self._selected_material()
+        if selected_material is not None and selected_material.unit_id is not None:
+            unit = selected_material.unit
+            self.fields["quantity"].label = f"Miktar ({unit.code})"
+            self.fields["quantity"].help_text = (
+                f"Yetkili stok birimi: {unit.code} ({unit.name}). "
+                "Paket adedi stoğu kendiliğinden çarpmaz."
+            )
+
+    def _selected_material(self):
+        if self.is_bound:
+            value = self.data.get("material")
+        else:
+            value = self.initial.get("material")
+        if not value:
+            return None
+        try:
+            return self.fields["material"].queryset.select_related("unit").get(pk=value)
+        except (ValueError, TypeError, Material.DoesNotExist):
+            return None
 
 
 RECEIPT_ERROR_FIELD_MAP = {
@@ -760,11 +805,16 @@ class QuantityTransferForm(forms.Form):
         label="Kaynak konum",
         queryset=Location.objects.none(),
         widget=forms.Select(attrs={"class": "form-select"}),
+        help_text="Yerleştirmede kaynak, malzemenin şu an kayıtlı olduğu konumdur.",
     )
     target_location = ServiceValidatedModelChoiceField(
         label="Hedef konum",
         queryset=Location.objects.none(),
         widget=forms.Select(attrs={"class": "form-select"}),
+        help_text=(
+            "Fiziksel rafa yerleştirirken lokasyon etiketini okuyup doğrulayın. "
+            "Elle seçim yedektir; sunucu tarama ile yazmayı ayırt etmez."
+        ),
     )
     quantity = forms.DecimalField(
         label="Miktar",

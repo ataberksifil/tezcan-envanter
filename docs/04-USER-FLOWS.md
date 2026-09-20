@@ -13,7 +13,7 @@ Belge görsel mockup, ekran tasarımı, route, form veya uygulama kodu içermez.
 | Rol | Kod | Özet yetki |
 |---|---|---|
 | Teknisyen | `TECHNICIAN` | Katalog/stok görüntüleme; olağan çıkış; uygun saha/atölye malzeme alım talebi başlatma (onay öncesi envanter etkisi yok; `DEC-020`); düzeltme talebi oluşturma; satın alma/tedarikçi teslimatı girişi ve otoritatif stok girişi yok |
-| Depo Görevlisi | `STOREKEEPER` | Katalog görüntüleme; olağan giriş ve çıkış; operasyonel depo işleri (TBD); katalog ana veri yazma yok |
+| Depo Görevlisi | `STOREKEEPER` | Katalog görüntüleme; yeni malzeme oluşturma (`DEC-037`); mevcut malzeme düzenleme yok; olağan giriş ve çıkış; operasyonel depo işleri (TBD) |
 | Yönetici / Müdür | `ADMIN_MANAGER` | Katalog ana veri yönetimi; tam yönetim, düzeltme onayı, import ve cutover hazırlığı; baseline approval yetkisi TBD |
 
 ### Çalışan / teslim alan kişi
@@ -270,14 +270,14 @@ Onaylı politika: `DEC-022`. Bu akışlar generic IAM değildir; küçük uygula
 2. Malzemeyi tanımlar (arama, kod veya QR).
 3. Sistem takip modunu gösterir.
 4. Kondisyon seçilir.
-5. Hedef depolama lokasyonu seçilir.
-6. **QUANTITY:** Geçerli birimde miktar girilir.
+5. Hedef depolama lokasyonu seçilir; seçenekler insan-okunur tam yol gösterir. Gelen malzeme önce stok tutan mal kabul / yerleştirme bekleyen konuma kaydedilebilir (`DEC-037`). Sistem tek sabit raf zorlamaz.
+6. **QUANTITY:** Geçerli stok biriminde miktar girilir; birim alanda görünür. Paket adedi stoğu çarpmaz.
 7. **SERIALIZED:** Ayrı functional workflow'da zorunlu `internal_asset_code` ve optional manufacturer `serial_number` girilir; asset UUID + RECEIVE ledger + `IN_STOCK` projection atomik oluşturulur (`DEC-032`).
-8. Özet ekranı gösterilir.
+8. Özet ekranı gösterilir; henüz stok değişmez.
 9. Kullanıcı onaylar.
 10. Sistem `operation_id` ile ledger kaydı oluşturur.
 11. `stock_balances` veya `serialized_assets` projection güncellenir.
-12. Başarı özeti/referans gösterilir.
+12. Başarı özeti kaydedilen miktar/birim/malzeme/konum ve varsa güncel bakiyeyi gösterir; quantity kayıtta `Yerleştir / Transfer Et` mevcut TRANSFER akışına gider; etiket yazdırma kullanıcı eylemidir.
 
 ```mermaid
 flowchart TD
@@ -320,7 +320,8 @@ flowchart TD
 - Acting user, `occurred_at`, işlem detayı ledger'da.
 
 **Scope Boundary**
-- `DEC-032` identity + serialized RECEIVE korunur. `DEC-035` V1 states `IN_STOCK`/`ISSUED` ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend'ini tanımlar. Phase 5.7 normal application workflow/UI wiring'i state-aware tekil varlık detayından mevcut permission'larla uygular; review için uncommitted durumdadır ve COMPLETE işaretlenmemiştir. Serialized correction, QR, serialized `COUNT_RECONCILIATION` ve broader lifecycle deferred kalır. Phase 5.4D-A serialized physical-count backend counting-owned ve establishment öncesi non-authoritative'tir. Phase 5.4D-B COMPLETE: combined QUANTITY+SERIALIZED baseline establishment backend uygulanmıştır. Count / baseline operational UI COMPLETE at `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`).
+- `DEC-037` quantity RECEIVE UX foundation: staging Location seçilebilir, putaway mevcut TRANSFER, TZ1 etiket devamı. Talep, SKT, paket conversion ve usage-place receipt metadata sonraki dilimdir. Kullanıldığı yer stok Location değildir.
+- `DEC-032` identity + serialized RECEIVE korunur. `DEC-035` V1 states `IN_STOCK`/`ISSUED` ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend'ini tanımlar. Serialized correction, serialized `COUNT_RECONCILIATION` ve broader lifecycle deferred kalır.
 
 ### UF-INT-001 — Saha / Atölye Malzeme Alım Talebi
 
@@ -749,24 +750,27 @@ flowchart TD
 
 ### UF-MST-001 — Malzeme Ana Veri Yönetimi
 
-**Actors:** `ADMIN_MANAGER` (Depo Görevlisi yetkisi **TBD**)
+**Actors:** `ADMIN_MANAGER` (create + change). `STOREKEEPER` yalnız create (`DEC-037`). `TECHNICIAN` varsayılan olarak oluşturamaz.
 
 **Preconditions**
-- Yönetici yetkisi.
+- Create: `catalog.add_material`. Mevcut malzeme düzenleme/pasifleştirme: `catalog.change_material` (fresh STOREKEEPER almaz).
 
 **Trigger**
-- Malzeme oluşturma/düzenleme/pasifleştirme.
+- Malzeme oluşturma; yetkili kullanıcı için düzenleme/pasifleştirme.
 
 **Main Flow**
-1. Yeni malzeme oluştur veya mevcut malzemeyi düzenle.
-2. Kategori, birim, takip modu, minimum stok, teknik nitelikler girilir.
-3. Kayıt kaydedilir veya malzeme pasifleştirilir.
-4. Hard delete normal akış değildir.
+1. Yeni malzeme oluştur veya (yalnız `change_material` ile) mevcut malzemeyi düzenle.
+2. Ad, kategori, takip modu ve QUANTITY için birim açıkça seçilir. Yeni kayıtta kod sistem üretir (`MAT-########`).
+3. Model/MPN alanı Barkod Tara yardımcısı ile doldurulabilir; değer kayıttan önce düzeltilir. Form otomatik kaydedilmez; stok oluşmaz.
+4. İsteğe bağlı arama anahtarları girilir.
+5. Kayıt servis katmanından kaydedilir veya malzeme pasifleştirilir.
+6. Hard delete normal akış değildir.
+7. Yeni kayıt veya ilgili yerleşim sonrası `Etiket yazdır` teklif edilir; otomatik basım yoktur.
 
 **Validation Rules**
-- AUTH-005: Teknisyen yapamaz.
+- AUTH-005: Teknisyen varsayılan şablonda yapamaz.
 - Inventory ledger history varsa takip modu normal edit ile değiştirilemez (`DEC-013`).
-- `material_code` benzersizliği **TBD**.
+- Yeni kod `MAT-[0-9]{8}` kısmi unique; historical kod uniqueness `DEC-OPEN-021` OPEN.
 
 **Success Result**
 - Master veri güncellenir; yeni işlemler yeni tanımı kullanır.
@@ -775,7 +779,7 @@ flowchart TD
 - Yetki reddi, benzersizlik ihlali, geçersiz takip modu değişikliği.
 
 **Permissions**
-- AUTH-009; Teknisyen reddedilir.
+- AUTH-006, AUTH-009; Teknisyen varsayılan şablonda reddedilir.
 
 **Inventory / Data Effect**
 - Master tablo; mevcut ledger değişmez.
@@ -1431,7 +1435,7 @@ flowchart LR
 | Inventory Baseline / Cutover | Sensitive `imports.establish_baseline`; Phase 5.4 backend + operational UI COMPLETE at `1dedd34` | UF-BASE-001 |
 | Low Stock | Yetkili kullanıcılar | UF-RPT-001 |
 | Reports | Yetkili kullanıcılar | UF-RPT-002 |
-| Material Management | ADMIN_MANAGER | UF-MST-001 |
+| Material Management | STOREKEEPER create; ADMIN_MANAGER create+change (`DEC-037`) | UF-MST-001 |
 | Location Management | ADMIN_MANAGER | UF-MST-002 |
 | Serialized Asset Detail | Yetkili kullanıcılar | UF-QR-002, UF-STK-001 |
 | Location Stock View | Yetkili kullanıcılar | UF-QR-003 |

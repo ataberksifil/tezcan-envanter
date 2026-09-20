@@ -192,7 +192,7 @@ def test_hidden_catalog_nav_is_not_the_authorization_control(app_client):
     ("role_name", "expect_material_nav", "expect_management_nav"),
     (
         (TECHNICIAN, True, False),
-        (STOREKEEPER, True, False),
+        (STOREKEEPER, True, True),
         (ADMIN_MANAGER, True, True),
     ),
 )

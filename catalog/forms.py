@@ -83,7 +83,6 @@ class MaterialForm(forms.ModelForm):
     class Meta:
         model = Material
         fields = [
-            "material_code",
             "name",
             "category",
             "brand",
@@ -91,28 +90,46 @@ class MaterialForm(forms.ModelForm):
             "unit",
             "tracking_mode",
             "minimum_stock_value",
+            "search_keywords",
         ]
         labels = {
-            "material_code": "Malzeme kodu",
             "name": "Ad",
             "category": "Kategori",
             "brand": "Marka",
-            "model": "Model",
+            "model": "Model / üretici parça no",
             "unit": "Ölçü birimi",
             "tracking_mode": "Takip modu",
             "minimum_stock_value": "Minimum stok eşiği",
+            "search_keywords": "Arama anahtarları",
+        }
+        help_texts = {
+            "model": (
+                "Üretici barkodu yalnızca yardımcı girdidir; sistem kimliği TZ1M "
+                "kalır. Okunan değeri kaydetmeden önce düzeltebilirsiniz."
+            ),
+            "tracking_mode": "Takip modu açıkça seçilmelidir; kategoriye göre türetilmez.",
+            "unit": "Malzemenin yetkili stok birimi. Paket bilgisi stoğu çarpmaz.",
+            "search_keywords": (
+                "Virgül veya boşlukla ayırın. Yazım korunur. Örnek: Teflon, bant, İzolasyon."
+            ),
         }
         widgets = {
-            "material_code": forms.TextInput(attrs={"class": "form-control"}),
             "name": forms.TextInput(attrs={"class": "form-control"}),
             "category": forms.Select(attrs={"class": "form-select"}),
             "brand": forms.TextInput(attrs={"class": "form-control"}),
-            "model": forms.TextInput(attrs={"class": "form-control"}),
+            "model": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "off",
+                    "data-model-scan-target": "true",
+                }
+            ),
             "unit": forms.Select(attrs={"class": "form-select"}),
             "tracking_mode": forms.Select(attrs={"class": "form-select"}),
             "minimum_stock_value": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.001"}
             ),
+            "search_keywords": forms.TextInput(attrs={"class": "form-control"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -121,6 +138,7 @@ class MaterialForm(forms.ModelForm):
         self.fields["model"].required = False
         self.fields["unit"].required = False
         self.fields["minimum_stock_value"].required = False
+        self.fields["search_keywords"].required = False
         self.fields["unit"].empty_label = "Tanımsız"
         self.fields["category"].label_from_instance = category_choice_label
         self.fields["unit"].label_from_instance = unit_choice_label
@@ -149,6 +167,12 @@ class MaterialForm(forms.ModelForm):
                 for unit in visible_units.distinct().order_by("code", "id")
             ],
         ]
+
+    def _get_validation_exclusions(self):
+        exclude = super()._get_validation_exclusions()
+        if self.instance._state.adding:
+            exclude.add("material_code")
+        return exclude
 
 
 class UnitOfMeasureForm(forms.ModelForm):
