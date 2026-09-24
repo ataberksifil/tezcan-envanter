@@ -1,30 +1,42 @@
 {% extends "base.html" %}
+{% load ui %}
 
 {% block title %}Sayımı tamamla — {{ session.reference_number }}{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Sayımı tamamla</h1>
-    <a class="btn btn-outline-secondary" href="{% url 'counting:session-detail' session.pk %}">İptal</a>
-</div>
-
-<div class="card card-body">
-    <p>{% if session.baseline_candidate %}Kesim adayı oturum{% else %}Rutin oturum{% endif %}: <strong>{{ session.reference_number }}</strong></p>
-    <ul>
-        <li>Miktar bekleyen: {{ progress.quantity_pending }} / {{ progress.quantity_total }}</li>
-        <li>Miktar açık sayılmadı: {{ progress.quantity_not_counted }}</li>
-        <li>Tekil bekleyen: {{ progress.serialized_pending }} / {{ progress.serialized_total }}</li>
-        <li>Tekil açık sayılmadı: {{ progress.serialized_not_counted }}</li>
-    </ul>
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite">
+                <li><a href="{% url 'counting:session-list' %}">Fiziksel sayımlar</a></li>
+                <li><a href="{% url 'counting:session-detail' session.pk %}">{{ session.reference_number }}</a></li>
+            </ol>
+            <h1>Sayımı tamamla</h1>
+            <p class="page-head-sub">{% if session.baseline_candidate %}Kesim adayı oturum{% else %}Rutin oturum{% endif %}: <strong class="code">{{ session.reference_number }}</strong></p>
+        </div>
+    </div>
+    <section class="panel mb-3" aria-label="Tamamlama özeti">
+        <div class="panel-body">
+            <dl class="kv">
+                <dt>Miktar bekleyen</dt><dd>{{ progress.quantity_pending }} / {{ progress.quantity_total }}</dd>
+                <dt>Miktar açık sayılmadı</dt><dd>{{ progress.quantity_not_counted }}</dd>
+                <dt>Tekil bekleyen</dt><dd>{{ progress.serialized_pending }} / {{ progress.serialized_total }}</dd>
+                <dt>Tekil açık sayılmadı</dt><dd>{{ progress.serialized_not_counted }}</dd>
+            </dl>
+        </div>
+    </section>
     {% if session.baseline_candidate %}
-        <div class="alert alert-warning">Kesim adayında zorunlu satırlar fiziksel sayılmış olmalıdır. Açık “sayılmadı” tamamlamayı engeller.</div>
+        <div class="alert alert-warning" role="note">{% icon "exclamation-triangle-fill" %}<div class="alert-body">Kesim adayında zorunlu satırlar fiziksel sayılmış olmalıdır. Açık “sayılmadı” tamamlamayı engeller.</div></div>
     {% else %}
-        <div class="alert alert-info">Rutin oturumda bekleyen satır kalamaz; açık “sayılmadı” kabul edilir. Boş/işlenmemiş satır sıfır sayılmaz.</div>
+        <div class="alert alert-info" role="note">{% icon "info-circle-fill" %}<div class="alert-body">Rutin oturumda bekleyen satır kalamaz; açık “sayılmadı” kabul edilir. Boş/işlenmemiş satır sıfır sayılmaz.</div></div>
     {% endif %}
     <p>Tamamlama stok veya ledger yazmaz.</p>
     <form method="post">
         {% csrf_token %}
-        <button type="submit" class="btn btn-primary">Fiziksel sayımı tamamla</button>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">{% icon "check2" %}Fiziksel sayımı tamamla</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'counting:session-detail' session.pk %}">İptal</a>
+        </div>
     </form>
 </div>
 {% endblock %}

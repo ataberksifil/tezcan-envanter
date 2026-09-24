@@ -1,31 +1,29 @@
 {% extends "base.html" %}
+{% load ui %}
 
 {% block title %}Beklenmeyen miktar — {{ session.reference_number }}{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Beklenmeyen miktar stoku</h1>
-    <a class="btn btn-outline-secondary" href="{% url 'counting:quantity-count' session.pk %}">Miktar sayımına dön</a>
-</div>
-
-<p class="text-body-secondary">
-    Yalnız katalogda tanımlı QUANTITY malzeme kaydedilir. Beklenen sistem bakiyesi sıfırdır.
-    Bu işlem stok veya ledger yazmaz. Bilinmeyen malzeme oluşturulmaz.
-</p>
-
-<form method="post" class="card card-body">
-    {% csrf_token %}
-    {% if form.non_field_errors %}
-        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-    {% endif %}
-    {% for field in form %}
-        <div class="mb-3">
-            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-            {{ field }}
-            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-            {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors }}</div>{% endif %}
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite">
+                <li><a href="{% url 'counting:session-detail' session.pk %}">{{ session.reference_number }}</a></li>
+                <li><a href="{% url 'counting:quantity-count' session.pk %}">Miktar sayımı</a></li>
+            </ol>
+            <h1>Beklenmeyen miktar stoku</h1>
+            <p class="page-head-sub">Yalnız katalogda tanımlı QUANTITY malzeme kaydedilir. Beklenen sistem bakiyesi sıfırdır. Bu işlem stok veya ledger yazmaz. Bilinmeyen malzeme oluşturulmaz.</p>
         </div>
-    {% endfor %}
-    <button type="submit" class="btn btn-primary">Gözlemi kaydet</button>
-</form>
+    </div>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+        {% include "core/_form_errors.html" %}
+        <section class="panel"><div class="panel-body">{% include "core/_form_fields.html" %}</div></section>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">{% icon "check2" %}Gözlemi kaydet</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'counting:quantity-count' session.pk %}">Miktar sayımına dön</a>
+        </div>
+    </form>
+</div>
 {% endblock %}

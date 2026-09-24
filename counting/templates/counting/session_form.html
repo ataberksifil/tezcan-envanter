@@ -1,51 +1,49 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Yeni fiziksel sayım — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Yeni fiziksel sayım — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Yeni fiziksel sayım</h1>
-    <a class="btn btn-outline-secondary" href="{% url 'counting:session-list' %}">Listeye dön</a>
-</div>
-
-<p class="text-body-secondary">
-    Oturum tek bir lokasyon alt ağacını kapsar. Çakışan açık oturum kabul edilmez.
-    Sayım başlatılana kadar beklenen snapshot alınmaz.
-</p>
-
-{% if open_sessions %}
-    <div class="alert alert-warning">
-        <p class="mb-1 fw-semibold">Açık sayım oturumları</p>
-        <ul class="mb-0">
-            {% for session in open_sessions %}
-                <li>{{ session.reference_number }} — {{ session.scope_location.code }} ({{ session.get_status_display }})</li>
-            {% endfor %}
-        </ul>
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite"><li><a href="{% url 'counting:session-list' %}">Fiziksel sayımlar</a></li></ol>
+            <h1>Yeni fiziksel sayım</h1>
+            <p class="page-head-sub">Oturum tek bir lokasyon alt ağacını kapsar. Çakışan açık oturum kabul edilmez. Sayım başlatılana kadar beklenen snapshot alınmaz.</p>
+        </div>
     </div>
-{% endif %}
 
-<form method="post" class="card card-body">
-    {% csrf_token %}
-    {% if form.non_field_errors %}
-        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% if open_sessions %}
+        <div class="alert alert-warning" role="note">
+            {% icon "exclamation-triangle-fill" %}
+            <div class="alert-body">
+                <p class="mb-1 fw-semibold">Açık sayım oturumları</p>
+                <ul class="mb-0">
+                    {% for session in open_sessions %}<li><span class="code">{{ session.reference_number }}</span> — <span class="loc">{{ session.scope_location.code }}</span> ({{ session.get_status_display }})</li>{% endfor %}
+                </ul>
+            </div>
+        </div>
     {% endif %}
-    <div class="mb-3">
-        <label class="form-label" for="{{ form.reference_number.id_for_label }}">{{ form.reference_number.label }}</label>
-        {{ form.reference_number }}
-        {% if form.reference_number.errors %}<div class="invalid-feedback d-block">{{ form.reference_number.errors }}</div>{% endif %}
-    </div>
-    <div class="mb-3">
-        <label class="form-label" for="{{ form.scope_location.id_for_label }}">{{ form.scope_location.label }}</label>
-        {{ form.scope_location }}
-        <div class="form-text">{{ form.scope_location.help_text }}</div>
-        {% if form.scope_location.errors %}<div class="invalid-feedback d-block">{{ form.scope_location.errors }}</div>{% endif %}
-    </div>
-    <div class="form-check mb-3">
-        {{ form.baseline_candidate }}
-        <label class="form-check-label" for="{{ form.baseline_candidate.id_for_label }}">{{ form.baseline_candidate.label }}</label>
-        <div class="form-text">{{ form.baseline_candidate.help_text }}</div>
-        {% if form.baseline_candidate.errors %}<div class="invalid-feedback d-block">{{ form.baseline_candidate.errors }}</div>{% endif %}
-    </div>
-    <button type="submit" class="btn btn-primary">Oturumu oluştur</button>
-</form>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% include "core/_form_errors.html" %}
+        <section class="panel">
+            <div class="panel-body">
+                {% include "core/_field.html" with field=form.reference_number %}
+                {% include "core/_field.html" with field=form.scope_location %}
+                <div class="form-check field">
+                    {{ form.baseline_candidate }}
+                    <label class="form-check-label fw-semibold" for="{{ form.baseline_candidate.id_for_label }}">{{ form.baseline_candidate.label }}</label>
+                    <div class="form-text">{{ form.baseline_candidate.help_text }}</div>
+                    {% for error in form.baseline_candidate.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+        </section>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">{% icon "plus-lg" %}Oturumu oluştur</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'counting:session-list' %}">Listeye dön</a>
+        </div>
+    </form>
+</div>
 {% endblock %}

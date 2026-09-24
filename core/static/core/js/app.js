@@ -225,6 +225,27 @@
         }
     });
 
+    // Count sheets: Enter jumps to the next count field; after the last one it
+    // focuses the save button so saving stays an explicit action.
+    document.addEventListener("keydown", function (event) {
+        var field = event.target;
+        if (event.key !== "Enter" || !field.matches || !field.matches("[data-enter-next]") || !field.form) {
+            return;
+        }
+        event.preventDefault();
+        var fields = Array.prototype.slice.call(field.form.querySelectorAll("[data-enter-next]"));
+        var next = fields[fields.indexOf(field) + 1];
+        if (next) {
+            next.focus();
+            next.select();
+        } else {
+            var save = field.form.querySelector("button[type=submit]:not([form])");
+            if (save) {
+                save.focus();
+            }
+        }
+    });
+
     // HID scanners end with Enter. In fields marked data-scan-field Enter moves to the
     // next field instead of submitting, so a scan never confirms an operation by itself.
     document.addEventListener("keydown", function (event) {

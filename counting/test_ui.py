@@ -507,8 +507,9 @@ def test_discrepancy_review_approve_reject_separation_and_transaction_link(clien
     page = client.get(review_url)
     html = page.content.decode()
     assert page.status_code == 200
-    assert "8.000" in html or "8,000" in html
-    assert "7.000" in html or "7,000" in html
+    # Approved Turkish display format (UI Faz 7): 8.000 -> "8", 7.000 -> "7".
+    assert '<span class="qty">8<span class="qty-unit">' in html
+    assert '<span class="qty">7<span class="qty-unit">' in html
     assert ">Onayla<" in html or 'btn-success">Onayla' in html
     form = page.context["pending_items"][0]["approval_form"]
     approve_url = reverse("counting:quantity-approve", args=[session.pk, line.pk])

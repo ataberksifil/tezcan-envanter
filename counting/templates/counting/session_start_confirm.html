@@ -1,24 +1,37 @@
 {% extends "base.html" %}
+{% load ui %}
 
 {% block title %}Sayımı başlat — {{ session.reference_number }}{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Sayımı başlat</h1>
-    <a class="btn btn-outline-secondary" href="{% url 'counting:session-detail' session.pk %}">İptal</a>
-</div>
-
-<div class="card card-body">
-    <p>Referans: <strong>{{ session.reference_number }}</strong></p>
-    <p>Kapsam: <strong>{{ session.scope_location.code }}</strong> — {{ session.scope_location.name }}</p>
-    <p>Tür: <strong>{% if session.baseline_candidate %}Kesim adayı{% else %}Rutin sayım{% endif %}</strong></p>
-    <div class="alert alert-info">
-        <p class="mb-1">Başlatma, bu kapsamdaki mevcut miktar bakiyelerini ve stoktaki tekil varlıkları <strong>beklenen snapshot</strong> olarak kaydeder.</p>
-        <p class="mb-0">Stok hareketleri <strong>dondurulmaz</strong>. Snapshot’tan sonra yapılan hareketler mutabakat/kesim sırasında sapma olarak reddedilir.</p>
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite">
+                <li><a href="{% url 'counting:session-list' %}">Fiziksel sayımlar</a></li>
+                <li><a href="{% url 'counting:session-detail' session.pk %}">{{ session.reference_number }}</a></li>
+            </ol>
+            <h1>Sayımı başlat</h1>
+        </div>
     </div>
+    <section class="review" aria-labelledby="start-review">
+        <div class="review-head" id="start-review">{% icon "clipboard-check" %}Başlatmadan önce kontrol edin</div>
+        <div class="review-body">
+            <dl class="kv">
+                <dt>Referans</dt><dd><strong class="code">{{ session.reference_number }}</strong></dd>
+                <dt>Kapsam</dt><dd><span class="loc">{{ session.scope_location.code }}</span><span class="loc-path">{{ session.scope_location.name }}</span></dd>
+                <dt>Tür</dt><dd><strong>{% if session.baseline_candidate %}Kesim adayı{% else %}Rutin sayım{% endif %}</strong></dd>
+            </dl>
+            <p class="mt-3 mb-1">Başlatma, bu kapsamdaki mevcut miktar bakiyelerini ve stoktaki tekil varlıkları <strong>beklenen snapshot</strong> olarak kaydeder.</p>
+            <p class="mb-0">Stok hareketleri <strong>dondurulmaz</strong>. Snapshot’tan sonra yapılan hareketler mutabakat/kesim sırasında sapma olarak reddedilir.</p>
+        </div>
+    </section>
     <form method="post">
         {% csrf_token %}
-        <button type="submit" class="btn btn-primary">Snapshot al ve başlat</button>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">{% icon "check2" %}Snapshot al ve başlat</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'counting:session-detail' session.pk %}">İptal</a>
+        </div>
     </form>
 </div>
 {% endblock %}

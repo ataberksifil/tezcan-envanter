@@ -1,7 +1,7 @@
 # UI Modernizasyon — Durum
 
 **Başlangıç HEAD:** `fca1ad455ef203f40b09aafc25e15bed54619c25` (= origin/main)
-**Güncel faz:** Faz 7 — Sayım ve kesim
+**Güncel faz:** Faz 8 — Yönetim
 **Plan:** [UI-POLISH-MASTER-PLAN.md](UI-POLISH-MASTER-PLAN.md) · **Tasarım:** [UI-DESIGN-SYSTEM.md](UI-DESIGN-SYSTEM.md)
 
 ## Tamamlanan fazlar
@@ -13,7 +13,8 @@
 | 3 — Stok hareket formları ve detayları | `3f9af87` | Giriş/çıkış/iade/transfer formları ve detayları, tekil varlık ekranları |
 | 4 — Talep Takip ve SKT | `c6dcfa9` | Talep liste/detay (istenen/gelen/kalan + ilerleme), formlar; SKT listesi (giriş konumu açıkça), kontrol formu (üç sonuç açıklamalı); talep bağlantılı girişte SKT hatası düzeltildi |
 | 5 — Hareket geçmişi ve düzeltmeler | `18b4382` | Hareket listesi/detayı (işaretli miktar, kaynak → hedef plakaları), düzeltme listesi/formu/detayı (fark görünümü, kanıt, karar paneli, tarayıcı onayı), okunur düzeltme seçenek etiketleri |
-| 6 — Barkod tarama ve etiket | (bu commit) | Tarama sayfası (masaüstünde USB okuyucu, telefonda kamera önce; hata sonrası alan seçili), etiket sayfası (gerçek boyut önizleme, 104 mm kılavuz, yalnız etiket yazdırılır) |
+| 6 — Barkod tarama ve etiket | `f34959b` | Tarama sayfası (masaüstünde USB okuyucu, telefonda kamera önce; hata sonrası alan seçili), etiket sayfası (gerçek boyut önizleme, 104 mm kılavuz, yalnız etiket yazdırılır) |
+| 7 — Sayım ve kesim | (bu commit) | Oturum listesi/detayı (ilerleme), kör miktar sayımı (Enter sonraki satıra), tekil sayım, fark inceleme (beklenen → sayılan, yön), başlat/tamamla onayları, kesim listesi/hazırlık/uygula (tarayıcı onayı) |
 
 ## Faz 1 kapsamı
 
@@ -66,6 +67,14 @@ Tasarım sistemi (tokenlar, IBM Plex + Bootstrap Icons alt kümesi yerel), kabuk
 - Tarama: sayfa açılışında odak okutma alanında; bilinmeyen kod → "Kodun işaret ettiği kayıt bulunamadı." + alan seçili; ardından okutulan geçerli TZ1L doğrudan konum kaydını açtı. Telefonda kamera bölümü üstte.
 - pytest: `identification core` geçti.
 
+## Faz 7 doğrulama
+
+- Kör sayım korunur: sayan kişinin oturum detayı ve miktar sayım sayfasında "Beklenen" ve beklenen miktar yok (Playwright HTML kontrolü + mevcut testler).
+- Enter sayım alanında sonraki satıra, son satırdan sonra "Sayılanları kaydet" düğmesine gider; hiçbir değer Enter ile kaydedilmedi (sandbox DB'de satırlar "Sayım bekliyor" kaldı).
+- Sandbox: yönetici fark incelemesinde 250 → 238 farkını açıklamayla onayladı (tarayıcı onayı) → 1 COUNT_RECONCILIATION, bakiye 238. Kesim liste/hazırlık ekranları render; kesim uygulaması `data-confirm` ile korunur (sandbox'ta uygulanmadı).
+- pytest: `counting imports core` + hareket geçmişi → 340 passed. Onaylı biçim nedeniyle güncellenen beklenti: `counting/test_ui.py` (8/7).
+- Not: kişinin önceden girdiği sayım değeri `type=number` alanında tarayıcı yerel ayarıyla `15,000` görünür (Türkçe'de 15); sunucu değeri değişmez.
+
 ## Sonraki adım
 
-Faz 7 — Sayım ve kesim.
+Faz 8 — Yönetim.

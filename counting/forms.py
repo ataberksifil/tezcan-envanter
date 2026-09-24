@@ -106,9 +106,11 @@ class QuantityCountLineForm(forms.Form):
         min_value=Decimal("0"),
         widget=forms.NumberInput(
             attrs={
-                "class": "form-control",
+                "class": "form-control count-input",
                 "step": "0.001",
                 "inputmode": "decimal",
+                # Enter moves to the next line's count instead of saving part of the sheet.
+                "data-enter-next": "true",
             }
         ),
     )

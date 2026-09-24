@@ -1,31 +1,29 @@
 {% extends "base.html" %}
+{% load ui %}
 
 {% block title %}Aday tekil gözlem — {{ session.reference_number }}{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Aday tekil gözlem</h1>
-    <a class="btn btn-outline-secondary" href="{% url 'counting:serialized-count' session.pk %}">Tekil sayıma dön</a>
-</div>
-
-<p class="text-body-secondary">
-    Fiziksel bulunan ancak henüz yetkili olmayan tekil parça burada staging olarak kaydedilir.
-    Bu işlem SerializedAsset veya stok oluşturmaz.
-</p>
-
-<form method="post" class="card card-body">
-    {% csrf_token %}
-    {% if form.non_field_errors %}
-        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-    {% endif %}
-    {% for field in form %}
-        <div class="mb-3">
-            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-            {{ field }}
-            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-            {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors }}</div>{% endif %}
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite">
+                <li><a href="{% url 'counting:session-detail' session.pk %}">{{ session.reference_number }}</a></li>
+                <li><a href="{% url 'counting:serialized-count' session.pk %}">Tekil sayım</a></li>
+            </ol>
+            <h1>Aday tekil gözlem</h1>
+            <p class="page-head-sub">Fiziksel bulunan ancak henüz yetkili olmayan tekil parça burada staging olarak kaydedilir. Bu işlem SerializedAsset veya stok oluşturmaz.</p>
         </div>
-    {% endfor %}
-    <button type="submit" class="btn btn-primary">Aday gözlemi kaydet</button>
-</form>
+    </div>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+        {% include "core/_form_errors.html" %}
+        <section class="panel"><div class="panel-body">{% include "core/_form_fields.html" %}</div></section>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">{% icon "check2" %}Aday gözlemi kaydet</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'counting:serialized-count' session.pk %}">Tekil sayıma dön</a>
+        </div>
+    </form>
+</div>
 {% endblock %}

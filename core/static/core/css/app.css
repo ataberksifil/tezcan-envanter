@@ -1042,3 +1042,18 @@ fieldset.field { border: 0; padding: 0; min-width: 0; }
 .scan-sections { display: flex; flex-direction: column; gap: 1rem; }
 .scan-sections > .panel + .panel { margin-top: 0; }
 @media (max-width: 991.98px) { .scan-camera { order: -1; } }
+
+/* ---- Physical count --------------------------------------------------- */
+.count-progress-row { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.375rem; }
+.count-progress-title { font-weight: 600; }
+.count-progress-num { font-family: var(--tz-mono); font-size: 0.875rem; color: var(--tz-ink-2); }
+.count-tag-PENDING_COUNT { background: var(--tz-neutral-soft); color: var(--tz-ink-2); }
+.count-tag-NOT_COUNTED { background: var(--tz-warning-soft); color: var(--tz-warning); }
+.count-tag-PENDING_APPROVAL { background: var(--tz-danger-soft); color: var(--tz-danger); }
+.count-tag-NO_DISCREPANCY, .count-tag-APPROVED, .count-tag-DISPOSITIONED { background: var(--tz-success-soft); color: var(--tz-success); }
+.count-input { max-width: 11rem; text-align: right; font-family: var(--tz-mono); font-weight: 600; }
+.diff-card { border: 1px solid var(--tz-line); border-radius: var(--tz-radius); background: var(--tz-surface); }
+.diff-card + .diff-card { margin-top: 1rem; }
+.diff-figures { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; }
+.diff-figures .qty { font-size: 1.25rem; }
+.choice-card input[type="checkbox"], .choice-card input[type="radio"] { margin-top: 0.2rem; flex: none; width: 1.25rem; height: 1.25rem; accent-color: var(--tz-primary); }

@@ -1,92 +1,90 @@
 {% extends "base.html" %}
+{% load ui %}
 
 {% block title %}Miktar sayımı — {{ session.reference_number }}{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Miktar sayımı</h1>
-    <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-outline-primary" href="{% url 'counting:unexpected-quantity' session.pk %}">Beklenmeyen stok</a>
-        <a class="btn btn-outline-primary" href="{% url 'counting:serialized-count' session.pk %}">Tekil sayım</a>
-        <a class="btn btn-outline-secondary" href="{% url 'counting:session-detail' session.pk %}">Oturum</a>
+<div class="page-head">
+    <div>
+        <ol class="breadcrumb-lite">
+            <li><a href="{% url 'counting:session-list' %}">Fiziksel sayımlar</a></li>
+            <li><a href="{% url 'counting:session-detail' session.pk %}">{{ session.reference_number }}</a></li>
+        </ol>
+        <h1>Miktar sayımı</h1>
+        <p class="page-head-sub">Kör sayım: beklenen miktar gösterilmez. Boş alan işlenmez (bekleyen sayım kalır). Açık sıfır ayrı bir sayım değeridir. “Sayılmadı” ayrı ve kasıtlı bir işlemdir.{% if session.baseline_candidate %} Kesim adayında zorunlu satırlar fiziksel sayılmalıdır.{% endif %}</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary" href="{% url 'counting:unexpected-quantity' session.pk %}">{% icon "plus-lg" %}Beklenmeyen stok</a>
+        <a class="btn btn-outline-secondary" href="{% url 'counting:serialized-count' session.pk %}">Tekil sayım</a>
     </div>
 </div>
 
-<p class="text-body-secondary">
-    Kör sayım: beklenen miktar gösterilmez. Boş alan işlenmez (bekleyen sayım kalır).
-    Açık sıfır ayrı bir sayım değeridir. “Sayılmadı” ayrı ve kasıtlı bir işlemdir.
-    {% if session.baseline_candidate %}Kesim adayında zorunlu satırlar fiziksel sayılmalıdır.{% endif %}
-</p>
-<p>Bekleyen satır: {{ progress.quantity_pending }} / {{ progress.quantity_total }}</p>
+<div class="count-progress-row mb-1">
+    <span class="count-progress-title">Bekleyen satır: {{ progress.quantity_pending }} / {{ progress.quantity_total }}</span>
+    <span class="count-progress-num small">Enter bir sonraki satıra geçer</span>
+</div>
+{% widthratio progress.quantity_pending progress.quantity_total 100 as pending_pct %}
+<div class="line-progress mb-3"><span style="width: {% if progress.quantity_total %}calc(100% - {{ pending_pct }}%){% else %}0{% endif %}"></span></div>
 
 <form method="post">
     {% csrf_token %}
     {{ formset.management_form }}
     {% if formset.non_form_errors %}
-        <div class="alert alert-danger">{{ formset.non_form_errors }}</div>
+        <div class="alert alert-danger" role="alert">{% icon "x-circle-fill" %}<div class="alert-body">{{ formset.non_form_errors }}</div></div>
     {% endif %}
-    <div class="table-responsive">
-        <table class="table table-sm align-middle">
+    <div class="table-wrap">
+        <table class="table table-data table-stack">
             <thead>
                 <tr>
-                    <th>Malzeme</th>
-                    <th>Lokasyon</th>
-                    <th>Kondisyon</th>
-                    <th>Birim</th>
-                    <th>Durum</th>
-                    <th>Sayılan miktar</th>
-                    <th></th>
+                    <th scope="col">Malzeme</th>
+                    <th scope="col">Konum</th>
+                    <th scope="col">Kondisyon</th>
+                    <th scope="col">Durum</th>
+                    <th scope="col">Sayılan miktar</th>
+                    <th scope="col" class="actions"><span class="visually-hidden">Sayılmadı</span></th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in paired_lines %}
-                    <tr class="{% if item.line.resolution_status == 'PENDING_COUNT' %}table-light{% elif item.line.resolution_status == 'NOT_COUNTED' %}table-warning{% endif %}">
-                        <td>
-                            {{ item.line.material.material_code }}
-                            <div class="small text-body-secondary">{{ item.line.material.name }}</div>
+                    <tr class="count-row count-row-{{ item.line.resolution_status }}">
+                        <td class="stack-full">
+                            <span class="code">{{ item.line.material.material_code }}</span>
+                            <span class="cell-sub">{{ item.line.material.name }}</span>
                             {{ item.form.line_id }}
                             {{ item.form.counted_at_token }}
                         </td>
-                        <td>{{ item.line.location.code }}</td>
-                        <td>{{ item.line.condition.name }}</td>
-                        <td>{{ item.line.material.unit.code }}</td>
-                        <td>{{ item.line.get_resolution_status_display }}</td>
-                        <td>
-                            {{ item.form.counted_quantity }}
-                            {% if item.form.counted_quantity.errors %}
-                                <div class="invalid-feedback d-block">{{ item.form.counted_quantity.errors }}</div>
-                            {% endif %}
-                            {% if item.form.non_field_errors %}
-                                <div class="invalid-feedback d-block">{{ item.form.non_field_errors }}</div>
-                            {% endif %}
+                        <td data-label="Konum"><span class="loc">{{ item.line.location.code }}</span></td>
+                        <td data-label="Kondisyon"><span class="tag cond-{{ item.line.condition.code }}">{{ item.line.condition.name }}</span></td>
+                        <td data-label="Durum"><span class="tag count-tag-{{ item.line.resolution_status }}">{{ item.line.get_resolution_status_display }}</span></td>
+                        <td class="stack-full">
+                            <label class="visually-hidden" for="{{ item.form.counted_quantity.id_for_label }}">Sayılan miktar ({{ item.line.material.unit.code }})</label>
+                            <div class="d-flex align-items-center gap-2">
+                                {{ item.form.counted_quantity }}
+                                <span class="qty-unit">{{ item.line.material.unit.code }}</span>
+                            </div>
+                            {% if item.form.counted_quantity.errors %}<div class="invalid-feedback d-block">{{ item.form.counted_quantity.errors }}</div>{% endif %}
+                            {% if item.form.non_field_errors %}<div class="invalid-feedback d-block">{{ item.form.non_field_errors }}</div>{% endif %}
                         </td>
-                        <td>
+                        <td class="actions">
                             {% if item.can_mark_not_counted %}
-                                <button
-                                    type="submit"
-                                    class="btn btn-outline-warning btn-sm"
-                                    form="not-counted-{{ item.line.pk }}"
-                                >Sayılmadı</button>
+                                <button type="submit" class="btn btn-outline-secondary btn-sm" form="not-counted-{{ item.line.pk }}">Sayılmadı</button>
                             {% endif %}
                         </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="7" class="text-body-secondary">Düzenlenebilir miktar satırı yok.</td></tr>
+                    <tr><td colspan="6" class="text-body-secondary">Düzenlenebilir miktar satırı yok.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    <button type="submit" class="btn btn-primary">Sayılanları kaydet</button>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-lg">{% icon "check2" %}Sayılanları kaydet</button>
+        <a class="btn btn-outline-secondary btn-lg" href="{% url 'counting:session-detail' session.pk %}">Oturum</a>
+    </div>
 </form>
-
 {% for item in paired_lines %}
     {% if item.can_mark_not_counted %}
-        <form
-            id="not-counted-{{ item.line.pk }}"
-            method="post"
-            action="{% url 'counting:quantity-not-counted' session.pk item.line.pk %}"
-            class="d-none"
-        >
+        <form id="not-counted-{{ item.line.pk }}" method="post" action="{% url 'counting:quantity-not-counted' session.pk item.line.pk %}" class="d-none">
             {% csrf_token %}
             <input type="hidden" name="counted_at_token" value="{{ item.form.counted_at_token.value|default:'' }}">
         </form>

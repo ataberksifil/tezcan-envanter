@@ -46,8 +46,8 @@ Durum: `—` başlanmadı · `PROTO` prototip · `DONE` tamam + tarayıcıda do�
 | 19 | corrections | `/corrections/`, `/new/…`, `/<id>/`, approve/reject, evidence | `request_list/form/detail.html` | `corrections.*` | 5 | DONE |
 | 20 | identification | `/identification/scan/`, `resolve/` | `scanner.html`, `identification/js/scanner.js` | view_material / view_stockbalance / view_location | 6 | DONE |
 | 21 | identification | etiket (Code128 standart, QR kompakt) × Material/Asset/Location | `label.html`, `label.css` | ilgili view izni | 6 | DONE |
-| 22 | counting | `/counts/` liste, yeni, detay, başlat, miktar sayımı, beklenmeyen, sayılmadı, tekil sayım, aday, eksik, tamamla, fark inceleme, onay/red | `session_list/form/detail.html`, `session_start_confirm.html`, `quantity_count.html`, `unexpected_quantity_form.html`, `serialized_count.html`, `candidate_serialized_form.html`, `session_complete_confirm.html`, `discrepancy_review.html` | `counting.*` | 7 | — |
-| 23 | imports | `/baselines/`, yeni, detay, kesim | `baseline_list/form/detail.html` | `imports.establish_baseline` | 7 | — |
+| 22 | counting | `/counts/` liste, yeni, detay, başlat, miktar sayımı, beklenmeyen, sayılmadı, tekil sayım, aday, eksik, tamamla, fark inceleme, onay/red | `session_list/form/detail.html`, `session_start_confirm.html`, `quantity_count.html`, `unexpected_quantity_form.html`, `serialized_count.html`, `candidate_serialized_form.html`, `session_complete_confirm.html`, `discrepancy_review.html` | `counting.*` | 7 | DONE |
+| 23 | imports | `/baselines/`, yeni, detay, kesim | `baseline_list/form/detail.html` | `imports.establish_baseline` | 7 | DONE |
 | 24 | core | `/management/` | `core/management.html` | yönetim erişimi | 8 | — |
 | 25 | catalog | kategoriler, ölçü birimleri (liste/form/pasif-aktif) | `category_list/form.html`, `unit_list/form.html` | `catalog.*` | 8 | — |
 | 26 | locations | `/locations/` liste, detay, form, pasif/aktif | `location_list/detail/form.html` | `locations.*` | 8 | — |

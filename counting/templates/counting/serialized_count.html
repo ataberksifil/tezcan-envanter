@@ -1,118 +1,108 @@
 {% extends "base.html" %}
+{% load ui %}
 
 {% block title %}Tekil sayım — {{ session.reference_number }}{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Tekil varlık sayımı</h1>
-    <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-outline-primary" href="{% url 'counting:serialized-candidate' session.pk %}">Aday / bilinmeyen gözlem</a>
-        <a class="btn btn-outline-primary" href="{% url 'counting:quantity-count' session.pk %}">Miktar sayımı</a>
-        <a class="btn btn-outline-secondary" href="{% url 'counting:session-detail' session.pk %}">Oturum</a>
+<div class="page-head">
+    <div>
+        <ol class="breadcrumb-lite">
+            <li><a href="{% url 'counting:session-list' %}">Fiziksel sayımlar</a></li>
+            <li><a href="{% url 'counting:session-detail' session.pk %}">{{ session.reference_number }}</a></li>
+        </ol>
+        <h1>Tekil varlık sayımı</h1>
+        <p class="page-head-sub">Kör sayım: beklenen konum ve kondisyon gösterilmez. Tarama yalnız kimlik çözer; sayım kaydı onay gerektirir. Miktar=1 uydurulmaz.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary" href="{% url 'counting:serialized-candidate' session.pk %}">{% icon "plus-lg" %}Aday / bilinmeyen gözlem</a>
+        <a class="btn btn-outline-secondary" href="{% url 'counting:quantity-count' session.pk %}">Miktar sayımı</a>
     </div>
 </div>
 
-<p class="text-body-secondary">
-    Kör sayım: beklenen konum ve kondisyon gösterilmez. Tarama yalnız kimlik çözer; sayım kaydı onay gerektirir.
-    Miktar=1 uydurulmaz.
-</p>
-
-<form method="get" class="row g-2 align-items-end mb-4">
-    <div class="col-md-8">
-        <label class="form-label" for="{{ lookup_form.identity.id_for_label }}">{{ lookup_form.identity.label }}</label>
-        {{ lookup_form.identity }}
-        <div class="form-text">{{ lookup_form.identity.help_text }}</div>
+<section class="panel mb-3" aria-label="Kimlik okut">
+    <div class="panel-body">
+        <form method="get" class="d-flex flex-wrap align-items-end gap-2">
+            <div class="flex-grow-1">
+                <label class="form-label" for="{{ lookup_form.identity.id_for_label }}">{{ lookup_form.identity.label }}</label>
+                <div class="scan-input">{% icon "upc-scan" %}{{ lookup_form.identity }}</div>
+                <div class="form-text">{{ lookup_form.identity.help_text }}</div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg mb-4">{% icon "search" %}Kimliği çöz</button>
+        </form>
+        {% if lookup_error %}<div class="alert alert-danger mb-0" role="alert">{% icon "x-circle-fill" %}<div class="alert-body">{{ lookup_error }}</div></div>{% endif %}
+        {% if resolved_location %}<div class="alert alert-info mb-0">{% icon "info-circle-fill" %}<div class="alert-body">Lokasyon çözüldü: <span class="loc">{{ resolved_location.code }}</span>. Gözlem kaydı için varlık seçin.</div></div>{% endif %}
+        {% if resolved_material %}<div class="alert alert-info mb-0">{% icon "info-circle-fill" %}<div class="alert-body">Malzeme çözüldü: <span class="code">{{ resolved_material.material_code }}</span>. Aday gözlem için kullanabilirsiniz.</div></div>{% endif %}
     </div>
-    <div class="col-md-2">
-        <button type="submit" class="btn btn-outline-primary">Kimliği çöz</button>
-    </div>
-</form>
-
-{% if lookup_error %}
-    <div class="alert alert-danger">{{ lookup_error }}</div>
-{% endif %}
-{% if resolved_location %}
-    <p class="alert alert-info">Lokasyon çözüldü: {{ resolved_location.code }}. Gözlem kaydı için varlık seçin.</p>
-{% endif %}
-{% if resolved_material %}
-    <p class="alert alert-info">Malzeme çözüldü: {{ resolved_material.material_code }}. Aday gözlem için kullanabilirsiniz.</p>
-{% endif %}
+</section>
 
 {% if resolved_asset %}
-    <div class="card card-body mb-4">
-        <h2 class="h5">Gözlemi onayla</h2>
-        <p class="mb-1">Dahili kod: <strong>{{ resolved_asset.internal_asset_code }}</strong></p>
-        <p class="mb-3">Malzeme: {{ resolved_asset.material.material_code }}{% if resolved_asset.serial_number %} — seri {{ resolved_asset.serial_number }}{% endif %}</p>
-        <form method="post">
-            {% csrf_token %}
-            {% if observe_form.non_field_errors %}
-                <div class="alert alert-danger">{{ observe_form.non_field_errors }}</div>
-            {% endif %}
-            {{ observe_form.serialized_asset_id }}
-            {{ observe_form.counted_at_token }}
-            <div class="mb-3">
-                <label class="form-label" for="{{ observe_form.observed_location.id_for_label }}">{{ observe_form.observed_location.label }}</label>
-                {{ observe_form.observed_location }}
-                {% if observe_form.observed_location.errors %}<div class="invalid-feedback d-block">{{ observe_form.observed_location.errors }}</div>{% endif %}
-            </div>
-            <div class="mb-3">
-                <label class="form-label" for="{{ observe_form.observed_condition.id_for_label }}">{{ observe_form.observed_condition.label }}</label>
-                {{ observe_form.observed_condition }}
-                {% if observe_form.observed_condition.errors %}<div class="invalid-feedback d-block">{{ observe_form.observed_condition.errors }}</div>{% endif %}
-            </div>
-            <button type="submit" class="btn btn-primary">Gözlemi kaydet</button>
-        </form>
-    </div>
+    <section class="review" aria-labelledby="observe-title">
+        <div class="review-head" id="observe-title">{% icon "clipboard-check" %}Gözlemi onayla</div>
+        <div class="review-body">
+            <dl class="kv mb-3">
+                <dt>Dahili kod</dt><dd><strong class="code">{{ resolved_asset.internal_asset_code }}</strong></dd>
+                <dt>Malzeme</dt><dd><span class="code">{{ resolved_asset.material.material_code }}</span>{% if resolved_asset.serial_number %} — seri {{ resolved_asset.serial_number }}{% endif %}</dd>
+            </dl>
+            <form method="post">
+                {% csrf_token %}
+                {% if observe_form.non_field_errors %}<div class="alert alert-danger">{% icon "x-circle-fill" %}<div class="alert-body">{{ observe_form.non_field_errors }}</div></div>{% endif %}
+                {{ observe_form.serialized_asset_id }}
+                {{ observe_form.counted_at_token }}
+                <div class="row g-3">
+                    <div class="col-sm-6">{% include "core/_field.html" with field=observe_form.observed_location %}</div>
+                    <div class="col-sm-6">{% include "core/_field.html" with field=observe_form.observed_condition %}</div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg">{% icon "check2" %}Gözlemi kaydet</button>
+            </form>
+        </div>
+    </section>
 {% endif %}
 
-<div class="table-responsive">
-    <table class="table table-sm align-middle">
+<div class="table-wrap">
+    <table class="table table-data table-stack">
         <thead>
             <tr>
-                <th>Varlık kodu</th>
-                <th>Malzeme</th>
-                <th>Durum</th>
-                <th>Gözlem</th>
-                <th>İşlem</th>
+                <th scope="col">Varlık kodu</th>
+                <th scope="col">Malzeme</th>
+                <th scope="col">Durum</th>
+                <th scope="col">Gözlem</th>
+                <th scope="col" class="actions">İşlem</th>
             </tr>
         </thead>
         <tbody>
             {% for line in serialized_lines %}
-                <tr class="{% if line.resolution_status == 'PENDING_COUNT' %}table-light{% elif line.resolution_status == 'NOT_COUNTED' %}table-warning{% endif %}">
-                    <td>
-                        {{ line.internal_asset_code }}
-                        {% if line.serial_number %}<div class="small text-body-secondary">{{ line.serial_number }}</div>{% endif %}
-                        {% if not line.expected_present %}<span class="badge text-bg-info">Aday</span>{% endif %}
+                <tr class="count-row count-row-{{ line.resolution_status }}">
+                    <td class="stack-full">
+                        <span class="code">{{ line.internal_asset_code }}</span>
+                        {% if line.serial_number %}<span class="cell-sub">{{ line.serial_number }}</span>{% endif %}
+                        {% if not line.expected_present %}<span class="tag tag-info row-note">Aday</span>{% endif %}
                     </td>
-                    <td>{{ line.material.material_code }}</td>
-                    <td>{{ line.get_resolution_status_display }}</td>
-                    <td>
-                        {% if line.observed_present == True %}
-                            {{ line.observed_location.code }} / {{ line.observed_condition.name }}
-                        {% elif line.observed_present == False %}
-                            Eksik
-                        {% elif line.resolution_status == 'NOT_COUNTED' %}
-                            Sayılmadı
-                        {% else %}
-                            <span class="text-body-secondary">işlenmedi</span>
-                        {% endif %}
+                    <td data-label="Malzeme"><span class="code">{{ line.material.material_code }}</span></td>
+                    <td data-label="Durum"><span class="tag count-tag-{{ line.resolution_status }}">{{ line.get_resolution_status_display }}</span></td>
+                    <td data-label="Gözlem">
+                        {% if line.observed_present == True %}<span class="loc">{{ line.observed_location.code }}</span> {{ line.observed_condition.name }}
+                        {% elif line.observed_present == False %}Eksik
+                        {% elif line.resolution_status == 'NOT_COUNTED' %}Sayılmadı
+                        {% else %}<span class="text-body-secondary">işlenmedi</span>{% endif %}
                     </td>
-                    <td class="text-nowrap">
-                        {% if line.serialized_asset_id %}
-                            <a class="btn btn-outline-primary btn-sm" href="?identity={{ line.internal_asset_code }}">Gözle</a>
-                        {% endif %}
-                        {% if line.expected_present %}
-                            <form method="post" action="{% url 'counting:serialized-missing' session.pk line.pk %}" class="d-inline">
-                                {% csrf_token %}
-                                <input type="hidden" name="counted_at_token" value="{% if line.counted_at %}{{ line.counted_at|date:'c' }}{% endif %}">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">Eksik</button>
-                            </form>
-                            <form method="post" action="{% url 'counting:serialized-not-counted' session.pk line.pk %}" class="d-inline">
-                                {% csrf_token %}
-                                <input type="hidden" name="counted_at_token" value="{% if line.counted_at %}{{ line.counted_at|date:'c' }}{% endif %}">
-                                <button type="submit" class="btn btn-outline-warning btn-sm">Sayılmadı</button>
-                            </form>
-                        {% endif %}
+                    <td class="actions">
+                        <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
+                            {% if line.serialized_asset_id %}
+                                <a class="btn btn-outline-primary btn-sm" href="?identity={{ line.internal_asset_code }}">Gözle</a>
+                            {% endif %}
+                            {% if line.expected_present %}
+                                <form method="post" action="{% url 'counting:serialized-missing' session.pk line.pk %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="counted_at_token" value="{% if line.counted_at %}{{ line.counted_at|date:'c' }}{% endif %}">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">Eksik</button>
+                                </form>
+                                <form method="post" action="{% url 'counting:serialized-not-counted' session.pk line.pk %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="counted_at_token" value="{% if line.counted_at %}{{ line.counted_at|date:'c' }}{% endif %}">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">Sayılmadı</button>
+                                </form>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
             {% empty %}

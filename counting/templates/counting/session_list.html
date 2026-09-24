@@ -1,22 +1,26 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Fiziksel sayımlar — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Fiziksel sayımlar — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Fiziksel sayımlar</h1>
-    <div class="d-flex flex-wrap gap-2">
+<div class="page-head">
+    <div>
+        <h1>Fiziksel sayımlar</h1>
+        <p class="page-head-sub">Her oturum tek bir konum alt ağacını kör sayar. Sayım stoğu doğrudan değiştirmez; farklar ayrıca onaylanır.</p>
+    </div>
+    <div class="page-actions">
         {% if can_establish %}
-            <a class="btn btn-outline-primary" href="{% url 'imports:baseline-list' %}">Kesimler</a>
+            <a class="btn btn-outline-secondary" href="{% url 'imports:baseline-list' %}">{% icon "flag" %}Kesimler</a>
         {% endif %}
         {% if can_create %}
-            <a class="btn btn-primary" href="{% url 'counting:session-create' %}">Yeni sayım</a>
+            <a class="btn btn-primary" href="{% url 'counting:session-create' %}">{% icon "plus-lg" %}Yeni sayım</a>
         {% endif %}
     </div>
 </div>
 
-<form method="get" class="row g-2 align-items-end mb-3">
-    <div class="col-md-2">
+<form method="get" class="filter-bar" aria-label="Sayım filtreleri">
+    <div>
         <label class="form-label" for="id_status">Durum</label>
         <select class="form-select" id="id_status" name="status">
             <option value="">Tümü</option>
@@ -25,24 +29,7 @@
             {% endfor %}
         </select>
     </div>
-    <div class="col-md-2">
-        <label class="form-label" for="id_reconciliation">Mutabakat</label>
-        <select class="form-select" id="id_reconciliation" name="reconciliation">
-            <option value="">Tümü</option>
-            {% for value, label in reconciliation_choices %}
-                <option value="{{ value }}"{% if reconciliation_filter == value %} selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="col-md-2">
-        <label class="form-label" for="id_candidate">Tür</label>
-        <select class="form-select" id="id_candidate" name="candidate">
-            <option value="">Tümü</option>
-            <option value="routine"{% if candidate_filter == "routine" %} selected{% endif %}>Rutin</option>
-            <option value="baseline"{% if candidate_filter == "baseline" %} selected{% endif %}>Kesim adayı</option>
-        </select>
-    </div>
-    <div class="col-md-3">
+    <div>
         <label class="form-label" for="id_location">Kapsam</label>
         <select class="form-select" id="id_location" name="location">
             <option value="">Tümü</option>
@@ -51,66 +38,75 @@
             {% endfor %}
         </select>
     </div>
-    <div class="col-md-2">
-        <div class="form-check mt-4">
-            <input class="form-check-input" type="checkbox" value="1" id="id_mine" name="mine"{% if mine_filter == "1" %} checked{% endif %}>
-            <label class="form-check-label" for="id_mine">Bana ait</label>
+    <div class="filter-bar-actions">
+        <button type="submit" class="btn btn-primary">{% icon "funnel" %}Filtrele</button>
+        {% if status_filter or reconciliation_filter or candidate_filter or location_filter or mine_filter %}
+            <a class="btn btn-outline-secondary" href="{% url 'counting:session-list' %}">Temizle</a>
+        {% endif %}
+    </div>
+    <details class="filter-more"{% if reconciliation_filter or candidate_filter or mine_filter %} open{% endif %}>
+        <summary>{% icon "chevron-right" %}Diğer filtreler{% if reconciliation_filter or candidate_filter or mine_filter %} (etkin){% endif %}</summary>
+        <div class="filter-more-body">
+            <div>
+                <label class="form-label" for="id_reconciliation">Mutabakat</label>
+                <select class="form-select" id="id_reconciliation" name="reconciliation">
+                    <option value="">Tümü</option>
+                    {% for value, label in reconciliation_choices %}
+                        <option value="{{ value }}"{% if reconciliation_filter == value %} selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="id_candidate">Tür</label>
+                <select class="form-select" id="id_candidate" name="candidate">
+                    <option value="">Tümü</option>
+                    <option value="routine"{% if candidate_filter == "routine" %} selected{% endif %}>Rutin</option>
+                    <option value="baseline"{% if candidate_filter == "baseline" %} selected{% endif %}>Kesim adayı</option>
+                </select>
+            </div>
+            <div class="d-flex align-items-end">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="1" id="id_mine" name="mine"{% if mine_filter == "1" %} checked{% endif %}>
+                    <label class="form-check-label" for="id_mine">Bana ait</label>
+                </div>
+            </div>
         </div>
-    </div>
-    <div class="col-md-1">
-        <button type="submit" class="btn btn-outline-secondary">Filtrele</button>
-    </div>
+    </details>
 </form>
 
 {% if sessions %}
-    <div class="table-responsive">
-        <table class="table table-striped table-hover align-middle">
+    <div class="table-wrap">
+        <table class="table table-data table-hover table-stack">
             <thead>
                 <tr>
                     <th scope="col">Referans</th>
                     <th scope="col">Kapsam</th>
-                    <th scope="col">Tür</th>
                     <th scope="col">Durum</th>
                     <th scope="col">Mutabakat</th>
-                    <th scope="col">Başlatan</th>
-                    <th scope="col">Tarih</th>
-                    <th scope="col">Göstergeler</th>
+                    <th scope="col">Başlatan / tarih</th>
+                    <th scope="col">Dikkat</th>
                 </tr>
             </thead>
             <tbody>
                 {% for session in sessions %}
                     <tr>
-                        <td>
-                            <a href="{% url 'counting:session-detail' session.pk %}">{{ session.reference_number }}</a>
+                        <td class="stack-full">
+                            <a class="row-link code" href="{% url 'counting:session-detail' session.pk %}">{{ session.reference_number }}</a>
+                            {% if session.baseline_candidate %}<span class="tag tag-warning row-note">Kesim adayı</span>{% else %}<span class="tag tag-neutral row-note">Rutin</span>{% endif %}
                         </td>
-                        <td>
-                            {% if perms.locations.view_location %}
-                                <a href="{% url 'locations:location-detail' session.scope_location_id %}">{{ session.scope_location.code }}</a>
-                            {% else %}
-                                {{ session.scope_location.code }}
-                            {% endif %}
+                        <td data-label="Kapsam">
+                            {% if perms.locations.view_location %}<a class="loc" href="{% url 'locations:location-detail' session.scope_location_id %}">{{ session.scope_location.code }}</a>{% else %}<span class="loc">{{ session.scope_location.code }}</span>{% endif %}
                         </td>
-                        <td>
-                            {% if session.baseline_candidate %}
-                                <span class="badge text-bg-warning">Kesim adayı</span>
-                            {% else %}
-                                <span class="badge text-bg-secondary">Rutin</span>
-                            {% endif %}
+                        <td data-label="Durum">{{ session.get_status_display }}</td>
+                        <td data-label="Mutabakat">{{ session.get_reconciliation_status_display }}</td>
+                        <td data-label="Başlatan">
+                            {% if session.started_by_user %}{{ session.started_by_user.get_username }}{% else %}—{% endif %}
+                            <span class="cell-sub">{% if session.started_at %}Başlangıç: {{ session.started_at }}{% else %}{{ session.created_at }}{% endif %}</span>
                         </td>
-                        <td>{{ session.get_status_display }}</td>
-                        <td>{{ session.get_reconciliation_status_display }}</td>
-                        <td>{% if session.started_by_user %}{{ session.started_by_user.get_username }}{% else %}—{% endif %}</td>
-                        <td>
-                            <div>{{ session.created_at }}</div>
-                            {% if session.started_at %}<div class="small text-body-secondary">Başlangıç: {{ session.started_at }}</div>{% endif %}
-                        </td>
-                        <td>
-                            {% if session.pending_quantity_count %}
-                                <span class="badge text-bg-info">Bekleyen sayım</span>
-                            {% endif %}
-                            {% if session.pending_approval_count %}
-                                <span class="badge text-bg-danger">Fark bekliyor</span>
-                            {% endif %}
+                        <td data-label="Dikkat">
+                            {% if session.pending_quantity_count %}<span class="tag tag-info">Bekleyen sayım</span>{% endif %}
+                            {% if session.pending_approval_count %}<span class="tag tag-danger">Fark bekliyor</span>{% endif %}
+                            {% if not session.pending_quantity_count and not session.pending_approval_count %}<span class="text-body-secondary">—</span>{% endif %}
                         </td>
                     </tr>
                 {% endfor %}
@@ -118,6 +114,10 @@
         </table>
     </div>
 {% else %}
-    <p class="text-body-secondary mb-0">Gösterilecek sayım oturumu yok.</p>
+    <div class="empty">
+        {% icon "clipboard-check" %}
+        <p class="empty-title">Gösterilecek sayım oturumu yok.</p>
+        {% if can_create %}<div class="empty-actions"><a class="btn btn-primary" href="{% url 'counting:session-create' %}">{% icon "plus-lg" %}Yeni sayım</a></div>{% endif %}
+    </div>
 {% endif %}
 {% endblock %}

@@ -1,48 +1,38 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Envanter kesimleri — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Envanter kesimleri — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Envanter kesimleri</h1>
-    <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-outline-secondary" href="{% url 'counting:session-list' %}">Sayımlar</a>
-        <a class="btn btn-primary" href="{% url 'imports:baseline-create' %}">Yeni kesim hazırla</a>
+<div class="page-head">
+    <div>
+        <h1>Envanter kesimleri</h1>
+        <p class="page-head-sub">Açılış stoğu yalnız kontrollü kesimle, sayılmış kesim adayı oturumlardan ve bir kez oluşur.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary" href="{% url 'counting:session-list' %}">{% icon "clipboard-check" %}Sayımlar</a>
+        <a class="btn btn-primary" href="{% url 'imports:baseline-create' %}">{% icon "plus-lg" %}Yeni kesim hazırla</a>
     </div>
 </div>
 
 {% if baselines %}
-    <div class="table-responsive">
-        <table class="table table-striped align-middle">
-            <thead>
-                <tr>
-                    <th>Referans</th>
-                    <th>Durum</th>
-                    <th>Hazırlayan</th>
-                    <th>Oluşturulma</th>
-                    <th>Kesim</th>
-                </tr>
-            </thead>
+    <div class="table-wrap">
+        <table class="table table-data table-hover table-stack">
+            <thead><tr><th scope="col">Referans</th><th scope="col">Durum</th><th scope="col">Hazırlayan</th><th scope="col">Oluşturulma</th><th scope="col">Kesim</th></tr></thead>
             <tbody>
                 {% for baseline in baselines %}
                     <tr>
-                        <td><a href="{% url 'imports:baseline-detail' baseline.pk %}">{{ baseline.reference }}</a></td>
-                        <td>{{ baseline.get_status_display }}</td>
-                        <td>{{ baseline.created_by.get_username }}</td>
-                        <td>{{ baseline.created_at }}</td>
-                        <td>
-                            {% if baseline.established_at %}
-                                {{ baseline.established_by.get_username }} — {{ baseline.established_at }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
+                        <td class="stack-full"><a class="row-link code" href="{% url 'imports:baseline-detail' baseline.pk %}">{{ baseline.reference }}</a></td>
+                        <td data-label="Durum"><span class="tag {% if baseline.established_at %}tag-success{% else %}tag-neutral{% endif %}">{{ baseline.get_status_display }}</span></td>
+                        <td data-label="Hazırlayan">{{ baseline.created_by.get_username }}</td>
+                        <td data-label="Oluşturulma">{{ baseline.created_at }}</td>
+                        <td data-label="Kesim">{% if baseline.established_at %}{{ baseline.established_by.get_username }} — {{ baseline.established_at }}{% else %}—{% endif %}</td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 {% else %}
-    <p class="text-body-secondary mb-0">Kesim kaydı yok.</p>
+    <div class="empty">{% icon "flag" %}<p class="empty-title">Kesim kaydı yok.</p><p class="mb-0">Önce kesim adayı bir sayım oturumu tamamlanmalıdır.</p></div>
 {% endif %}
 {% endblock %}
