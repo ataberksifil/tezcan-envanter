@@ -111,6 +111,16 @@ urlpatterns = [
         name="stock-list",
     ),
     path(
+        "inventory/expiry-warnings/",
+        views.ExpiryWarningListView.as_view(),
+        name="expiry-warning-list",
+    ),
+    path(
+        "inventory/expiry-warnings/<uuid:pk>/inspect/",
+        views.ExpiryInspectionCreateView.as_view(),
+        name="expiry-inspection-create",
+    ),
+    path(
         "inventory/transactions/",
         views.TransactionHistoryListView.as_view(),
         name="transaction-history-list",

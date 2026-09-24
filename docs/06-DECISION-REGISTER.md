@@ -616,6 +616,22 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
 - **Consequence:** Depot inbound records can retain product/brand, technical/model snapshot, quantity/unit, usage/application place, arrival date, optional supplier and optional packaging without changing stock math or putaway.
 - **Implementation status:** Implemented and committed (`DEC-040`, `feat: add receipt metadata`). Inbound / Mal Kabul programı COMPLETE işaretlenmez.
 
+### DEC-041 — SKT V1 Expiry Warnings and Physical Inspection
+
+- **Status:** `DECIDED`
+- **Required before / recorded with:** SKT V1 expiry-warning slice
+- **Extends:** `DEC-037` item 12 (SKT on the incoming receipt, approaching/past warning, physical staff action; no FEFO, automatic stock decrease, automatic destruction, or automatic lot allocation)
+- **Does not resolve:** `DEC-OPEN-010` unit conversion; FEFO; lot allocation; remaining-quantity-by-expiry; blocking issue of expired goods; automatic scrap/destruction; supplier master; generic packaging conversion; production staging-location configuration
+- **Decision:**
+  1. **Receipt-scoped date.** Optional `ReceiptExpiry` is inventory-owned and 1:1 with a `RECEIPT`. Historical receipts stay valid without a row. The date is not a Material field. A past date may be recorded; the receipt is not rejected for being expired.
+  2. **Derived warnings.** Status is computed from `Europe/Istanbul` local date. Expired means `expires_on` is before today. Approaching means today through 30 calendar days ahead, inclusive. Thirty days is a technical default for warning display. It does not change stock availability.
+  3. **Warning list is not remaining stock.** Because lot allocation is out of scope, a warning names the receipt that carried the date. It does not claim how much of the current balance is still that lot.
+  4. **Recorded physical inspection.** `ExpiryInspection` is append-only, linked to `ReceiptExpiry`, with actor, timestamp, one required outcome (`KONTROL_EDILDI_UYGUN`, `URUN_BULUNAMADI`, `AYIRMA_GEREKIYOR`) and a trimmed note of 10..2000 characters. The latest outcome is shown and earlier rows stay visible. An inspection does not write the ledger, `StockBalance`, or `SerializedAsset`, does not move or dispose of stock, and does not clear the date warning. `AYIRMA_GEREKIYOR` records that manual segregation is required; it is not evidence that stock was moved. Permission is the existing `inventory.receive_stock`.
+  5. **Idempotency.** `expires_on` joins `request_fingerprint` only when supplied. Same `operation_id` and same fingerprint replay the existing expiry row. A different date is a conflict. Absent expiry keeps the previous fingerprint.
+  6. **Immutability.** Persisted expiry and inspection rows reject ordinary UPDATE/DELETE in the model and with the ledger immutability guard.
+- **Consequence:** Inbound staff can capture SKT, see approaching and expired receipts, and record a physical inspection without changing inventory math.
+- **Implementation status:** Implemented and committed (`DEC-041`, `feat: add expiry warnings and inspections`). Inbound / Mal Kabul programı COMPLETE işaretlenmez.
+
 ## 3. Açık İş Kararları
 
 Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` alanında kanonik karar kaydına bağlanır.
@@ -686,7 +702,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Baseline schema/cutover | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout + operational UI at `1dedd34`). `InventoryBaseline`, scoped `INITIAL_BALANCE`, combined QUANTITY+SERIALIZED establishment. `DEC-002` / `DEC-015` / `DEC-032` / `DEC-033` korunur. |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |
 | Machine-readable identification | **COMPLETE** (Phase 5.8, `DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0`. Code128 standart / QR kompakt; canonical `TZ1M`/`TZ1A`/`TZ1L` payload. `DEC-037` tedarikçi barkodunun yetkili kimlik olmadığını teyit eder. Workshop hardware profile `DEC-038`. `DEC-IT-006` mobile/tablet intranet; ownership `DEC-011` |
-| Inbound / Mal Kabul V1 first slice | **COMMITTED** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`). Program COMPLETE değildir. Talep Takip V1 `DEC-039` ile uygulanır. Receipt metadata (usage/application place, arrival date, supplier, optional packaging) `DEC-040` ile uygulanır. SKT, generic paket conversion ve production staging-location configuration sonraki dilimdir. |
+| Inbound / Mal Kabul V1 first slice | **COMMITTED** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`). Program COMPLETE değildir. Talep Takip V1 `DEC-039` ile uygulanır. Receipt metadata `DEC-040` ile uygulanır. SKT uyarı ve fiziksel kontrol `DEC-041` ile uygulanır. Generic paket conversion ve production staging-location configuration sonraki dilimdir. |
 | Deployment/pilot | `DEC-IT-001`–`DEC-IT-005`, restore drill; uzun dönem retention için `DEC-OPEN-018` |
 | Phase 2 catalog/configuration UI | `DEC-021`: dynamic configuration principle, seed≠whitelist, UoM/role/technical-spec boundaries |
 | Phase 2.9B-0 access management policy | `DEC-022`: management capability, allowlist, anti-escalation, audit identity, Admin/UI boundary |
@@ -713,7 +729,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 5.2 quantity controlled correction | **COMPLETE** (`DEC-030`, `DEC-031`, 2026-09-13; 1242 test passed). Evidence Phase 5.5 / `DEC-034` ile kapanmıştır. |
 | Phase 5.5 correction evidence | **COMPLETE** (`DEC-034`). Quantity controlled correction V1 photographic evidence kapanmıştır. Serialized correction deferred. |
 | Phase 5.8 machine-readable identification | **COMPLETE** (`DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`). Code128 + QR; canonical `TZ1M:<22-char-base64url-uuid>`, `TZ1A:<22-char-base64url-uuid>`, `TZ1L:<22-char-base64url-uuid>`. |
-| Inbound / Mal Kabul V1 first slice | **COMMITTED** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`). First slice implemented. Program COMPLETE işaretlenmez. Talep Takip V1 `DEC-039`. SKT uygulanmamıştır. `DEC-OPEN-010` OPEN kalır. |
+| Inbound / Mal Kabul V1 first slice | **COMMITTED** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`). First slice implemented. Program COMPLETE işaretlenmez. Talep Takip V1 `DEC-039`. SKT `DEC-041` ile uygulanır ve program COMPLETE işaretlenmez. `DEC-OPEN-010` OPEN kalır. |
 | Workshop barcode hardware profile | **DECIDED** (`DEC-038`). Kodscan KDS-5040 + Kodprint DT-482 target profile; HID + browser/OS print; `DEC-036` unchanged. |
 | Phase 5.3 serialized inventory foundation + serialized RECEIVE | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; `DEC-OPEN-004` kapandı. |
 | Phase 5.4 decision pack | **COMPLETE** (`DEC-033`). 5.4A–5.4E backend + Count / Baseline Operational UI Closure at `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`). Migration yok; kernels/services authoritative kaldı. Serialized `COUNT_RECONCILIATION` ve serialized mutation workflow'ları uygulanmamıştır. `DEC-OPEN-010` OPEN kalır. |

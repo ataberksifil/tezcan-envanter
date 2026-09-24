@@ -65,6 +65,11 @@
         {% endif %}
     {% endif %}
 
+    {% if transaction.transaction_type == "RECEIPT" and receipt_expiry %}
+        <dt class="col-sm-3">SKT</dt>
+        <dd class="col-sm-9">{{ receipt_expiry.expires_on }}</dd>
+    {% endif %}
+
     {% if transaction.transaction_type == "ISSUE" and issue_context %}
         <dt class="col-sm-3">Alıcı ad</dt>
         <dd class="col-sm-9">{{ issue_context.receiver_first_name_snapshot }}</dd>

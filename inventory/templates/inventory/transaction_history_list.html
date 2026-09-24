@@ -117,6 +117,9 @@
                                     {% if transaction.receipt_metadata %}
                                         <div class="small text-body-secondary">Kullanım: {{ transaction.receipt_metadata.usage_place }}</div>
                                     {% endif %}
+                                    {% if transaction.receipt_expiry %}
+                                        <div class="small text-body-secondary">SKT: {{ transaction.receipt_expiry.expires_on }}</div>
+                                    {% endif %}
                                 {% elif transaction.transaction_type == "RETURN" and line.target_location %}
                                     {{ line.target_location.code }}
                                 {% elif transaction.transaction_type == "TRANSFER" and line.source_location and line.target_location %}

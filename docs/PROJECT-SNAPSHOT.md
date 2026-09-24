@@ -140,7 +140,7 @@ First slice **committed** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`feat: 
 | Workshop scanner/printer profile | Recorded (`DEC-038`) |
 | Talep Takip V1 | Implemented (`DEC-039`, `feat: add purchase request tracking`): şirket Talep No, çoklu kalem, malzemesiz kalem, türetilen durum, RECEIPT bağlantısı. SKT yok. Inbound programı COMPLETE değil. |
 | Receipt metadata | Implemented (`DEC-040`): usage/application place, physical arrival date, supplier, optional packaging, Material identification snapshots. Historical RECEIPT metadata'sız geçerli. |
-| SKT / expiry warning + manual control | Not started |
+| SKT / expiry warning + physical inspection | Implemented (`DEC-041`, `feat: add expiry warnings and inspections`): optional receipt expiry, 30-day approaching warning, append-only physical inspection with structured outcomes. No FEFO, lot allocation, or automatic stock decrease. |
 | Production staging-location configuration | If needed; not started |
 
 ## 4A. Phase 5.5 — Tamamlanan Kapsam
@@ -159,7 +159,7 @@ First slice **committed** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`feat: 
 
 Correction evidence closure, Phase 5.6 serialized movement backend, Phase 5.8 identification, Count / Baseline Operational UI Closure ve Inbound / Mal Kabul V1 Foundation first slice uygulanmıştır; kalan ürün işi:
 
-- SKT / expiry uyarısı ve manuel ayırma/kontrol workflow'u (Material master'da değil; FEFO/otomatik düşüm yok)
+- Generic paket conversion and production staging-location configuration
 - Production staging-location configuration if needed
 - Serialized correction
 - Real Excel import workflow (UI)

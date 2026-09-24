@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Q
+from django.utils import timezone
 
 
 class ProductionLine(models.Model):
@@ -677,6 +678,112 @@ class ReceiptMetadata(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValidationError("Mal kabul kaydı silinemez.")
+
+
+SKT_APPROACHING_WINDOW_DAYS = 30
+
+
+class ReceiptExpiry(models.Model):
+    """Optional immutable SKT date for one RECEIPT. Not a Material attribute."""
+
+    transaction = models.OneToOneField(
+        InventoryTransaction,
+        primary_key=True,
+        on_delete=models.RESTRICT,
+        related_name="receipt_expiry",
+    )
+    expires_on = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["expires_on"], name="inventory_rcpt_exp_date_idx"),
+        ]
+
+    def latest_inspection(self):
+        rows = list(self.inspections.all())
+        if not rows:
+            return None
+        return max(rows, key=lambda row: (row.recorded_at, row.pk))
+
+    def warning_status(self, today=None) -> str | None:
+        current = today or timezone.localdate()
+        if self.expires_on < current:
+            return "expired"
+        if (self.expires_on - current).days <= SKT_APPROACHING_WINDOW_DAYS:
+            return "approaching"
+        return None
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("SKT kaydı değiştirilemez.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("SKT kaydı silinemez.")
+
+
+class ExpiryInspection(models.Model):
+    """Append-only physical inspection of a receipt SKT. Does not move stock."""
+
+    class Outcome(models.TextChoices):
+        CHECKED_OK = "KONTROL_EDILDI_UYGUN", "Kontrol edildi, uygun"
+        NOT_FOUND = "URUN_BULUNAMADI", "Ürün bulunamadı"
+        SEGREGATION_REQUIRED = "AYIRMA_GEREKIYOR", "Ayırma gerekiyor"
+        LEGACY_UNRECORDED = (
+            "SONUC_KAYDEDILMEMIS",
+            "Sonuç kaydedilmemiş (eski kayıt)",
+        )
+
+    SELECTABLE_OUTCOMES = (
+        Outcome.CHECKED_OK,
+        Outcome.NOT_FOUND,
+        Outcome.SEGREGATION_REQUIRED,
+    )
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    receipt_expiry = models.ForeignKey(
+        ReceiptExpiry,
+        on_delete=models.RESTRICT,
+        related_name="inspections",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.RESTRICT,
+        related_name="expiry_inspections",
+    )
+    outcome = models.CharField(max_length=32, choices=Outcome.choices)
+    note = models.CharField(max_length=2000)
+    recorded_at = models.DateTimeField()
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["receipt_expiry", "recorded_at"],
+                name="inventory_exp_insp_when_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(
+                    outcome__in=[
+                        "SONUC_KAYDEDILMEMIS",
+                        "KONTROL_EDILDI_UYGUN",
+                        "URUN_BULUNAMADI",
+                        "AYIRMA_GEREKIYOR",
+                    ]
+                ),
+                name="inventory_exp_insp_outcome",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Fiziksel kontrol kaydı değiştirilemez.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Fiziksel kontrol kaydı silinemez.")
 
 
 class StockBalance(models.Model):

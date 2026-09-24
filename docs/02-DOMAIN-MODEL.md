@@ -510,7 +510,7 @@ V1 first-party kimlik, persisted `BarcodeIdentifier` tablosu değildir (`DEC-036
 
 Carrier entity identity'nin parçası değildir. Neutral `identification` modülü codec, rendering, scan ve resolver'ı sahiplenilir; `Catalog`, `Inventory` ve `Locations` core domain operasyonu için `identification`'a bağımlı olmaz (`DEC-011`). Bir taranabilir kod aynı anda birden fazla nesneye çözülemez. Koda sahip olmak yetki vermez; tarama stok değiştirmez. DataMatrix V1'de yoktur. External/legacy barcode registry ayrı gelecekteki karardır. `DEC-037`: tedarikçi barkodu TZ1M/A/L yerine geçmez; Material model alanında düzeltilebilir yardımcı metin olabilir.
 
-Kullanıldığı yer (hat/uygulama alanı) ile fiziksel stok `Location` ayrı kavramlardır. `DEC-040` inbound `ReceiptMetadata` bu ayrımı RECEIPT üzerinde serbest metin kullanım yeri olarak kaydeder; Location'ı yeniden kullanmaz. `DEC-039` Talep Takip V1: şirket Talep No, çoklu kalem, malzemesiz kalem, kısmi teslimat ve RECEIPT bağlantısından türetilen karşılama. Talep stok oluşturmaz. SKT ve generic paket conversion bu dilimde yoktur. `DEC-OPEN-010` OPEN kalır.
+Kullanıldığı yer (hat/uygulama alanı) ile fiziksel stok `Location` ayrı kavramlardır. `DEC-040` inbound `ReceiptMetadata` bu ayrımı RECEIPT üzerinde serbest metin kullanım yeri olarak kaydeder; Location'ı yeniden kullanmaz. `DEC-039` Talep Takip V1: şirket Talep No, çoklu kalem, malzemesiz kalem, kısmi teslimat ve RECEIPT bağlantısından türetilen karşılama. Talep stok oluşturmaz. `DEC-041` SKT giriş kaydındadır; generic paket conversion bu dilimde yoktur. `DEC-OPEN-010` OPEN kalır.
 
 ## 15. Attachment ve Audit Domaini
 

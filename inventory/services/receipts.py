@@ -17,6 +17,7 @@ from inventory.models import (
     InventoryTransaction,
     InventoryTransactionLine,
     IssueContext,
+    ReceiptExpiry,
     ReceiptMetadata,
     SerializedAsset,
     StockBalance,
@@ -41,6 +42,7 @@ INVALID_ARRIVAL_DATE = "inventory.invalid_arrival_date"
 INVALID_SUPPLIER = "inventory.invalid_supplier"
 INVALID_PACKAGING = "inventory.invalid_packaging"
 PACKAGING_QUANTITY_MISMATCH = "inventory.packaging_quantity_mismatch"
+INVALID_EXPIRY_DATE = "inventory.invalid_expiry_date"
 
 OPERATION_ID_UNIQUE_CONSTRAINT = "inventory_tx_operation_id_uniq"
 BALANCE_IDENTITY_UNIQUE_CONSTRAINT = "inventory_bal_identity_uniq"
@@ -69,6 +71,7 @@ class InventoryMutationResult:
     issue_context: IssueContext | None = None
     serialized_asset: SerializedAsset | None = None
     receipt_metadata: ReceiptMetadata | None = None
+    receipt_expiry: ReceiptExpiry | None = None
 
 
 def receive_quantity(
@@ -81,6 +84,7 @@ def receive_quantity(
     target_location_id,
     quantity,
     receipt_metadata: ReceiptMetadataInput | None = None,
+    expires_on: date | None = None,
     using: str = "default",
 ) -> InventoryMutationResult:
     """Atomically append one quantity RECEIPT and update its projection.
@@ -121,6 +125,7 @@ def receive_quantity(
         quantity=normalized_quantity,
         allow_packaging=True,
     )
+    normalized_expires_on = normalize_expires_on(expires_on)
     fingerprint = _request_fingerprint(
         acting_user_id=current_actor.pk,
         material_id=normalized_material_id,
@@ -129,6 +134,7 @@ def receive_quantity(
         target_location_id=normalized_target_location_id,
         quantity=normalized_quantity,
         receipt_metadata=normalized_metadata,
+        expires_on=normalized_expires_on,
     )
 
     with transaction.atomic(using=using):
@@ -191,12 +197,18 @@ def receive_quantity(
             normalized=normalized_metadata,
             using=using,
         )
+        expiry_row = _create_receipt_expiry(
+            header=header,
+            expires_on=normalized_expires_on,
+            using=using,
+        )
 
         return InventoryMutationResult(
             transaction=header,
             lines=(line,),
             replayed=False,
             receipt_metadata=metadata_row,
+            receipt_expiry=expiry_row,
         )
 
 
@@ -210,6 +222,7 @@ def receive_serialized(
     condition_id,
     target_location_id,
     receipt_metadata: ReceiptMetadataInput | None = None,
+    expires_on: date | None = None,
     using: str = "default",
 ) -> InventoryMutationResult:
     """Atomically create one asset, append its RECEIVE, and establish projection.
@@ -249,6 +262,7 @@ def receive_serialized(
         quantity=None,
         allow_packaging=False,
     )
+    normalized_expires_on = normalize_expires_on(expires_on)
     fingerprint = _serialized_request_fingerprint(
         acting_user_id=current_actor.pk,
         material_id=normalized_material_id,
@@ -257,6 +271,7 @@ def receive_serialized(
         condition_id=normalized_condition_id,
         target_location_id=normalized_target_location_id,
         receipt_metadata=normalized_metadata,
+        expires_on=normalized_expires_on,
     )
 
     with transaction.atomic(using=using):
@@ -337,12 +352,18 @@ def receive_serialized(
             normalized=normalized_metadata,
             using=using,
         )
+        expiry_row = _create_receipt_expiry(
+            header=header,
+            expires_on=normalized_expires_on,
+            using=using,
+        )
         return InventoryMutationResult(
             transaction=header,
             lines=(line,),
             replayed=False,
             serialized_asset=asset,
             receipt_metadata=metadata_row,
+            receipt_expiry=expiry_row,
         )
 
 
@@ -485,6 +506,14 @@ def _normalize_optional_text(value, *, field: str, code: str, max_length: int) -
     return normalized
 
 
+def normalize_expires_on(value) -> date | None:
+    if value is None:
+        return None
+    if not isinstance(value, date) or isinstance(value, datetime):
+        _raise_validation(INVALID_EXPIRY_DATE, "SKT geçerli bir tarih olmalıdır.")
+    return value
+
+
 def _normalize_arrival_date(value) -> date:
     if not isinstance(value, date) or isinstance(value, datetime):
         _raise_validation(INVALID_ARRIVAL_DATE, "Geliş tarihi geçerli bir tarih olmalıdır.")
@@ -563,6 +592,15 @@ def _create_receipt_metadata(*, header, material, normalized, using: str):
     )
 
 
+def _create_receipt_expiry(*, header, expires_on: date | None, using: str):
+    if expires_on is None:
+        return None
+    return ReceiptExpiry.objects.using(using).create(
+        transaction=header,
+        expires_on=expires_on,
+    )
+
+
 def _blank_to_null(value):
     if value is None:
         return None
@@ -604,6 +642,7 @@ def _request_fingerprint(
     target_location_id: uuid.UUID,
     quantity: Decimal,
     receipt_metadata: ReceiptMetadataInput | None = None,
+    expires_on: date | None = None,
 ) -> str:
     payload = {
         "acting_user_id": str(acting_user_id),
@@ -615,6 +654,7 @@ def _request_fingerprint(
         "unit_id": str(unit_id),
     }
     payload.update(_receipt_metadata_fingerprint_fields(receipt_metadata))
+    payload.update(_expiry_fingerprint_fields(expires_on))
     canonical_json = json.dumps(
         payload,
         sort_keys=True,
@@ -633,6 +673,7 @@ def _serialized_request_fingerprint(
     condition_id: uuid.UUID,
     target_location_id: uuid.UUID,
     receipt_metadata: ReceiptMetadataInput | None = None,
+    expires_on: date | None = None,
 ) -> str:
     payload = {
         "acting_user_id": str(acting_user_id),
@@ -645,6 +686,7 @@ def _serialized_request_fingerprint(
         "tracking_mode": Material.TrackingMode.SERIALIZED,
     }
     payload.update(_receipt_metadata_fingerprint_fields(receipt_metadata))
+    payload.update(_expiry_fingerprint_fields(expires_on))
     canonical_json = json.dumps(
         payload,
         sort_keys=True,
@@ -677,12 +719,17 @@ def _replay_or_conflict(
         receipt_metadata = transaction_record.receipt_metadata
     except ReceiptMetadata.DoesNotExist:
         receipt_metadata = None
+    try:
+        receipt_expiry = transaction_record.receipt_expiry
+    except ReceiptExpiry.DoesNotExist:
+        receipt_expiry = None
     return InventoryMutationResult(
         transaction=transaction_record,
         lines=lines,
         replayed=True,
         serialized_asset=serialized_asset,
         receipt_metadata=receipt_metadata,
+        receipt_expiry=receipt_expiry,
     )
 
 
@@ -703,6 +750,12 @@ def _receipt_metadata_fingerprint_fields(
         "receipt_supplier_name": receipt_metadata.supplier_name,
         "receipt_usage_place": receipt_metadata.usage_place,
     }
+
+
+def _expiry_fingerprint_fields(expires_on: date | None) -> dict:
+    if expires_on is None:
+        return {}
+    return {"expires_on": expires_on.isoformat()}
 
 
 def _locked_material(material_id: uuid.UUID, using: str) -> Material:

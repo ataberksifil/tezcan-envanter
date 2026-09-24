@@ -88,7 +88,9 @@ def base_transaction_history_queryset() -> QuerySet[InventoryTransaction]:
         InventoryTransaction.objects.filter(
             transaction_type__in=ALLOWED_TRANSACTION_TYPE_FILTERS,
         )
-        .select_related("acting_user", "issue_context", "receipt_metadata")
+        .select_related(
+            "acting_user", "issue_context", "receipt_metadata", "receipt_expiry"
+        )
         .prefetch_related(LINE_PREFETCH)
         .order_by("-occurred_at", "-id")
     )

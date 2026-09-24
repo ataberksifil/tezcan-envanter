@@ -83,6 +83,16 @@
     <dt class="col-sm-3">Kondisyon</dt>
     <dd class="col-sm-9">{{ line.condition.name }}</dd>
 
+    <dt class="col-sm-3">SKT</dt>
+    <dd class="col-sm-9">
+        {% if receipt_expiry %}
+            {{ receipt_expiry.expires_on }}
+            {% if expiry_warning %}<span class="badge text-bg-warning">{{ expiry_warning }}</span>{% endif %}
+        {% else %}
+            —
+        {% endif %}
+    </dd>
+
     <dt class="col-sm-3">Kaydedilen konum</dt>
     <dd class="col-sm-9">
         {% if location_path %}{{ location_path }}{% else %}{{ line.target_location.code }} ({{ line.target_location.name }}){% endif %}
@@ -93,6 +103,29 @@
         <dd class="col-sm-9">{{ resulting_balance.quantity }} {{ line.unit.code }} — {{ location_path }}</dd>
     {% endif %}
 </dl>
+
+{% if receipt_expiry %}
+    <h2 class="h5 mt-4">Fiziksel kontrol</h2>
+    <p class="text-body-secondary">Kontrol kaydı stok miktarını, konumu ve defteri değiştirmez. Otomatik düşüm veya imha yoktur.</p>
+    {% if expiry_inspections %}
+        {% with latest=expiry_inspections|last %}
+            <p>Son sonuç: <strong>{{ latest.get_outcome_display }}</strong>. Uyarı, kontrol kaydı yüzünden kalkmaz.</p>
+        {% endwith %}
+        <ul class="list-group mb-3">
+            {% for inspection in expiry_inspections %}
+                <li class="list-group-item">
+                    <div class="small text-body-secondary">{{ inspection.recorded_at }} — {{ inspection.actor.get_username }} — {{ inspection.get_outcome_display }}</div>
+                    <div>{{ inspection.note }}</div>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Henüz fiziksel kontrol kaydı yok.</p>
+    {% endif %}
+    {% if perms.inventory.receive_stock %}
+        <a class="btn btn-outline-primary" href="{% url 'inventory:expiry-inspection-create' receipt.id %}">Fiziksel kontrol kaydet</a>
+    {% endif %}
+{% endif %}
 
 {% if not line.serialized_asset_id and perms.inventory.transfer_stock %}
     <p class="mt-4 mb-0">Bu kayıt malzemenin bulunduğu konumdur. Kullanıldığı yer raf yerleşimi değildir. Fiziksel rafa yerleştirmek için <strong>Yerleştir / Transfer Et</strong> kullanın; stok doğrudan son rafa yazılmaz.</p>

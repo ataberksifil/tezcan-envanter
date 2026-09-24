@@ -31,6 +31,7 @@
                             {% if preview.package_count %}
                                 <li>Paket: {{ preview.package_count }} {% if preview.package_label %}{{ preview.package_label }}{% else %}paket{% endif %} × {{ preview.contents_per_package }} {{ preview.unit.code }}</li>
                             {% endif %}
+                            <li>SKT: {% if preview.expires_on %}{{ preview.expires_on }}{% else %}yok{% endif %}{% if preview.expiry_warning %} — {{ preview.expiry_warning }}{% endif %}</li>
                         </ul>
                     </div>
                 {% endif %}

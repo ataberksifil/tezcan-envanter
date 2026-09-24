@@ -100,6 +100,8 @@ class BaselineConcurrencyTests(TransactionTestCase):
                     counting_physicalcountsession,
                     corrections_correctionevidence,
                     corrections_correctionrequest,
+                    inventory_expiryinspection,
+                    inventory_receiptexpiry,
                     inventory_receiptmetadata,
                     inventory_issuecontext,
                     inventory_inventorytransactionline,

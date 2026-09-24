@@ -15,6 +15,7 @@ from inventory.services.receipts import ReceiptMetadataInput
 from accounts.models import Employee
 from catalog.models import Material, MaterialCondition, UnitOfMeasure
 from inventory.models import (
+    ExpiryInspection,
     InventoryTransaction,
     InventoryTransactionLine,
     ProductionLine,
@@ -166,6 +167,12 @@ class QuantityReceiptForm(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.001"}),
         help_text="Doluysa paket adedi × paket içi miktar, girilen stok miktarına eşit olmalıdır.",
     )
+    expires_on = forms.DateField(
+        label="SKT (son kullanma tarihi)",
+        required=False,
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        help_text="İsteğe bağlı. Parti/giriş kaydına aittir; malzeme kartına yazılmaz.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -262,6 +269,7 @@ RECEIPT_ERROR_FIELD_MAP = {
     "inventory.invalid_supplier": "supplier_name",
     "inventory.invalid_packaging": "package_count",
     "inventory.packaging_quantity_mismatch": "contents_per_package",
+    "inventory.invalid_expiry_date": "expires_on",
 }
 
 
@@ -312,6 +320,12 @@ class SerializedReceiptForm(forms.Form):
         max_length=255,
         required=False,
         widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    expires_on = forms.DateField(
+        label="SKT (son kullanma tarihi)",
+        required=False,
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        help_text="İsteğe bağlı. Parti/giriş kaydına aittir; malzeme kartına yazılmaz.",
     )
 
     def __init__(self, *args, **kwargs):
@@ -399,6 +413,7 @@ SERIALIZED_RECEIPT_ERROR_FIELD_MAP = {
     "inventory.invalid_arrival_date": "arrived_on",
     "inventory.invalid_supplier": "supplier_name",
     "inventory.invalid_packaging": "usage_place",
+    "inventory.invalid_expiry_date": "expires_on",
 }
 
 
@@ -425,6 +440,34 @@ def _clean_quantity_packaging(cleaned):
             }
         )
     return cleaned
+
+
+class ExpiryInspectionForm(forms.Form):
+    outcome = forms.ChoiceField(
+        label="Kontrol sonucu",
+        choices=[
+            (choice.value, choice.label)
+            for choice in ExpiryInspection.SELECTABLE_OUTCOMES
+        ],
+        widget=forms.Select(attrs={"class": "form-select"}),
+        help_text=(
+            "Ayırma gerekiyor, ürünün fiziksel olarak ayrılması gerektiğini kaydeder. "
+            "Stok kendiliğinden düşmez, taşınmaz veya imha edilmez."
+        ),
+    )
+    note = forms.CharField(
+        label="Fiziksel kontrol notu",
+        min_length=10,
+        max_length=2000,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 4}),
+        help_text=(
+            "Gördüğünüz fiziksel kontrolü yazın. Bu kayıt stok miktarını, "
+            "konumu veya defteri değiştirmez."
+        ),
+    )
+
+    def clean_note(self):
+        return self.cleaned_data["note"].strip()
 
 
 def receipt_metadata_from_cleaned(cleaned, *, include_packaging: bool) -> ReceiptMetadataInput:

@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.utils import timezone
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Prefetch, Q, Sum
@@ -12,6 +13,7 @@ from catalog.models import Material
 from inventory.forms import (
     ProductionLineForm,
     QuantityIssueForm,
+    ExpiryInspectionForm,
     QuantityReceiptForm,
     QuantityReturnForm,
     QuantityTransferForm,
@@ -33,7 +35,9 @@ from inventory.models import (
     InventoryTransaction,
     InventoryTransactionLine,
     ProductionLine,
+    ReceiptExpiry,
     ReceiptMetadata,
+    SKT_APPROACHING_WINDOW_DAYS,
     SerializedAsset,
     StockBalance,
 )
@@ -55,6 +59,7 @@ from inventory.transaction_history import (
     filter_params_from_request,
     normalize_transaction_type_filter,
 )
+from inventory.services.expiry import expiry_warning_queryset, record_physical_inspection
 from inventory.services.issues import issue_quantity, issue_serialized
 from inventory.services.production_lines import (
     create_production_line,
@@ -64,6 +69,13 @@ from inventory.services.production_lines import (
 from inventory.services.receipts import receive_quantity, receive_serialized
 from inventory.services.returns import return_quantity, return_serialized
 from inventory.services.transfers import transfer_quantity, transfer_serialized
+
+def _optional_receipt_expiry(transaction):
+    try:
+        return transaction.receipt_expiry
+    except ReceiptExpiry.DoesNotExist:
+        return None
+
 
 def _optional_receipt_metadata(transaction):
     try:
@@ -318,6 +330,8 @@ class ReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
             "package_count": form.cleaned_data.get("package_count"),
             "package_label": form.cleaned_data.get("package_label") or "",
             "contents_per_package": form.cleaned_data.get("contents_per_package"),
+            "expires_on": form.cleaned_data.get("expires_on"),
+            "expiry_warning": _expiry_warning_label(form.cleaned_data.get("expires_on")),
         }
 
     def get(self, request):
@@ -358,6 +372,7 @@ class ReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
                     form.cleaned_data,
                     include_packaging=True,
                 ),
+                expires_on=form.cleaned_data.get("expires_on"),
             )
         except PermissionDenied:
             raise
@@ -446,6 +461,7 @@ class SerializedReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, V
                     form.cleaned_data,
                     include_packaging=False,
                 ),
+                expires_on=form.cleaned_data.get("expires_on"),
             )
         except PermissionDenied:
             raise
@@ -985,7 +1001,9 @@ class TransactionHistoryDetailView(LoginRequiredMixin, PermissionRequiredMixin, 
                     InventoryTransaction.TransactionType.INITIAL_BALANCE,
                 )
             )
-            .select_related("acting_user", "issue_context", "receipt_metadata")
+            .select_related(
+                "acting_user", "issue_context", "receipt_metadata", "receipt_expiry"
+            )
             .prefetch_related(LINE_PREFETCH)
         )
 
@@ -1000,6 +1018,7 @@ class TransactionHistoryDetailView(LoginRequiredMixin, PermissionRequiredMixin, 
             "requester", "decided_by", "resulting_transaction"
         ).order_by("requested_at", "id")
         context["receipt_metadata"] = _optional_receipt_metadata(self.object)
+        context["receipt_expiry"] = _optional_receipt_expiry(self.object)
         if self.object.transaction_type == InventoryTransaction.TransactionType.ISSUE:
             context["issue_context"] = self.object.issue_context
         elif self.object.transaction_type == InventoryTransaction.TransactionType.RETURN:
@@ -1108,7 +1127,7 @@ class ReceiptDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
             InventoryTransaction.objects.filter(
                 transaction_type=InventoryTransaction.TransactionType.RECEIPT,
             )
-            .select_related("acting_user", "receipt_metadata")
+            .select_related("acting_user", "receipt_metadata", "receipt_expiry")
             .prefetch_related(
                 "lines__material__unit",
                 "lines__serialized_asset",
@@ -1130,6 +1149,16 @@ class ReceiptDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
             else ""
         )
         context["receipt_metadata"] = _optional_receipt_metadata(self.object)
+        expiry = _optional_receipt_expiry(self.object)
+        context["receipt_expiry"] = expiry
+        context["expiry_warning"] = (
+            _expiry_warning_label(expiry.expires_on) if expiry is not None else None
+        )
+        context["expiry_inspections"] = (
+            list(expiry.inspections.select_related("actor").order_by("recorded_at", "id"))
+            if expiry is not None
+            else []
+        )
         context["resulting_balance"] = None
         if (
             line.serialized_asset_id is None
@@ -1147,3 +1176,88 @@ class ReceiptDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
                 .first()
             )
         return context
+
+
+def _expiry_warning_label(expires_on):
+    if expires_on is None:
+        return None
+    today = timezone.localdate()
+    if expires_on < today:
+        return "Süresi geçmiş"
+    if (expires_on - today).days <= SKT_APPROACHING_WINDOW_DAYS:
+        return "Yaklaşıyor"
+    return None
+
+
+class ExpiryWarningListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = TRANSACTION_HISTORY_PERMISSION
+    template_name = "inventory/expiry_warning_list.html"
+    context_object_name = "warnings"
+    paginate_by = 50
+
+    def get_queryset(self):
+        return expiry_warning_queryset()
+
+
+class ExpiryInspectionCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "inventory.receive_stock"
+    template_name = "inventory/expiry_inspection_form.html"
+
+    def _expiry(self, receipt_id):
+        expiry = (
+            ReceiptExpiry.objects.select_related("transaction")
+            .prefetch_related("transaction__lines__material")
+            .filter(pk=receipt_id)
+            .first()
+        )
+        if expiry is None:
+            raise Http404("SKT kaydı bulunamadı")
+        return expiry
+
+    def get(self, request, pk):
+        expiry = self._expiry(pk)
+        return render(
+            request,
+            self.template_name,
+            {
+                "expiry": expiry,
+                "form": ExpiryInspectionForm(),
+                "warning_label": _expiry_warning_label(expiry.expires_on),
+            },
+        )
+
+    def post(self, request, pk):
+        expiry = self._expiry(pk)
+        form = ExpiryInspectionForm(request.POST)
+        if not form.is_valid():
+            return render(
+                request,
+                self.template_name,
+                {
+                    "expiry": expiry,
+                    "form": form,
+                    "warning_label": _expiry_warning_label(expiry.expires_on),
+                },
+            )
+        try:
+            record_physical_inspection(
+                actor=request.user,
+                receipt_id=expiry.pk,
+                note=form.cleaned_data["note"],
+                outcome=form.cleaned_data["outcome"],
+            )
+        except PermissionDenied:
+            raise
+        except ValidationError as exc:
+            form.add_error("note", exc)
+            return render(
+                request,
+                self.template_name,
+                {
+                    "expiry": expiry,
+                    "form": form,
+                    "warning_label": _expiry_warning_label(expiry.expires_on),
+                },
+            )
+        messages.success(request, "Fiziksel kontrol kaydedildi. Stok değişmedi.")
+        return redirect("inventory:receipt-detail", pk=expiry.transaction_id)
