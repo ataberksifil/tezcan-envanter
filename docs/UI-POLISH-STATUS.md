@@ -1,14 +1,15 @@
 # UI Modernizasyon — Durum
 
 **Başlangıç HEAD:** `fca1ad455ef203f40b09aafc25e15bed54619c25` (= origin/main)
-**Güncel faz:** Faz 1 tamamlandı (commit aşağıda) → Faz 2
+**Güncel faz:** Faz 3 — Stok hareket formları ve detayları
 **Plan:** [UI-POLISH-MASTER-PLAN.md](UI-POLISH-MASTER-PLAN.md) · **Tasarım:** [UI-DESIGN-SYSTEM.md](UI-DESIGN-SYSTEM.md)
 
 ## Tamamlanan fazlar
 
 | Faz | Commit | Not |
 |---|---|---|
-| — | — | — |
+| 1 — Temel sistem + prototip ekranlar | `8313adc` | Kabuk, ana sayfa, Mevcut Stok, Stok girişi, hata sayfaları |
+| 2 — Malzeme bulma ve katalog | (bu commit) | Malzeme listesi (stok özeti), detay (raf dağılımı + satır "Taşı"), form (bölümler, model okutma Enter güvenliği), stok aramasında anahtar kelime + kelime sırasından bağımsız eşleşme |
 
 ## Faz 1 kapsamı
 
@@ -28,6 +29,12 @@ Tasarım sistemi (tokenlar, IBM Plex + Bootstrap Icons alt kümesi yerel), kabuk
 3. **Miktar gösterimi**: kullanıcı onayladı (binlik nokta, ondalık virgül). `|qty` yeni ekranlara faz faz uygulanır; eski biçimi bekleyen 5 test ilgili ekranın fazında güncellenir.
 4. **Talep Takip rol testleri**: Faz 4'te izole test kullanıcılarıyla yapılacak; dev Group'larına izin eklenmez (kullanıcı talimatı).
 
+## Faz 2 doğrulama
+
+- pytest: `catalog`, `inventory/tests/test_stock_list_ui.py`, yeni `inventory/tests/test_find_material_ui.py`, `identification` → yalnız bilinen 6 test-DB kondisyon seed hatası.
+- Onaylı miktar biçimi nedeniyle güncellenen beklentiler: `inventory/tests/test_stock_list_ui.py` (malzeme detayı 5/2), `catalog/tests/test_material_ui.py` (minimum stok `12,5`).
+- Playwright: malzeme listesi/detay/form 1440/1280/1024/768/390 taşma 0; "Taşı" → transfer formu malzeme+kaynak+kondisyon ön-dolu; model alanına HID okutma + Enter formu kaydetmedi. Dev DB'de atölye malzemeleri (teflon, 63A…) yok; bu aramalar otomatik testte sentetik veriyle doğrulandı.
+
 ## Sonraki adım
 
-Faz 2 — Malzeme bulma ve katalog.
+Faz 3 — Stok hareket formları ve detayları.

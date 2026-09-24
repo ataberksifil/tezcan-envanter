@@ -574,7 +574,9 @@ a.loc:hover { background: var(--tz-sunken); color: var(--tz-ink); }
     font-size: 0.8125rem;
     font-weight: 600;
     white-space: nowrap;
-    border-bottom: 1px solid var(--tz-line-strong);
+    border-bottom: 0;
+    /* A shadow line stays intact on a sticky header; a border does not. */
+    box-shadow: inset 0 -1px 0 var(--tz-line-strong);
 }
 .table-data tbody tr:last-child > * { border-bottom: 0; }
 .table-data .num { text-align: right; }

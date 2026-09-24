@@ -1,53 +1,55 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static ui %}
 
-{% block title %}{{ form_title }} — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}{{ form_title }} — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-body p-4">
-                <h1 class="h3 mb-3">{{ form_title }}</h1>
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite">
+                <li><a href="{% url 'catalog:material-list' %}">Malzemeler</a></li>
+                {% if material %}<li><a href="{% url 'catalog:material-detail' material.pk %}">{{ material.material_code }}</a></li>{% endif %}
+            </ol>
+            <h1>{{ form_title }}</h1>
+            {% if code_is_generated %}
+                <p class="page-head-sub">Malzeme kodu kayıt sırasında sistem tarafından üretilir. Kullanıcının kod uydurması gerekmez. Makine okunur kimlik TZ1M olarak kalır.</p>
+            {% elif material %}
+                <p class="page-head-sub"><strong>Malzeme kodu:</strong> <span class="code">{{ material.material_code }}</span> (değiştirilmez)</p>
+            {% endif %}
+        </div>
+    </div>
 
-                {% if code_is_generated %}
-                    <p class="text-body-secondary">Malzeme kodu kayıt sırasında sistem tarafından üretilir. Kullanıcının kod uydurması gerekmez. Makine okunur kimlik TZ1M olarak kalır.</p>
-                {% elif material %}
-                    <p class="mb-3"><strong>Malzeme kodu:</strong> <span class="font-monospace">{{ material.material_code }}</span> (değiştirilmez)</p>
-                {% endif %}
+    <form method="post" novalidate id="material-form">
+        {% csrf_token %}
 
-                <form method="post" novalidate id="material-form">
-                    {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger" role="alert">
+                {% icon "x-circle-fill" %}
+                <div class="alert-body">{% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}</div>
+            </div>
+        {% endif %}
 
-                    {% if form.non_field_errors %}
-                        <div class="alert alert-danger" role="alert">
-                            {% for error in form.non_field_errors %}
-                                <div>{{ error }}</div>
-                            {% endfor %}
+        <section class="panel">
+            <div class="panel-body">
+                <div class="form-section">
+                    <h2 class="form-section-title">Tanım</h2>
+                    {% include "core/_field.html" with field=form.name %}
+                    <div class="row g-3">
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.category %}</div>
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.brand %}</div>
+                    </div>
+                    <div class="field{% if form.model.errors %} has-error{% endif %}">
+                        <label for="{{ form.model.id_for_label }}" class="form-label">{{ form.model.label }} <span class="field-optional">(isteğe bağlı)</span></label>
+                        <div class="input-group">
+                            {{ form.model }}
+                            <button class="btn btn-outline-secondary" type="button" id="model-scan-toggle" aria-controls="model-scan-panel">{% icon "camera" %}Barkod Tara</button>
                         </div>
-                    {% endif %}
+                        {% if form.model.help_text %}<div class="form-text">{{ form.model.help_text }} USB okuyucuyla doğrudan bu alana okutabilirsiniz; Enter formu kaydetmez.</div>{% endif %}
+                        {% for error in form.model.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                    </div>
 
-                    {% for field in form %}
-                        <div class="mb-3">
-                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                            {% if field.name == "model" %}
-                                <div class="input-group">
-                                    {{ field }}
-                                    <button class="btn btn-outline-secondary" type="button" id="model-scan-toggle">Barkod Tara</button>
-                                </div>
-                            {% else %}
-                                {{ field }}
-                            {% endif %}
-                            {% if field.help_text %}
-                                <div class="form-text">{{ field.help_text }}</div>
-                            {% endif %}
-                            {% for error in field.errors %}
-                                <div class="invalid-feedback d-block">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    {% endfor %}
-
-                    <div id="model-scan-panel" class="border rounded p-3 mb-3 d-none" data-model-scan-root="true">
+                    <div id="model-scan-panel" class="border rounded p-3 mb-3 d-none bg-body-tertiary" data-model-scan-root="true">
                         <p class="fw-semibold mb-1">Üretici / model barkodu</p>
                         <p class="text-body-secondary small mb-2">Okunan değer model alanına yazılır; form kaydedilmez ve stok oluşmaz. USB okuyucu doğrudan model alanına yazabilir.</p>
                         <p id="model-scan-status" class="text-body-secondary" role="status" aria-live="polite">Kamera Code 128 ve QR okur; yalnız siz başlattığınızda açılır.</p>
@@ -55,7 +57,7 @@
                             <video id="model-scan-video" class="w-100 h-100 object-fit-cover" muted playsinline></video>
                         </div>
                         <div class="d-flex flex-wrap gap-2 mb-3">
-                            <button class="btn btn-primary btn-sm" type="button" id="model-scan-start">Kamerayı başlat</button>
+                            <button class="btn btn-primary btn-sm" type="button" id="model-scan-start">{% icon "camera" %}Kamerayı başlat</button>
                             <button class="btn btn-outline-secondary btn-sm d-none" type="button" id="model-scan-stop">Kamerayı durdur</button>
                         </div>
                         <label class="form-label" for="model-scan-helper">USB / elle okunan değer</label>
@@ -64,15 +66,29 @@
                             <button class="btn btn-outline-primary" type="button" id="model-scan-apply">Alana yaz</button>
                         </div>
                     </div>
+                </div>
 
-                    <div class="d-flex flex-wrap gap-2">
-                        <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
-                        <a class="btn btn-outline-secondary" href="{% url 'catalog:material-list' %}">İptal</a>
+                <div class="form-section">
+                    <h2 class="form-section-title">Stok takibi</h2>
+                    <div class="row g-3">
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.unit %}</div>
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.tracking_mode %}</div>
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.minimum_stock_value %}</div>
                     </div>
-                </form>
+                </div>
+
+                <div class="form-section">
+                    <h2 class="form-section-title">Bulunabilirlik</h2>
+                    {% include "core/_field.html" with field=form.search_keywords %}
+                </div>
             </div>
+        </section>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">{% icon "check2" %}{{ submit_label }}</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% if material %}{% url 'catalog:material-detail' material.pk %}{% else %}{% url 'catalog:material-list' %}{% endif %}">İptal</a>
         </div>
-    </div>
+    </form>
 </div>
 {% endblock %}
 

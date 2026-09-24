@@ -702,8 +702,9 @@ def test_material_detail_shows_current_stock_buckets(app_client, stock_master_da
     assert stock_master_data["condition_a"].name in content
     assert stock_master_data["condition_b"].name in content
     assert stock_master_data["unit"].code in content
-    assert "5,000" in content or "5.000" in content
-    assert "2,000" in content or "2.000" in content
+    # Approved Turkish display format (UI Faz 2): 5.000 is shown as "5".
+    assert '<span class="qty">5<span class="qty-unit">' in content
+    assert '<span class="qty">2<span class="qty-unit">' in content
 
 
 def test_material_detail_omits_zero_buckets_but_shows_empty_state(app_client, stock_master_data):

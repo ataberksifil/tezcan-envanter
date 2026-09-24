@@ -677,7 +677,8 @@ def test_minimum_stock_value_displayed_as_threshold_only(app_client):
     without_min = app_client.get(
         reverse("catalog:material-detail", args=[no_min.pk])
     ).content.decode()
-    assert "12,500" in with_min
+    # Approved Turkish display format (UI Faz 2): 12.500 is shown as "12,5".
+    assert "12,5" in with_min
     assert "Minimum stok eşiği" in with_min
     assert "Tanımlı değil" in without_min
     assert "Mevcut stok" in with_min

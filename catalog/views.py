@@ -31,6 +31,7 @@ from catalog.services.units_of_measure import (
 )
 from inventory.stock_list import (
     STOCK_LIST_PERMISSION,
+    annotate_material_stock_summary,
     current_stock_balances_for_material,
 )
 from inventory.transaction_history import (
@@ -85,6 +86,8 @@ class CategoryListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             queryset = queryset.filter(active=True)
         elif status == STATUS_INACTIVE:
             queryset = queryset.filter(active=False)
+        if self.request.user.has_perm(STOCK_LIST_PERMISSION):
+            queryset = annotate_material_stock_summary(queryset)
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -219,6 +222,8 @@ class UnitOfMeasureListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
             queryset = queryset.filter(active=True)
         elif status == STATUS_INACTIVE:
             queryset = queryset.filter(active=False)
+        if self.request.user.has_perm(STOCK_LIST_PERMISSION):
+            queryset = annotate_material_stock_summary(queryset)
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -400,6 +405,8 @@ class MaterialListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             queryset = queryset.filter(active=True)
         elif status == STATUS_INACTIVE:
             queryset = queryset.filter(active=False)
+        if self.request.user.has_perm(STOCK_LIST_PERMISSION):
+            queryset = annotate_material_stock_summary(queryset)
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -413,6 +420,7 @@ class MaterialListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         context["category"] = category_raw
         context["category_filter"] = normalize_category_uuid_filter(category_raw)
         context["filter_categories"] = Category.objects.order_by("name", "id")
+        context["show_stock_summary"] = self.request.user.has_perm(STOCK_LIST_PERMISSION)
         return context
 
     def _status_filter(self) -> str:

@@ -1,28 +1,30 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Malzemeler — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Malzemeler — Tezcan Envanter{% endblock %}
+
+{% block topbar_search_class %} has-page-search{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Malzemeler</h1>
+{% search_config user as search %}
+<div class="page-head">
+    <div>
+        <h1>Malzemeler</h1>
+        <p class="page-head-sub">Kod, ad, marka, model veya arama anahtarıyla bulun{% if show_stock_summary %}; stok sütunu kayıtlı raflardaki toplamı gösterir{% endif %}.</p>
+    </div>
     {% if perms.catalog.add_material %}
-        <a class="btn btn-primary" href="{% url 'catalog:material-create' %}">Yeni malzeme</a>
+        <div class="page-actions">
+            <a class="btn btn-primary" href="{% url 'catalog:material-create' %}">{% icon "plus-lg" %}Yeni malzeme</a>
+        </div>
     {% endif %}
 </div>
 
-<form method="get" class="row g-2 align-items-end mb-3">
-    <div class="col-md-4">
+<form method="get" class="filter-bar" role="search" aria-label="Malzeme filtreleri"{% if search.can_scan %} data-scan-search data-resolve-url="{{ search.resolve_url }}"{% endif %}>
+    <div>
         <label class="form-label" for="id_q">Ara</label>
-        <input
-            type="search"
-            class="form-control"
-            id="id_q"
-            name="q"
-            value="{{ q }}"
-            placeholder="Kod, ad, marka, model veya anahtar kelime"
-        >
+        <input type="search" class="form-control" id="id_q" name="q" value="{{ q }}" placeholder="Kod, ad, marka, model veya anahtar kelime" data-short-placeholder="Okut veya ara" autocomplete="off" spellcheck="false">
     </div>
-    <div class="col-md-3">
+    <div>
         <label class="form-label" for="id_category">Kategori</label>
         <select class="form-select" id="id_category" name="category">
             <option value="">Tümü</option>
@@ -31,113 +33,112 @@
             {% endfor %}
         </select>
     </div>
-    <div class="col-md-2">
-        <label class="form-label" for="id_tracking">Takip modu</label>
-        <select class="form-select" id="id_tracking" name="tracking">
-            <option value="">Tümü</option>
-            <option value="QUANTITY"{% if tracking == "QUANTITY" %} selected{% endif %}>Miktar</option>
-            <option value="SERIALIZED"{% if tracking == "SERIALIZED" %} selected{% endif %}>Tekil</option>
-        </select>
+    <div class="filter-bar-actions">
+        <button type="submit" class="btn btn-primary">{% icon "funnel" %}Filtrele</button>
+        {% if q or category or tracking or status != "all" %}
+            <a class="btn btn-outline-secondary" href="{% url 'catalog:material-list' %}">Temizle</a>
+        {% endif %}
     </div>
-    <div class="col-md-2">
-        <label class="form-label" for="id_status">Durum</label>
-        <select class="form-select" id="id_status" name="status">
-            <option value="all"{% if status == "all" %} selected{% endif %}>Tümü</option>
-            <option value="active"{% if status == "active" %} selected{% endif %}>Aktif</option>
-            <option value="inactive"{% if status == "inactive" %} selected{% endif %}>Pasif</option>
-        </select>
-    </div>
-    <div class="col-md-1">
-        <button type="submit" class="btn btn-outline-secondary w-100">Filtrele</button>
-    </div>
+    <details class="filter-more"{% if tracking or status != "all" %} open{% endif %}>
+        <summary>{% icon "chevron-right" %}Diğer filtreler{% if tracking or status != "all" %} (etkin){% endif %}</summary>
+        <div class="filter-more-body">
+            <div>
+                <label class="form-label" for="id_tracking">Takip modu</label>
+                <select class="form-select" id="id_tracking" name="tracking">
+                    <option value="">Tümü</option>
+                    <option value="QUANTITY"{% if tracking == "QUANTITY" %} selected{% endif %}>Miktar</option>
+                    <option value="SERIALIZED"{% if tracking == "SERIALIZED" %} selected{% endif %}>Tekil</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="id_status">Durum</label>
+                <select class="form-select" id="id_status" name="status">
+                    <option value="all"{% if status == "all" %} selected{% endif %}>Tümü</option>
+                    <option value="active"{% if status == "active" %} selected{% endif %}>Aktif</option>
+                    <option value="inactive"{% if status == "inactive" %} selected{% endif %}>Pasif</option>
+                </select>
+            </div>
+        </div>
+    </details>
 </form>
 
 {% if materials %}
-    <div class="table-responsive">
-        <table class="table table-striped table-hover align-middle">
+    <div class="table-wrap">
+        <table class="table table-data table-hover table-stack">
             <thead>
                 <tr>
-                    <th scope="col">Kod</th>
-                    <th scope="col">Ad</th>
+                    <th scope="col">Malzeme</th>
                     <th scope="col">Kategori</th>
-                    <th scope="col">Marka / Model</th>
-                    <th scope="col">Takip modu</th>
-                    <th scope="col">Birim</th>
-                    <th scope="col">Durum</th>
-                    <th scope="col">Kimlik</th>
+                    {% if show_stock_summary %}<th scope="col" class="num">Stok</th>{% endif %}
+                    <th scope="col">Takip</th>
                 </tr>
             </thead>
             <tbody>
                 {% for material in materials %}
                     <tr>
-                        <td>
-                            <a href="{% url 'catalog:material-detail' material.pk %}">{{ material.material_code }}</a>
+                        <td class="stack-full">
+                            <a class="row-link" href="{% url 'catalog:material-detail' material.pk %}">{{ material.name }}</a>
+                            {% if not material.active %}<span class="tag tag-neutral row-note">Pasif</span>{% endif %}
+                            <span class="cell-sub">
+                                <a class="code me-2 text-reset" href="{% url 'catalog:material-detail' material.pk %}">{{ material.material_code }}</a>
+                                {% if material.brand and material.model %}{{ material.brand }} / {{ material.model }}{% elif material.brand %}{{ material.brand }}{% elif material.model %}{{ material.model }}{% endif %}
+                            </span>
                         </td>
-                        <td>
-                            <a href="{% url 'catalog:material-detail' material.pk %}">{{ material.name }}</a>
+                        <td data-label="Kategori">
+                            {{ material.category.name }}
+                            {% if not material.category.active %}<span class="tag tag-neutral row-note">Pasif referans</span>{% endif %}
                         </td>
-                        <td>
-                            <span title="{{ material.category.id }}">{{ material.category.name }}</span>
-                            {% if not material.category.active %}
-                                <span class="badge text-bg-secondary">Pasif referans</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if material.brand and material.model %}
-                                {{ material.brand }} / {{ material.model }}
-                            {% elif material.brand %}
-                                {{ material.brand }}
-                            {% elif material.model %}
-                                {{ material.model }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
-                        <td>{{ material.get_tracking_mode_display }}</td>
-                        <td>
-                            {% if material.unit %}
-                                <span title="{{ material.unit.id }}">{{ material.unit.code }}</span>
-                                {% if not material.unit.active %}
-                                    <span class="badge text-bg-secondary">Pasif referans</span>
+                        {% if show_stock_summary %}
+                            <td class="num" data-label="Stok">
+                                {% if material.tracking_mode == "SERIALIZED" %}
+                                    {% if material.assets_in_stock %}
+                                        <span class="qty">{{ material.assets_in_stock }}<span class="qty-unit">tekil stokta</span></span>
+                                    {% else %}<span class="text-body-secondary">Stokta yok</span>{% endif %}
+                                {% elif material.stock_total %}
+                                    <span class="qty">{{ material.stock_total|qty }}<span class="qty-unit">{% if material.unit %}{{ material.unit.code }}{% endif %}</span></span>
+                                    <span class="cell-sub">{{ material.stock_location_count }} konumda</span>
+                                {% else %}
+                                    <span class="text-body-secondary">Stokta yok</span>
                                 {% endif %}
-                            {% else %}
-                                Tanımlı değil
-                            {% endif %}
+                            </td>
+                        {% endif %}
+                        <td data-label="Takip">
+                            {{ material.get_tracking_mode_display }}{% if material.unit %} <span class="text-body-secondary">({{ material.unit.code }})</span>{% if not material.unit.active %} <span class="tag tag-neutral">Pasif referans</span>{% endif %}{% else %} <span class="text-body-secondary">(Tanımlı değil)</span>{% endif %}
                         </td>
-                        <td>
-                            {% if material.active %}
-                                <span class="badge text-bg-success">Aktif</span>
-                            {% else %}
-                                <span class="badge text-bg-secondary">Pasif</span>
-                            {% endif %}
-                        </td>
-                        <td class="small text-body-secondary font-monospace">{{ material.id }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    <div class="table-foot">
+        <span>{{ paginator.count }} malzeme</span>
+        {% if is_paginated %}
+            <nav aria-label="Malzeme sayfaları">
+                <ul class="pagination mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">Önceki</a></li>
+                    {% endif %}
+                    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span></li>
+                    {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="{% querystring page=page_obj.next_page_number %}">Sonraki</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    </div>
 {% else %}
-    <p class="text-body-secondary mb-0">Malzeme bulunamadı.</p>
-{% endif %}
-
-{% if is_paginated %}
-    <nav class="mt-3" aria-label="Malzeme sayfaları">
-        <ul class="pagination mb-0">
-            {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">Önceki</a>
-                </li>
+    <div class="empty">
+        {% icon "inbox" %}
+        <p class="empty-title">Malzeme bulunamadı.</p>
+        <p class="mb-0">{% if q %}"{{ q }}" için eşleşen malzeme yok. Farklı bir kelime, marka veya model deneyin.{% else %}Seçilen filtrelerle eşleşen malzeme yok.{% endif %}</p>
+        <div class="empty-actions">
+            {% if q or category or tracking or status != "all" %}
+                <a class="btn btn-outline-secondary" href="{% url 'catalog:material-list' %}">Filtreleri temizle</a>
             {% endif %}
-            <li class="page-item disabled">
-                <span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span>
-            </li>
-            {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="{% querystring page=page_obj.next_page_number %}">Sonraki</a>
-                </li>
+            {% if perms.catalog.add_material %}
+                <a class="btn btn-primary" href="{% url 'catalog:material-create' %}">{% icon "plus-lg" %}Yeni malzeme</a>
             {% endif %}
-        </ul>
-    </nav>
+        </div>
+    </div>
 {% endif %}
 {% endblock %}

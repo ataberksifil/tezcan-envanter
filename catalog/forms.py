@@ -122,6 +122,8 @@ class MaterialForm(forms.ModelForm):
                     "class": "form-control",
                     "autocomplete": "off",
                     "data-model-scan-target": "true",
+                    # A USB scanner's Enter moves to the next field instead of saving.
+                    "data-scan-field": "true",
                 }
             ),
             "unit": forms.Select(attrs={"class": "form-select"}),

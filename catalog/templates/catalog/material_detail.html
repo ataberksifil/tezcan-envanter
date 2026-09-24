@@ -1,251 +1,237 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}{{ material.name }} — Malzeme — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}{{ material.name }} — Malzeme — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">{{ material.name }}</h1>
-    <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-outline-dark" href="{% url 'identification:material-label' material.pk %}">Etiket yazdır</a>
-        <a class="btn btn-outline-secondary" href="{% url 'identification:material-label-compact' material.pk %}">Kompakt QR</a>
+<div class="page-head">
+    <div>
+        <ol class="breadcrumb-lite">
+            <li><a href="{% url 'catalog:material-list' %}">Malzemeler</a></li>
+            <li><span class="code">{{ material.material_code }}</span></li>
+        </ol>
+        <h1>{{ material.name }}</h1>
+        <p class="page-head-sub d-flex flex-wrap align-items-center gap-2">
+            <span class="code">{{ material.material_code }}</span>
+            {% if material.brand or material.model %}<span>{{ material.brand }}{% if material.brand and material.model %} / {% endif %}{{ material.model }}</span>{% endif %}
+            <span class="tag tag-plain tag-neutral">{{ material.get_tracking_mode_display }}</span>
+            {% if material.active %}<span class="tag tag-success">Aktif</span>{% else %}<span class="tag tag-neutral">Pasif</span>{% endif %}
+        </p>
+    </div>
+    <div class="page-actions">
         {% if material.active and material.tracking_mode == "QUANTITY" %}
-            {% if perms.inventory.receive_stock %}<a class="btn btn-outline-success" href="{% url 'inventory:receipt-create' %}?material={{ material.pk }}">Stok girişi</a>{% endif %}
-            {% if perms.inventory.issue_stock %}<a class="btn btn-outline-primary" href="{% url 'inventory:issue-create' %}">Stok çıkışı</a>{% endif %}
-            {% if perms.inventory.transfer_stock %}<a class="btn btn-outline-primary" href="{% url 'inventory:transfer-create' %}?material={{ material.pk }}">Transfer</a>{% endif %}
+            {% if perms.inventory.receive_stock %}<a class="btn btn-primary" href="{% url 'inventory:receipt-create' %}?material={{ material.pk }}">{% icon "box-arrow-in-down" %}Stok girişi</a>{% endif %}
+            {% if perms.inventory.transfer_stock %}<a class="btn btn-outline-secondary" href="{% url 'inventory:transfer-create' %}?material={{ material.pk }}">{% icon "arrow-left-right" %}Transfer</a>{% endif %}
+            {% if perms.inventory.issue_stock %}<a class="btn btn-outline-secondary" href="{% url 'inventory:issue-create' %}">{% icon "box-arrow-up" %}Stok çıkışı</a>{% endif %}
         {% elif material.active and material.tracking_mode == "SERIALIZED" and perms.inventory.receive_stock %}
-            <a class="btn btn-outline-success" href="{% url 'inventory:serialized-receipt-create' %}?material={{ material.pk }}">Tekil varlık girişi</a>
+            <a class="btn btn-primary" href="{% url 'inventory:serialized-receipt-create' %}?material={{ material.pk }}">{% icon "cpu" %}Tekil varlık girişi</a>
         {% endif %}
-        {% if perms.counting.view_physicalcountsession %}
-            <a class="btn btn-outline-secondary" href="{% url 'counting:session-list' %}">Fiziksel sayımlar</a>
-        {% endif %}
-        {% if perms.catalog.change_material %}
-            <a class="btn btn-outline-primary" href="{% url 'catalog:material-update' material.pk %}">Düzenle</a>
-            {% if material.active %}
-                <form method="post" action="{% url 'catalog:material-deactivate' material.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-warning">Pasifleştir</button>
-                </form>
-            {% else %}
-                <form method="post" action="{% url 'catalog:material-reactivate' material.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-success">Aktifleştir</button>
-                </form>
-            {% endif %}
-        {% endif %}
-        <a class="btn btn-outline-secondary" href="{% url 'catalog:material-list' %}">Listeye dön</a>
+        <a class="btn btn-outline-secondary" href="{% url 'identification:material-label' material.pk %}">{% icon "printer" %}Etiket yazdır</a>
     </div>
 </div>
 
-<dl class="row mb-4">
-    <dt class="col-sm-3">Malzeme kodu</dt>
-    <dd class="col-sm-9">{{ material.material_code }}</dd>
-
-    <dt class="col-sm-3">Ad</dt>
-    <dd class="col-sm-9">{{ material.name }}</dd>
-
-    <dt class="col-sm-3">Kategori</dt>
-    <dd class="col-sm-9">
-        <span title="{{ material.category.id }}">{{ material.category.name }}</span>
-        {% if not material.category.active %}
-            <span class="badge text-bg-secondary">Pasif referans</span>
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Marka</dt>
-    <dd class="col-sm-9">{% if material.brand %}{{ material.brand }}{% else %}—{% endif %}</dd>
-
-    <dt class="col-sm-3">Model</dt>
-    <dd class="col-sm-9">{% if material.model %}{{ material.model }}{% else %}—{% endif %}</dd>
-
-    <dt class="col-sm-3">Arama anahtarları</dt>
-    <dd class="col-sm-9">{% if material.search_keywords %}{{ material.search_keywords }}{% else %}—{% endif %}</dd>
-
-    <dt class="col-sm-3">Takip modu</dt>
-    <dd class="col-sm-9">{{ material.get_tracking_mode_display }}</dd>
-
-    <dt class="col-sm-3">Ölçü birimi</dt>
-    <dd class="col-sm-9">
-        {% if material.unit %}
-            <span title="{{ material.unit.id }}">{{ material.unit.code }} — {{ material.unit.name }}</span>
-            {% if not material.unit.active %}
-                <span class="badge text-bg-secondary">Pasif referans</span>
-            {% endif %}
-        {% else %}
-            Tanımlı değil
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Minimum stok eşiği</dt>
-    <dd class="col-sm-9">
-        {% if material.minimum_stock_value is not None %}
-            {{ material.minimum_stock_value }}
-        {% else %}
-            Tanımlı değil
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Durum</dt>
-    <dd class="col-sm-9">
-        {% if material.active %}
-            <span class="badge text-bg-success">Aktif</span>
-        {% else %}
-            <span class="badge text-bg-secondary">Pasif</span>
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Kimlik</dt>
-    <dd class="col-sm-9 font-monospace">{{ material.id }}</dd>
-
-    <dt class="col-sm-3">Oluşturulma</dt>
-    <dd class="col-sm-9">{{ material.created_at }}</dd>
-
-    <dt class="col-sm-3">Güncellenme</dt>
-    <dd class="col-sm-9">{{ material.updated_at }}</dd>
-</dl>
-
-<section class="mb-4" aria-labelledby="material-id-heading">
-    <h2 class="h5" id="material-id-heading">Makine okunur kimlik</h2>
-    <div class="d-flex flex-wrap align-items-center gap-3">
-        <img src="{% url 'identification:material-code128' material.pk %}" height="48" alt="{{ material.name }} malzeme Code 128 barkodu">
-        <p class="text-body-secondary mb-0">Bu kod malzeme tanımını açar; tek bir fiziksel birimi temsil etmez. Küçük etiket için kompakt QR kullanın.</p>
-    </div>
-</section>
-
 {% if current_stock_balances is not None %}
-    <section class="mb-4" aria-labelledby="current-stock-heading">
-        <h2 class="h5" id="current-stock-heading">Mevcut stok</h2>
+    <section class="panel mb-3" aria-labelledby="current-stock-heading">
+        <div class="panel-head">
+            <h2 id="current-stock-heading">Mevcut stok</h2>
+        </div>
         {% if current_stock_balances %}
-            <div class="table-responsive">
-                <table class="table table-striped table-hover align-middle">
-                    <thead>
+            <table class="table table-data table-stack mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Konum</th>
+                        <th scope="col" class="num">Miktar</th>
+                        <th scope="col">Kondisyon</th>
+                        <th scope="col" class="actions"><span class="visually-hidden">İşlemler</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for balance in current_stock_balances %}
                         <tr>
-                            <th scope="col">Konum</th>
-                            <th scope="col">Kondisyon</th>
-                            <th scope="col">Miktar</th>
+                            <td data-label="Konum">
+                                <span class="loc">{{ balance.location.code }}</span>
+                                {% if not balance.location.active %}<span class="tag tag-neutral row-note">Pasif referans</span>{% endif %}
+                                <span class="loc-path">{{ balance.location.path_label }}</span>
+                            </td>
+                            <td class="num" data-label="Miktar"><span class="qty">{{ balance.quantity|qty }}<span class="qty-unit">{% if material.unit %}{{ material.unit.code }}{% endif %}</span></span></td>
+                            <td><span class="tag cond-{{ balance.condition.code }}">{{ balance.condition.name }}</span></td>
+                            <td class="actions">
+                                {% if perms.inventory.transfer_stock and material.active and balance.location.active %}
+                                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'inventory:transfer-create' %}?material={{ material.pk }}&amp;source_location={{ balance.location.pk }}&amp;condition={{ balance.condition.pk }}">{% icon "arrow-left-right" %}Taşı</a>
+                                {% endif %}
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {% for balance in current_stock_balances %}
-                            <tr>
-                                <td>
-                                    <span title="{{ balance.location.id }}">{{ balance.location.path_label }}</span>
-                                    {% if not balance.location.active %}
-                                        <span class="badge text-bg-secondary">Pasif referans</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ balance.condition.name }}</td>
-                                <td class="text-nowrap">
-                                    {{ balance.quantity }}
-                                    {% if material.unit %}{{ material.unit.code }}{% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                    {% endfor %}
+                </tbody>
+            </table>
         {% else %}
-            <p class="text-body-secondary mb-0">Pozitif bakiye bulunmuyor.</p>
+            <div class="panel-body text-body-secondary">Pozitif bakiye bulunmuyor.</div>
         {% endif %}
     </section>
 {% endif %}
 
 {% if current_serialized_assets is not None %}
-    <section class="mb-4" aria-labelledby="current-assets-heading">
-        <h2 class="h5" id="current-assets-heading">Mevcut tekil varlıklar</h2>
+    <section class="panel mb-3" aria-labelledby="current-assets-heading">
+        <div class="panel-head"><h2 id="current-assets-heading">Mevcut tekil varlıklar</h2></div>
         {% if current_serialized_assets %}
-            <div class="table-responsive">
-                <table class="table table-striped table-hover align-middle">
-                    <thead>
+            <table class="table table-data table-hover table-stack mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Dahili varlık kodu</th>
+                        <th scope="col">Üretici seri numarası</th>
+                        <th scope="col">Konum</th>
+                        <th scope="col">Kondisyon</th>
+                        <th scope="col">Durum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for asset in current_serialized_assets %}
                         <tr>
-                            <th scope="col">Dahili varlık kodu</th>
-                            <th scope="col">Üretici seri numarası</th>
-                            <th scope="col">Konum</th>
-                            <th scope="col">Kondisyon</th>
-                            <th scope="col">Durum</th>
+                            <td class="stack-full"><a class="row-link code" href="{% url 'inventory:serialized-asset-detail' asset.pk %}">{{ asset.internal_asset_code }}</a></td>
+                            <td data-label="Seri no">{% if asset.serial_number %}<span class="code">{{ asset.serial_number }}</span>{% else %}—{% endif %}</td>
+                            <td data-label="Konum">{% if asset.current_location %}<span class="loc">{{ asset.current_location.code }}</span><span class="loc-path">{{ asset.current_location.name }}</span>{% else %}—{% endif %}</td>
+                            <td><span class="tag cond-{{ asset.current_condition.code }}">{{ asset.current_condition.name }}</span></td>
+                            <td data-label="Durum">{% if asset.current_location %}<span class="tag tag-success">{{ asset.get_current_state_display }}</span>{% else %}<span class="tag tag-info">{{ asset.get_current_state_display }}</span>{% endif %}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {% for asset in current_serialized_assets %}
-                            <tr>
-                                <td><a href="{% url 'inventory:serialized-asset-detail' asset.pk %}">{{ asset.internal_asset_code }}</a></td>
-                                <td>{% if asset.serial_number %}{{ asset.serial_number }}{% else %}—{% endif %}</td>
-                                <td>{% if asset.current_location %}{{ asset.current_location.code }} ({{ asset.current_location.name }}){% else %}—{% endif %}</td>
-                                <td>{{ asset.current_condition.name }}</td>
-                                <td>{{ asset.get_current_state_display }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                    {% endfor %}
+                </tbody>
+            </table>
         {% else %}
-            <p class="text-body-secondary mb-0">Kayıtlı tekil varlık bulunmuyor.</p>
+            <div class="panel-body text-body-secondary">Kayıtlı tekil varlık bulunmuyor.</div>
         {% endif %}
     </section>
 {% endif %}
 
+<div class="row g-3">
+    <div class="col-lg-7">
+        <section class="panel h-100" aria-labelledby="material-info-heading">
+            <div class="panel-head">
+                <h2 id="material-info-heading">Malzeme bilgileri</h2>
+                {% if perms.catalog.change_material %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'catalog:material-update' material.pk %}">{% icon "pencil-square" %}Düzenle</a>
+                {% endif %}
+            </div>
+            <div class="panel-body">
+                <dl class="kv">
+                    <dt>Kategori</dt>
+                    <dd>{{ material.category.name }}{% if not material.category.active %} <span class="tag tag-neutral">Pasif referans</span>{% endif %}</dd>
+                    <dt>Marka</dt>
+                    <dd>{% if material.brand %}{{ material.brand }}{% else %}—{% endif %}</dd>
+                    <dt>Model</dt>
+                    <dd>{% if material.model %}{{ material.model }}{% else %}—{% endif %}</dd>
+                    <dt>Ölçü birimi</dt>
+                    <dd>{% if material.unit %}{{ material.unit.code }} — {{ material.unit.name }}{% if not material.unit.active %} <span class="tag tag-neutral">Pasif referans</span>{% endif %}{% else %}Tanımlı değil{% endif %}</dd>
+                    <dt>Takip modu</dt>
+                    <dd>{{ material.get_tracking_mode_display }}</dd>
+                    <dt>Minimum stok eşiği</dt>
+                    <dd>{% if material.minimum_stock_value is not None %}{{ material.minimum_stock_value|qty }}{% else %}Tanımlı değil{% endif %}</dd>
+                    <dt>Arama anahtarları</dt>
+                    <dd>{% if material.search_keywords %}{{ material.search_keywords }}{% else %}—{% endif %}</dd>
+                </dl>
+
+                <details class="disclosure">
+                    <summary>{% icon "chevron-right" %}Teknik özellikler{% if not technical_specs_items %} <span class="summary-note">tanımlı değil</span>{% endif %}</summary>
+                    <div class="disclosure-body">
+                        {% if technical_specs_items %}
+                            <dl class="kv">
+                                {% for key, value in technical_specs_items %}
+                                    <dt>{{ key }}</dt>
+                                    <dd><code>{{ value }}</code></dd>
+                                {% endfor %}
+                            </dl>
+                        {% else %}
+                            <p class="text-body-secondary mb-0">Teknik özellik tanımlanmamış</p>
+                        {% endif %}
+                    </div>
+                </details>
+
+                <details class="disclosure">
+                    <summary>{% icon "chevron-right" %}Sistem bilgileri</summary>
+                    <div class="disclosure-body">
+                        <dl class="kv small">
+                            <dt>Kimlik</dt>
+                            <dd class="font-monospace">{{ material.id }}</dd>
+                            <dt>Oluşturulma</dt>
+                            <dd>{{ material.created_at }}</dd>
+                            <dt>Güncellenme</dt>
+                            <dd>{{ material.updated_at }}</dd>
+                        </dl>
+                        {% if perms.catalog.change_material %}
+                            <div class="mt-3">
+                                {% if material.active %}
+                                    <form method="post" action="{% url 'catalog:material-deactivate' material.pk %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Pasifleştir</button>
+                                    </form>
+                                {% else %}
+                                    <form method="post" action="{% url 'catalog:material-reactivate' material.pk %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Aktifleştir</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </details>
+            </div>
+        </section>
+    </div>
+    <div class="col-lg-5">
+        <section class="panel h-100" aria-labelledby="material-id-heading">
+            <div class="panel-head"><h2 id="material-id-heading">Makine okunur kimlik</h2></div>
+            <div class="panel-body">
+                <img class="d-block mw-100 mb-2" src="{% url 'identification:material-code128' material.pk %}" height="56" alt="{{ material.name }} malzeme Code 128 barkodu">
+                <p class="text-body-secondary small">Bu kod malzeme tanımını açar; tek bir fiziksel birimi temsil etmez.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'identification:material-label' material.pk %}">{% icon "printer" %}Standart etiket</a>
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'identification:material-label-compact' material.pk %}">{% icon "qr-code" %}Kompakt QR</a>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
 {% if recent_inventory_transactions %}
-    <section class="mb-4" aria-labelledby="recent-transactions-heading">
-        <h2 class="h5" id="recent-transactions-heading">Son envanter hareketleri</h2>
-        <div class="table-responsive">
-            <table class="table table-striped table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th scope="col">Tarih/saat</th>
-                        <th scope="col">Tür</th>
-                        <th scope="col">Miktar / varlık</th>
-                        <th scope="col">Konum</th>
-                        <th scope="col" class="text-nowrap">Detay</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for transaction in recent_inventory_transactions %}
-                        {% with line=transaction.lines.all.0 %}
-                            <tr>
-                                <td class="text-nowrap">{{ transaction.occurred_at }}</td>
-                                <td>{{ transaction.get_transaction_type_display }}</td>
-                                <td class="text-nowrap">
-                                    {% if line.serialized_asset_id %}
-                                        {{ line.serialized_asset.internal_asset_code }}{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
-                                    {% else %}
-                                        {{ line.quantity }} {{ line.unit.code }}
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if transaction.transaction_type == "ISSUE" and line.source_location %}
-                                        {{ line.source_location.code }} ({{ line.source_location.name }})
-                                    {% elif transaction.transaction_type == "RECEIPT" and line.target_location %}
-                                        {{ line.target_location.code }} ({{ line.target_location.name }})
-                                    {% elif transaction.transaction_type == "RETURN" and line.target_location %}
-                                        {{ line.target_location.code }} ({{ line.target_location.name }})
-                                    {% elif transaction.transaction_type == "TRANSFER" and line.source_location and line.target_location %}
-                                        {{ line.source_location.code }} ({{ line.source_location.name }}) → {{ line.target_location.code }} ({{ line.target_location.name }})
-                                    {% else %}
-                                        —
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'inventory:transaction-history-detail' transaction.pk %}">Detay</a>
-                                </td>
-                            </tr>
-                        {% endwith %}
-                    {% endfor %}
-                </tbody>
-            </table>
+    <section class="panel mt-3" aria-labelledby="recent-transactions-heading">
+        <div class="panel-head">
+            <h2 id="recent-transactions-heading">Son envanter hareketleri</h2>
+            <a class="small" href="{% url 'inventory:transaction-history-list' %}?material={{ material.pk }}">Tümü</a>
         </div>
+        <table class="table table-data table-hover table-stack mb-0">
+            <thead>
+                <tr>
+                    <th scope="col">Tarih/saat</th>
+                    <th scope="col">Tür</th>
+                    <th scope="col" class="num">Miktar / varlık</th>
+                    <th scope="col">Konum</th>
+                    <th scope="col" class="actions"><span class="visually-hidden">Detay</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in recent_inventory_transactions %}
+                    {% with line=transaction.lines.all.0 %}
+                        <tr>
+                            <td class="text-nowrap" data-label="Tarih">{{ transaction.occurred_at }}</td>
+                            <td data-label="Tür"><span class="mv mv-{{ transaction.transaction_type }}">{{ transaction.get_transaction_type_display }}</span></td>
+                            <td class="num" data-label="Miktar">
+                                {% if line.serialized_asset_id %}
+                                    <span class="code">{{ line.serialized_asset.internal_asset_code }}</span>{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
+                                {% else %}
+                                    <span class="qty">{{ line.quantity|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span>
+                                {% endif %}
+                            </td>
+                            <td class="stack-full" data-label="Konum">
+                                {% if line.source_location %}<span class="loc" title="{{ line.source_location.name }}">{{ line.source_location.code }}</span>{% endif %}
+                                {% if line.source_location and line.target_location %}{% icon "arrow-right" %}{% endif %}
+                                {% if line.target_location %}<span class="loc" title="{{ line.target_location.name }}">{{ line.target_location.code }}</span>{% endif %}
+                                {% if not line.source_location and not line.target_location %}—{% endif %}
+                            </td>
+                            <td class="actions"><a class="btn btn-sm btn-outline-secondary" href="{% url 'inventory:transaction-history-detail' transaction.pk %}">Detay</a></td>
+                        </tr>
+                    {% endwith %}
+                {% endfor %}
+            </tbody>
+        </table>
     </section>
 {% endif %}
-
-<section aria-labelledby="technical-specs-heading">
-    <h2 class="h5" id="technical-specs-heading">Teknik özellikler</h2>
-    {% if technical_specs_items %}
-        <dl class="row mb-0">
-            {% for key, value in technical_specs_items %}
-                <dt class="col-sm-3">{{ key }}</dt>
-                <dd class="col-sm-9"><code>{{ value }}</code></dd>
-            {% endfor %}
-        </dl>
-    {% else %}
-        <p class="text-body-secondary mb-0">Teknik özellik tanımlanmamış</p>
-    {% endif %}
-</section>
 {% endblock %}

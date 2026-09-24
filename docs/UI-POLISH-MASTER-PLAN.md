@@ -25,15 +25,15 @@ Durum: `—` başlanmadı · `PROTO` prototip · `DONE` tamam + tarayıcıda do�
 
 | # | Modül | Rota | Şablon | Kullanıcı / izin | Faz | Durum |
 |---|---|---|---|---|---|---|
-| 1 | core | kabuk (tüm sayfalar) | `base.html`, `core/_messages.html` | giriş yapmış | 1 | PROTO |
-| 2 | auth | `/accounts/login/` | `registration/login.html` | anonim | 1 | PROTO |
-| 3 | core | `/` | `core/home.html` | giriş yapmış | 1 | PROTO |
-| 4 | core | 403/404/500 | `templates/403.html`, `404.html`, `500.html` | — | 1 | PROTO |
-| 5 | inventory | `/inventory/stock/` | `stock_list.html` | `inventory.view_stockbalance` | 1 | PROTO |
-| 6 | inventory | `/inventory/receipts/new/` (+ HTMX özet) | `receipt_form.html`, `_receipt_material_summary.html` | `inventory.receive_stock` | 1 | PROTO |
-| 7 | catalog | `/catalog/materials/` | `material_list.html` | `catalog.view_material` | 2 | — |
-| 8 | catalog | `/catalog/materials/<id>/` | `material_detail.html` | `catalog.view_material` | 2 | — |
-| 9 | catalog | `/catalog/materials/new/`, `.../edit/` | `material_form.html`, `catalog/js/model_scan_helper.js` | `catalog.add_material` / `change_material` | 2 | — |
+| 1 | core | kabuk (tüm sayfalar) | `base.html`, `core/_messages.html` | giriş yapmış | 1 | DONE |
+| 2 | auth | `/accounts/login/` | `registration/login.html` | anonim | 1 | DONE |
+| 3 | core | `/` | `core/home.html` | giriş yapmış | 1 | DONE |
+| 4 | core | 403/404/500 | `templates/403.html`, `404.html`, `500.html` | — | 1 | DONE |
+| 5 | inventory | `/inventory/stock/` | `stock_list.html` | `inventory.view_stockbalance` | 1 | DONE |
+| 6 | inventory | `/inventory/receipts/new/` (+ HTMX özet) | `receipt_form.html`, `_receipt_material_summary.html` | `inventory.receive_stock` | 1 | DONE |
+| 7 | catalog | `/catalog/materials/` | `material_list.html` | `catalog.view_material` | 2 | DONE |
+| 8 | catalog | `/catalog/materials/<id>/` | `material_detail.html` | `catalog.view_material` | 2 | DONE |
+| 9 | catalog | `/catalog/materials/new/`, `.../edit/` | `material_form.html`, `catalog/js/model_scan_helper.js` | `catalog.add_material` / `change_material` | 2 | DONE |
 | 10 | inventory | `/inventory/receipts/<id>/` | `receipt_detail.html` | `inventory.view_inventorytransaction` | 3 | — |
 | 11 | inventory | `/inventory/serialized-receipts/new/` | `serialized_receipt_form.html` | `inventory.receive_stock` | 3 | — |
 | 12 | inventory | `/inventory/transfers/new/`, `/<id>/` | `transfer_form.html`, `transfer_detail.html` | `inventory.transfer_stock` | 3 | — |
