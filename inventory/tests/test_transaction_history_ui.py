@@ -706,7 +706,7 @@ def test_material_detail_hides_history_without_permission(app_client, history_ma
 
 
 def test_managed_permission_count_is_twenty_three():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 28
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 31
     assert "inventory.view_inventorytransaction" in SAFE_CATALOG_PERMISSION_LABELS
 
 

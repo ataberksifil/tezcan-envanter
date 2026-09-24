@@ -35,6 +35,7 @@ def catalog_permissions():
             "corrections",
             "counting",
             "imports",
+            "procurement",
         ),
         model__in=(
             "category",
@@ -49,6 +50,7 @@ def catalog_permissions():
             "physicalcountsession",
             "physicalcountquantityline",
             "inventorybaseline",
+            "purchaserequest",
         ),
     )
     permissions = Permission.objects.filter(
@@ -72,6 +74,7 @@ def _template_codenames_for_group(group_name: str) -> set[str]:
                 "corrections",
                 "counting",
                 "imports",
+                "procurement",
             )
         )
         if permission.codename in allowed
@@ -291,6 +294,9 @@ def test_existing_storekeeper_customized_catalog_permissions_are_preserved(
         "view_physicalcountsession",
         "add_physicalcountsession",
         "change_physicalcountsession",
+        "view_purchaserequest",
+        "add_purchaserequest",
+        "change_purchaserequest",
     }
 
 

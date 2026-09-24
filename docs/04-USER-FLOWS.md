@@ -320,7 +320,7 @@ flowchart TD
 - Acting user, `occurred_at`, işlem detayı ledger'da.
 
 **Scope Boundary**
-- `DEC-037` quantity RECEIVE UX foundation: staging Location seçilebilir, putaway mevcut TRANSFER, TZ1 etiket devamı. Talep, SKT, paket conversion ve usage-place receipt metadata sonraki dilimdir. Kullanıldığı yer stok Location değildir.
+- `DEC-037` quantity RECEIVE UX foundation: staging Location seçilebilir, putaway mevcut TRANSFER, TZ1 etiket devamı. `DEC-039` Talep Takip: şirket Talep No, kalem, kısmi mal kabul mevcut RECEIVE ile. SKT, paket conversion ve usage-place receipt metadata sonraki dilimdir. Kullanıldığı yer stok Location değildir.
 - `DEC-032` identity + serialized RECEIVE korunur. `DEC-035` V1 states `IN_STOCK`/`ISSUED` ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend'ini tanımlar. Serialized correction, serialized `COUNT_RECONCILIATION` ve broader lifecycle deferred kalır.
 
 ### UF-INT-001 — Saha / Atölye Malzeme Alım Talebi

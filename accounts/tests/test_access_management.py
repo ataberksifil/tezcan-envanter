@@ -185,7 +185,7 @@ def test_safe_permissions_and_manage_access_superuser_round_trip_are_audited():
 
 
 def test_managed_permission_set_is_exactly_twenty_eight():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 28
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 31
     assert "accounts.view_employee" in SAFE_CATALOG_PERMISSION_LABELS
     assert "accounts.add_employee" in SAFE_CATALOG_PERMISSION_LABELS
     assert "accounts.change_employee" in SAFE_CATALOG_PERMISSION_LABELS

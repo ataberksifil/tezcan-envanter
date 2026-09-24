@@ -10,6 +10,13 @@
                 <h1 class="h3 mb-3">{{ form_title }}</h1>
                 <p class="text-body-secondary">Gelen malzeme fiziksel rafa ulaşmadan önce stok tutan mal kabul konumuna kaydedilir. Raf yerleşimi bu kayıttan sonra Transfer ile yapılır. Kullanıldığı yer (hat/uygulama) stok rafı değildir.</p>
 
+                {% if purchase_request_line %}
+                    <div class="alert alert-secondary" role="status">
+                        <p class="mb-1">Talep {{ purchase_request_line.purchase_request.request_no }} — {{ purchase_request_line.requested_description }}</p>
+                        <p class="mb-0">İstenen {{ purchase_request_line.requested_quantity }} {{ purchase_request_line.unit_code_snapshot }}. Kalan {{ purchase_request_line.remaining_quantity }}.</p>
+                    </div>
+                {% endif %}
+
                 {% if preview %}
                     <div class="alert alert-info" role="status">
                         <p class="fw-semibold mb-2">Kayıt önizlemesi — henüz stok değişmedi</p>
@@ -58,7 +65,11 @@
                         {% if preview %}
                             <button type="submit" class="btn btn-outline-secondary" name="intent" value="edit">Geri dön</button>
                         {% endif %}
-                        <a class="btn btn-outline-secondary" href="{% url 'home' %}">İptal</a>
+                        {% if purchase_request_line %}
+                            <a class="btn btn-outline-secondary" href="{% url 'procurement:request-detail' purchase_request_line.purchase_request_id %}">İptal</a>
+                        {% else %}
+                            <a class="btn btn-outline-secondary" href="{% url 'home' %}">İptal</a>
+                        {% endif %}
                     </div>
                 </form>
             </div>

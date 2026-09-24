@@ -10,6 +10,9 @@
                 <h1 class="h3 mb-3">Ana sayfa</h1>
                 <p class="mb-2">Oturumunuz açık.</p>
                 <p class="mb-3">Giriş yapan kullanıcı: <strong>{{ user.get_username }}</strong></p>
+                {% if perms.procurement.view_purchaserequest %}
+                    <p class="mb-3"><a href="{% url 'procurement:request-list' %}">Talep Takip</a></p>
+                {% endif %}
                 <p class="mb-0 text-body-secondary">
                     Bu ekran uygulamanın ortak çalışma alanıdır.
                     Katalog ve stok işlemleri yetkinize göre sonraki aşamalarda eklenecektir.

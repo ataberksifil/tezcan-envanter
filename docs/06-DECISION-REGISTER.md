@@ -575,6 +575,27 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
 - **Consequence:** Software remains vendor-neutral HID + existing camera + browser/OS print. Workshop procurement/target devices are recorded without locking the identification codec to a manufacturer SDK. Label geometry must respect 203 DPI / 104 mm.
 - **Implementation status:** Documentation-only closeout. No production code, migration, payload, or scan-screen change in this decision.
 
+### DEC-039 — Talep Takip V1
+
+- **Status:** `DECIDED`
+- **Required before / recorded with:** Talep Takip V1 implementation
+- **Extends:** `DEC-037` item 13 (company Talep No, partial delivery, request does not create stock); `DEC-003` RECEIPT remains the stock increase; `DEC-021` permission-based authorization and non-destructive `setup_roles`
+- **Does not resolve:** `DEC-OPEN-010` unit conversion; SKT/expiry; supplier master; purchase orders; invoices; tax/VAT; exchange rates; packaging conversion; Excel import UI; approval workflow engine
+- **Decision:**
+  1. **Talep is procurement tracking, not inventory truth.** `PurchaseRequest` / `PurchaseRequestLine` creation or edit does not write `StockBalance`, `SerializedAsset`, or the inventory ledger.
+  2. **Talep No is company-assigned.** `ADMIN_MANAGER` or `STOREKEEPER` enters it. The system does not generate it and does not encode year, vendor, or status into it. Stored value is trimmed with internal whitespace collapsed. Uniqueness is the database constraint on that normalized, case-sensitive value.
+  3. **Multiple lines.** A line keeps `requested_description` even when no `Material` exists. Material link is optional, does not create a Material, and does not overwrite the description. Receipt integration requires a linked Material.
+  4. **No generic UoM conversion.** A linked line uses the Material stock unit. The line stores a unit reference and code/name snapshot. Later Material linking requires the same unit. `DEC-OPEN-010` stays OPEN.
+  5. **Price.** Optional `unit_price` is `Decimal`. Currency, when a price is entered, is an explicit 3-letter code with no default and no FX. Total is derived as requested quantity × unit price. No tax or invoice model.
+  6. **Supplier** is free text on the line. No supplier master.
+  7. **Status is derived** from linked RECEIPT fulfillment: received 0 → Bekliyor; 0 < received < requested → Kısmen geldi; received ≥ requested → Tamamlandı. Over-receipt is shown as fazla gelen and is not truncated or auto-corrected. Header status aggregates child lines. No manually edited status field.
+  8. **Fulfillment** is `PurchaseRequestReceipt` pointing at an immutable `RECEIPT` `InventoryTransaction`. Quantity receipts use `receive_quantity`; serialized receipts use `receive_serialized` and count one asset each. ISSUE/TRANSFER cannot fulfill a line. The same receipt cannot be linked twice. Association is created in the same database transaction as the receipt. Idempotent retry does not double-count. Actual arrival dates are the linked receipt timestamps.
+  9. **Permissions.** Fresh `ADMIN_MANAGER` and `STOREKEEPER` receive view/add/change. Fresh `TECHNICIAN` does not. `setup_roles` stays non-destructive. Delete is not an operational UI.
+  10. **History.** A line or header with linked receipts cannot be hard-deleted. The receipt link cannot be deleted. The ledger does not store a Talep foreign key.
+  11. **SKT is out of this slice.**
+- **Consequence:** `procurement` owns Talep data and calls existing inventory receive services. Inventory kernel math is unchanged.
+- **Implementation status:** Implemented in `feat: add purchase request tracking` (`DEC-039`).
+
 ## 3. Açık İş Kararları
 
 Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` alanında kanonik karar kaydına bağlanır.
@@ -645,7 +666,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Baseline schema/cutover | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout + operational UI at `1dedd34`). `InventoryBaseline`, scoped `INITIAL_BALANCE`, combined QUANTITY+SERIALIZED establishment. `DEC-002` / `DEC-015` / `DEC-032` / `DEC-033` korunur. |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |
 | Machine-readable identification | **COMPLETE** (Phase 5.8, `DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0`. Code128 standart / QR kompakt; canonical `TZ1M`/`TZ1A`/`TZ1L` payload. `DEC-037` tedarikçi barkodunun yetkili kimlik olmadığını teyit eder. Workshop hardware profile `DEC-038`. `DEC-IT-006` mobile/tablet intranet; ownership `DEC-011` |
-| Inbound / Mal Kabul V1 first slice | **COMMITTED** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`). Sistem üretilen Material kodu, STOREKEEPER+ADMIN Material create, model barkod yardımcısı, keyword search, quantity RECEIVE UX + demo staging Location + TRANSFER putaway/etiket devamı. Program COMPLETE değildir. Talep, SKT, paket conversion, inbound usage-place/packaging/supplier metadata ve production staging-location configuration sonraki dilimdir. |
+| Inbound / Mal Kabul V1 first slice | **COMMITTED** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`). Program COMPLETE değildir. Talep Takip V1 `DEC-039` ile uygulanır. SKT, paket conversion, inbound usage-place/packaging metadata ve production staging-location configuration sonraki dilimdir. |
 | Deployment/pilot | `DEC-IT-001`–`DEC-IT-005`, restore drill; uzun dönem retention için `DEC-OPEN-018` |
 | Phase 2 catalog/configuration UI | `DEC-021`: dynamic configuration principle, seed≠whitelist, UoM/role/technical-spec boundaries |
 | Phase 2.9B-0 access management policy | `DEC-022`: management capability, allowlist, anti-escalation, audit identity, Admin/UI boundary |
@@ -672,7 +693,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Phase 5.2 quantity controlled correction | **COMPLETE** (`DEC-030`, `DEC-031`, 2026-09-13; 1242 test passed). Evidence Phase 5.5 / `DEC-034` ile kapanmıştır. |
 | Phase 5.5 correction evidence | **COMPLETE** (`DEC-034`). Quantity controlled correction V1 photographic evidence kapanmıştır. Serialized correction deferred. |
 | Phase 5.8 machine-readable identification | **COMPLETE** (`DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`). Code128 + QR; canonical `TZ1M:<22-char-base64url-uuid>`, `TZ1A:<22-char-base64url-uuid>`, `TZ1L:<22-char-base64url-uuid>`. |
-| Inbound / Mal Kabul V1 first slice | **COMMITTED** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`). First slice implemented. Program COMPLETE işaretlenmez. Talep Takip ve SKT uygulanmamıştır. `DEC-OPEN-010` OPEN kalır. |
+| Inbound / Mal Kabul V1 first slice | **COMMITTED** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`). First slice implemented. Program COMPLETE işaretlenmez. Talep Takip V1 `DEC-039`. SKT uygulanmamıştır. `DEC-OPEN-010` OPEN kalır. |
 | Workshop barcode hardware profile | **DECIDED** (`DEC-038`). Kodscan KDS-5040 + Kodprint DT-482 target profile; HID + browser/OS print; `DEC-036` unchanged. |
 | Phase 5.3 serialized inventory foundation + serialized RECEIVE | **COMPLETE** at `f4c4146efe5709c88ecfc3f9ae0db90c628d39ec`. `DEC-032`; `DEC-OPEN-004` kapandı. |
 | Phase 5.4 decision pack | **COMPLETE** (`DEC-033`). 5.4A–5.4E backend + Count / Baseline Operational UI Closure at `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`). Migration yok; kernels/services authoritative kaldı. Serialized `COUNT_RECONCILIATION` ve serialized mutation workflow'ları uygulanmamıştır. `DEC-OPEN-010` OPEN kalır. |

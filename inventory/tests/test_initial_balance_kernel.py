@@ -739,4 +739,4 @@ def test_establish_baseline_permission_is_sensitive_and_admin_manager_only():
     assert "establish_baseline" in DEFAULT_ROLE_TEMPLATES[ADMIN_MANAGER]
     assert "establish_baseline" not in DEFAULT_ROLE_TEMPLATES[TECHNICIAN]
     assert "establish_baseline" not in DEFAULT_ROLE_TEMPLATES[STOREKEEPER]
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 28
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 31

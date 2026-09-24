@@ -92,6 +92,7 @@ Yalnız şu ana modülleri kullan:
 | `audit` | Non-stock administrative audit | Ledger'ı gereksiz kopyalamak |
 | `core` | Teknik ortak yardımcılar/storage/error/clock | Domain logic dumping ground olmak |
 | `identification` | Carrier-neutral machine-readable identity codec, Code128/QR rendering, authenticated scanner/resolver ve printable labels | Stock mutation veya core modüllerin kendisine bağımlı olması |
+| `procurement` | PurchaseRequest, PurchaseRequestLine, PurchaseRequestReceipt; şirket Talep No takibi. Stok etkisi yalnız mevcut RECEIVE servisleri | Stok/ledger yazmak, Material otomatik oluşturmak, birim dönüşümü |
 
 `attachments` V1'de ayrı app olmak zorunda değildir; correction modeli `corrections`, storage adaptörü `core` tarafından sahiplenilebilir.
 

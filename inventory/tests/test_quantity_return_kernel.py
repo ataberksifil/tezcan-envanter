@@ -432,5 +432,5 @@ def test_return_cannot_own_issue_context_and_issue_behavior_is_unchanged(return_
 def test_return_permission_definition_is_in_managed_rollout():
     permissions = dict(InventoryTransaction._meta.permissions)
     assert "return_stock" in permissions
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 28
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 31
     assert "inventory.return_stock" in SAFE_CATALOG_PERMISSION_LABELS

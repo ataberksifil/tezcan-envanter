@@ -105,6 +105,7 @@ Pragmatik V1 yapısı dokuz başlangıç Django app'i, Phase 5.8 `identification
 | `reports` | Salt okunur rapor query/use-case'leri ve Excel export | `catalog`, `locations`, `inventory` | Kaynak kayıtları değiştirmek |
 | `audit` | AuditEvent ve küçük append-only kayıt API'si | `accounts` kimliğine yalnız FK düzeyi | Ledger'ı kopyalamak veya iş akışı yönetmek |
 | `identification` | Carrier-neutral codec, Code128/QR rendering, authenticated scanner/resolver, printable labels | `catalog`, `inventory`, `locations` | Stok mutation yapmak veya core modüllerin kendisine bağımlı olmasını istemek |
+| `procurement` | PurchaseRequest, PurchaseRequestLine, PurchaseRequestReceipt; şirket Talep No takibi ve RECEIPT bağlantısı | `accounts`, `catalog`, `inventory` receive services, `audit` | Stok veya ledger yazmak; Material otomatik oluşturmak; birim dönüşümü |
 | `core` | Ortak hata tipleri, clock/correlation, storage adaptörü, teknik yardımcılar | İş modüllerine bağımlı değil | Domain entity veya iş kuralı sahipliği |
 
 V1 first-party kimlik `catalog` içine yerleştirilemez ve `BarcodeIdentifier` tablosu olarak persist edilmez (`DEC-036`). `identification`, `catalog`, `inventory` ve `locations`a bağımlı olabilir; bu modüller core domain operasyonu için `identification`a bağımlı olmaz (`DEC-011`).
@@ -117,6 +118,7 @@ flowchart TD
     Inventory -->|"uses"| Catalog["catalog"]
     Inventory -->|"uses"| Locations["locations"]
     Corrections["corrections"] -->|"uses"| Inventory
+    Procurement["procurement"] -->|"receive only"| Inventory
     Corrections -->|"uses"| Accounts
     Counting["counting"] -->|"uses"| Inventory
     Counting -->|"ledger effects via"| Inventory

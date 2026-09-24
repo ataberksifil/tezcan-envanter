@@ -58,6 +58,7 @@ class Command(BaseCommand):
                 "corrections",
                 "counting",
                 "imports",
+                "procurement",
             ),
             model__in=(
                 "category",
@@ -72,6 +73,7 @@ class Command(BaseCommand):
                 "physicalcountsession",
                 "physicalcountquantityline",
                 "inventorybaseline",
+                "purchaserequest",
             ),
         )
         permissions = Permission.objects.using(database).filter(

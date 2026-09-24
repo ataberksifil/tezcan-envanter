@@ -122,6 +122,7 @@ INSTALLED_APPS = [
     'catalog.apps.CatalogConfig',
     'locations.apps.LocationsConfig',
     'inventory.apps.InventoryConfig',
+    'procurement.apps.ProcurementConfig',
     'corrections.apps.CorrectionsConfig',
     'counting.apps.CountingConfig',
     'imports.apps.ImportsConfig',

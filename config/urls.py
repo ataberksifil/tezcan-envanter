@@ -31,6 +31,7 @@ urlpatterns = [
     path('locations/', include('locations.urls')),
     path('identification/', include('identification.urls')),
     path('counts/', include('counting.urls')),
+    path('requests/', include('procurement.urls')),
     path('', include('imports.urls')),
     path('admin/', admin.site.urls),
 ]

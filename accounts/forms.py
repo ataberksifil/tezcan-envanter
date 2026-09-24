@@ -38,6 +38,9 @@ PERMISSION_CHOICES = (
     ("counting.view_physicalcountsession", "Fiziksel sayım — görüntüleme"),
     ("counting.add_physicalcountsession", "Fiziksel sayım — oluşturma"),
     ("counting.change_physicalcountsession", "Fiziksel sayım — işletme"),
+    ("procurement.view_purchaserequest", "Talep — görüntüleme"),
+    ("procurement.add_purchaserequest", "Talep — oluşturma"),
+    ("procurement.change_purchaserequest", "Talep — düzenleme"),
 )
 assert tuple(value for value, _label in PERMISSION_CHOICES) == SAFE_CATALOG_PERMISSION_LABELS
 

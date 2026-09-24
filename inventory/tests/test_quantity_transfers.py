@@ -742,7 +742,7 @@ def test_projection_verifier_is_read_only_and_reports_corruption(transfer_object
 @pytest.mark.django_db
 def test_transfer_stock_is_rolled_out_to_managed_allowlist(transfer_objects):
     assert TRANSFER_STOCK_PERMISSION in SAFE_CATALOG_PERMISSION_LABELS
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 28
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 31
     assert "transfer_stock" in dict(InventoryTransaction._meta.permissions)
 
 

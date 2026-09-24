@@ -1142,7 +1142,7 @@ def test_receipt_and_issue_routes_are_operational_not_management_and_admin_stays
 
 
 def test_managed_permission_boundary_is_twenty_five_with_correction_request():
-    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 28
+    assert len(SAFE_CATALOG_PERMISSION_LABELS) == 31
     assert "inventory.receive_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.issue_stock" in SAFE_CATALOG_PERMISSION_LABELS
     assert "inventory.return_stock" in SAFE_CATALOG_PERMISSION_LABELS

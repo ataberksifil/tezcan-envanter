@@ -48,6 +48,8 @@ WRITE_VIEW_DEPENDENCIES: tuple[tuple[str, str], ...] = (
     ("corrections.add_correctionrequest", "corrections.view_correctionrequest"),
     ("counting.add_physicalcountsession", "counting.view_physicalcountsession"),
     ("counting.change_physicalcountsession", "counting.view_physicalcountsession"),
+    ("procurement.add_purchaserequest", "procurement.view_purchaserequest"),
+    ("procurement.change_purchaserequest", "procurement.view_purchaserequest"),
 )
 
 
@@ -447,6 +449,7 @@ def _load_supported_permissions(using: str) -> dict[str, Permission]:
             "inventory",
             "corrections",
             "counting",
+            "procurement",
         )
     ).select_related("content_type")
     permission_map = {

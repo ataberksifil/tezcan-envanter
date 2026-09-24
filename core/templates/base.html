@@ -48,6 +48,11 @@
                                 <a class="nav-link" href="{% url 'inventory:serialized-receipt-create' %}">Tekil Varlık Girişi</a>
                             </li>
                         {% endif %}
+                        {% if perms.procurement.view_purchaserequest %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'procurement:request-list' %}">Talep Takip</a>
+                            </li>
+                        {% endif %}
                         {% if perms.inventory.issue_stock %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'inventory:issue-create' %}">Stok Çıkışı</a>

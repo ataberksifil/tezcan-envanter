@@ -8,16 +8,17 @@
 **Phase 5.8 identification:** COMPLETE at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`, `DEC-036`)
 **Inbound / Mal Kabul V1 Foundation first slice:** committed at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`feat: add inbound inventory foundation`, `DEC-037`)
 **Workshop barcode hardware profile:** `DEC-038` (`DECIDED`)
+**Talep Takip V1:** `DEC-039` (`DECIDED`, `feat: add purchase request tracking`)
 
 ---
 
 ## 1. Özet
 
-Modüler monolit Django 5.2 envanter sistemi; quantity envanter hareketleri, kontrollü düzeltme (kanıtlı), serialized RECEIVE, fiziksel sayım + combined baseline backend/UI ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER akışları mevcuttur. Phase 5.7 state-aware normal Django web workflow'larını tamamlamıştır. Phase 5.8 carrier-neutral Machine-Readable Identification (Code128 standart 100 mm-sınıfı etiket, kompakt QR, canonical `TZ1M:<22-char-base64url-uuid>` / `TZ1A:<22-char-base64url-uuid>` / `TZ1L:<22-char-base64url-uuid>` payload, USB HID + kamera tarama, tek resolver) katmanı commit `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`) üzerinde COMPLETE'tir. Count / Baseline Operational UI Closure commit `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`) üzerinde COMPLETE'tir. Inbound / Mal Kabul V1 Foundation first slice commit `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`feat: add inbound inventory foundation`, `DEC-037`) üzerinde uygulanmıştır; Inbound / Mal Kabul programı COMPLETE değildir. Atölye barkod okuyucu/yazıcı hedef profili `DEC-038` ile kayıtlıdır.
+Modüler monolit Django 5.2 envanter sistemi; quantity envanter hareketleri, kontrollü düzeltme (kanıtlı), serialized RECEIVE, fiziksel sayım + combined baseline backend/UI ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER akışları mevcuttur. Phase 5.7 state-aware normal Django web workflow'larını tamamlamıştır. Phase 5.8 carrier-neutral Machine-Readable Identification (Code128 standart 100 mm-sınıfı etiket, kompakt QR, canonical `TZ1M:<22-char-base64url-uuid>` / `TZ1A:<22-char-base64url-uuid>` / `TZ1L:<22-char-base64url-uuid>` payload, USB HID + kamera tarama, tek resolver) katmanı commit `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0` (`feat: add machine-readable identification`) üzerinde COMPLETE'tir. Count / Baseline Operational UI Closure commit `1dedd34051692e4c4743c63ead5fecd3c91e9229` (`feat: add count and baseline workflows`) üzerinde COMPLETE'tir. Inbound / Mal Kabul V1 Foundation first slice commit `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`feat: add inbound inventory foundation`, `DEC-037`) üzerinde uygulanmıştır; Inbound / Mal Kabul programı COMPLETE değildir. Talep Takip V1 `DEC-039` uygulanmıştır (`feat: add purchase request tracking`). Atölye barkod okuyucu/yazıcı hedef profili `DEC-038` ile kayıtlıdır. SKT uygulanmamıştır.
 
-**Son doğrulanmış full suite:** 1769 passed
-**Collected test count:** 1769
-**Managed permission count:** 28
+**Son doğrulanmış full suite:** 1797 passed, 6 failed (`MaterialCondition` seed missing on the reused test DB). After `seed_material_conditions` on the test DB only, `catalog/tests/test_material_condition.py` — 24 passed.
+**Collected test count:** 1803
+**Managed permission count:** 31
 
 ---
 
@@ -135,7 +136,7 @@ First slice **committed** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`feat: 
 | Putaway | Existing `TRANSFER` |
 | Canonical identities | Unchanged `TZ1M` / `TZ1A` / `TZ1L` (`DEC-036`) |
 | Workshop scanner/printer profile | Recorded (`DEC-038`) |
-| Talep Takip | Not started |
+| Talep Takip V1 | Implemented (`DEC-039`, `feat: add purchase request tracking`): şirket Talep No, çoklu kalem, malzemesiz kalem, türetilen durum, RECEIPT bağlantısı. SKT yok. Inbound programı COMPLETE değil. |
 | SKT / expiry warning + manual control | Not started |
 | Inbound receipt metadata (usage/application place, packaging, supplier-related) | Not started |
 | Production staging-location configuration | If needed; not started |
@@ -156,7 +157,6 @@ First slice **committed** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`feat: 
 
 Correction evidence closure, Phase 5.6 serialized movement backend, Phase 5.8 identification, Count / Baseline Operational UI Closure ve Inbound / Mal Kabul V1 Foundation first slice uygulanmıştır; kalan ürün işi:
 
-- Talep Takip (şirket Talep No, kısmi teslimat, stok oluşturmama)
 - SKT / expiry uyarısı ve manuel ayırma/kontrol workflow'u (Material master'da değil; FEFO/otomatik düşüm yok)
 - Inbound receipt metadata: usage/application place, packaging metadata, later-approved supplier-related receipt metadata
 - Production staging-location configuration if needed
