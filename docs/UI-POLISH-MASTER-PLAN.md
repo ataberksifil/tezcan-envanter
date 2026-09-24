@@ -44,8 +44,8 @@ Durum: `—` başlanmadı · `PROTO` prototip · `DONE` tamam + tarayıcıda do�
 | 17 | inventory | `/inventory/expiry-warnings/`, `/<id>/inspect/` | `expiry_warning_list.html`, `expiry_inspection_form.html` | view_inventorytransaction / `receive_stock` | 4 | DONE |
 | 18 | inventory | `/inventory/transactions/`, `/<id>/` | `transaction_history_list.html`, `transaction_history_detail.html` | `inventory.view_inventorytransaction` | 5 | DONE |
 | 19 | corrections | `/corrections/`, `/new/…`, `/<id>/`, approve/reject, evidence | `request_list/form/detail.html` | `corrections.*` | 5 | DONE |
-| 20 | identification | `/identification/scan/`, `resolve/` | `scanner.html`, `identification/js/scanner.js` | view_material / view_stockbalance / view_location | 6 | — |
-| 21 | identification | etiket (Code128 standart, QR kompakt) × Material/Asset/Location | `label.html`, `label.css` | ilgili view izni | 6 | — |
+| 20 | identification | `/identification/scan/`, `resolve/` | `scanner.html`, `identification/js/scanner.js` | view_material / view_stockbalance / view_location | 6 | DONE |
+| 21 | identification | etiket (Code128 standart, QR kompakt) × Material/Asset/Location | `label.html`, `label.css` | ilgili view izni | 6 | DONE |
 | 22 | counting | `/counts/` liste, yeni, detay, başlat, miktar sayımı, beklenmeyen, sayılmadı, tekil sayım, aday, eksik, tamamla, fark inceleme, onay/red | `session_list/form/detail.html`, `session_start_confirm.html`, `quantity_count.html`, `unexpected_quantity_form.html`, `serialized_count.html`, `candidate_serialized_form.html`, `session_complete_confirm.html`, `discrepancy_review.html` | `counting.*` | 7 | — |
 | 23 | imports | `/baselines/`, yeni, detay, kesim | `baseline_list/form/detail.html` | `imports.establish_baseline` | 7 | — |
 | 24 | core | `/management/` | `core/management.html` | yönetim erişimi | 8 | — |

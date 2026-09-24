@@ -114,6 +114,14 @@
         }
     }, true);
 
+    // After a rejected scan the field keeps the bad code selected, so the next
+    // HID scan replaces it instead of being appended to it.
+    var rejectedScan = document.querySelector("#scan-resolve-form .has-error input");
+    if (rejectedScan) {
+        rejectedScan.focus();
+        rejectedScan.select();
+    }
+
     // Double-submit guard for POST forms. Buttons are disabled after the browser
     // has captured the submitter value, so intent buttons keep working.
     document.addEventListener("submit", function (event) {

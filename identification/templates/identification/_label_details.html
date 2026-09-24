@@ -1,0 +1,16 @@
+{% if entity_type == "M" %}
+    <p class="id-label__kind">Malzeme</p>
+    <h2 class="id-label__title">{{ target.name }}</h2>
+    <p class="id-label__code">{{ target.material_code }}</p>
+    <p class="id-label__note">Bu etiket malzeme türünü tanımlar; tek bir fiziksel birimi tanımlamaz.</p>
+{% elif entity_type == "A" %}
+    <p class="id-label__kind">Tekil varlık</p>
+    <h2 class="id-label__title">{{ target.internal_asset_code }}</h2>
+    <p>{{ target.material.name }}</p>
+    {% if target.serial_number %}<p class="id-label__code">Seri no: {{ target.serial_number }}</p>{% endif %}
+{% elif entity_type == "L" %}
+    <p class="id-label__kind">Lokasyon</p>
+    <h2 class="id-label__title">{{ target.code }}</h2>
+    <p>{{ target.name }}</p>
+{% endif %}
+<p class="id-label__payload">{{ identity_payload }}</p>

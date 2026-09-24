@@ -1,7 +1,7 @@
 # UI Modernizasyon — Durum
 
 **Başlangıç HEAD:** `fca1ad455ef203f40b09aafc25e15bed54619c25` (= origin/main)
-**Güncel faz:** Faz 6 — Barkod tarama ve etiket
+**Güncel faz:** Faz 7 — Sayım ve kesim
 **Plan:** [UI-POLISH-MASTER-PLAN.md](UI-POLISH-MASTER-PLAN.md) · **Tasarım:** [UI-DESIGN-SYSTEM.md](UI-DESIGN-SYSTEM.md)
 
 ## Tamamlanan fazlar
@@ -12,7 +12,8 @@
 | 2 — Malzeme bulma ve katalog | `2deb9b4` | Malzeme listesi (stok özeti), detay (raf dağılımı + satır "Taşı"), form (bölümler, model okutma Enter güvenliği), stok aramasında anahtar kelime + kelime sırasından bağımsız eşleşme |
 | 3 — Stok hareket formları ve detayları | `3f9af87` | Giriş/çıkış/iade/transfer formları ve detayları, tekil varlık ekranları |
 | 4 — Talep Takip ve SKT | `c6dcfa9` | Talep liste/detay (istenen/gelen/kalan + ilerleme), formlar; SKT listesi (giriş konumu açıkça), kontrol formu (üç sonuç açıklamalı); talep bağlantılı girişte SKT hatası düzeltildi |
-| 5 — Hareket geçmişi ve düzeltmeler | (bu commit) | Hareket listesi/detayı (işaretli miktar, kaynak → hedef plakaları), düzeltme listesi/formu/detayı (fark görünümü, kanıt, karar paneli, tarayıcı onayı), okunur düzeltme seçenek etiketleri |
+| 5 — Hareket geçmişi ve düzeltmeler | `18b4382` | Hareket listesi/detayı (işaretli miktar, kaynak → hedef plakaları), düzeltme listesi/formu/detayı (fark görünümü, kanıt, karar paneli, tarayıcı onayı), okunur düzeltme seçenek etiketleri |
+| 6 — Barkod tarama ve etiket | (bu commit) | Tarama sayfası (masaüstünde USB okuyucu, telefonda kamera önce; hata sonrası alan seçili), etiket sayfası (gerçek boyut önizleme, 104 mm kılavuz, yalnız etiket yazdırılır) |
 
 ## Faz 1 kapsamı
 
@@ -59,6 +60,12 @@ Tasarım sistemi (tokenlar, IBM Plex + Bootstrap Icons alt kümesi yerel), kabuk
 - Sandbox (test DB, repo dışı medya kökü `ui_sandbox_settings`): depocu hareketten düzeltme talebi (−2, PNG kanıt) → yönetici detayında fark görünümü → tarayıcı onayı → APPROVED, bağlantılı "Kontrollü düzeltme" hareketi, UI-RAF-A1 bakiyesi 15 → 13; talep eden kendi talebinde karar düğmesi görmez; `data-confirm` iptalinde form gitmez. Hareket listesi mobil taşma 0.
 - Not: pytest transactional testleri test DB'yi boşaltır; sandbox her tarayıcı turundan önce yeniden yüklenir, pytest öncesi `sandbox_reset` (flush + kanonik kondisyon seed) çalıştırılır.
 
+## Faz 6 doğrulama
+
+- Etiket geometrisi değişmedi: Code128 SVG doğal ölçüsü 88 × 17 mm (0,25 mm modül = 203 DPI'de 2 nokta), QR 46 mm; etiket kutusu 100 mm (≤ 104 mm). Yazdırma emülasyonunda (Playwright `emulateMedia print`) etiket 100 mm, kabuk/araç çubuğu gizli, taşma yok. Otomatik/sessiz yazdırma yok; `window.print()` kullanıcı eylemi.
+- Tarama: sayfa açılışında odak okutma alanında; bilinmeyen kod → "Kodun işaret ettiği kayıt bulunamadı." + alan seçili; ardından okutulan geçerli TZ1L doğrudan konum kaydını açtı. Telefonda kamera bölümü üstte.
+- pytest: `identification core` geçti.
+
 ## Sonraki adım
 
-Faz 6 — Barkod tarama ve etiket.
+Faz 7 — Sayım ve kesim.
