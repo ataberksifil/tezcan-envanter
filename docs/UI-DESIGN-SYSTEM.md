@@ -63,7 +63,7 @@ Aralık: 4 px tabanlı (Bootstrap spacer). Radius 6 px (buton/panel), 4 px (men�
 | `.tag` + `.tag-success/info/warning/danger/neutral` | Durum etiketi |
 | `.tag.cond-<CODE>` | Kondisyon: NEW_GOOD yeşil, USED_REMOVED_GOOD mavi, DEFECTIVE / USED_REMOVED_DEFECTIVE kırmızı; bilinmeyen kod nötr |
 | `.mv.mv-<TYPE>` | Hareket türü: giriş/iade/açılış yeşil, çıkış kırmızı, transfer mavi, düzeltme/sayım sarı |
-| `.table-wrap` + `.table-data` (+ `.table-stack`) | Veri tablosu; sabit başlık; <768 px'te `data-label` ile kayıt kartına dönüşür (`stack-full`, `stack-hide`) |
+| `.table-wrap` + `.table-data` (+ `.table-stack`) | Veri tablosu; ≥1200 px'te başlık sayfa kaydırılırken üst çubuğun altına yapışır, daha dar ekranda kap yatay kaydırılır; <768 px'te `data-label` ile kayıt kartına dönüşür (`stack-full`, `stack-hide`) |
 | `.filter-bar` | Liste filtreleri; "Temizle" yalnız filtre varken |
 | `core/_field.html` | Form alanı: etiket, "(isteğe bağlı)", yardım, hata |
 | `.form-section` | Uzun formu anlamlı bölümlere ayırır |
@@ -73,7 +73,7 @@ Aralık: 4 px tabanlı (Bootstrap spacer). Radius 6 px (buton/panel), 4 px (men�
 | `.mode-switch` | Aynı işin iki türü arasında geçiş (Adetli malzeme / Tekil varlık) |
 | `.form-actions` | Birincil eylem; mobilde alt gezinmenin üstüne yapışık |
 | `.review` + `.kv` | **Önizleme**: "henüz stok değişmedi"; alanlar gizli taşınır, yalnız Onayla / Geri dön |
-| `.flow` (`.flow-source` → `.flow-target`) | Kaynak (sarı üst çizgi) → hedef (yeşil üst çizgi) |
+| `.flow` (`.flow-source` → `.flow-target`) | Kaynak (sarı çerçeve, açık zemin) → hedef (yeşil çerçeve, açık zemin) |
 | `.empty` | Eylemli boş durum |
 | `core/_messages.html` | Django mesajları, ikonlu |
 | `templates/403.html`, `404.html`, `500.html` | Kabuk içinde anlaşılır hata sayfaları |
@@ -93,9 +93,21 @@ Aralık: 4 px tabanlı (Bootstrap spacer). Radius 6 px (buton/panel), 4 px (men�
 
 Kabuk (menü, üst çubuk, alt gezinme, eylem çubuğu) `@media print` ile gizlenir. Etiket sayfaları kendi `identification/css/label.css` düzenini kullanır (Kodprint DT-482, 203 DPI, ≤104 mm).
 
+## 5b. Ortak parçalar
+
+| Parça | Kullanım |
+|---|---|
+| `core/form_page.html` | Ana veri formları (kategori, birim, lokasyon, çalışan, üretim hattı, rol) için ortak düzen; `breadcrumb`, `form_intro`, `cancel_url` blokları |
+| `core/_form_fields.html`, `_form_errors.html` | Görünür alan döngüsü (malzeme/konum seçimlerine okutma kutusu) ve form hataları |
+| `core/_list_foot.html`, `_status_filter.html`, `_state_actions.html` | Liste sayfalama, durum filtresi, düzenle/pasifleştir/aktifleştir |
+| `inventory/_line_effect.html`, `_line_locations.html` | Hareket satırı işaretli miktar ve kaynak → hedef plakaları |
+| `identification/_label_details.html` | Etiket insan-okur metni |
+| `data-enter-next` (sayım) | Enter sonraki sayım alanına; sonuncudan sonra kaydet düğmesine odak |
+
 ## 6. Kurallar
 
 - Renk yalnız anlam içindir; dekoratif gradyan, gölge yığını, iç içe kart yok.
+- Kalın sol/üst kenar şeridi veya çentik kullanılmaz (menü dahil); vurgu tam çerçeve + açık zemin tonu veya durum etiketiyle yapılır.
 - Konum her zaman `.loc` plakası; kullanım yeri (hat/uygulama) asla plaka olarak gösterilmez.
 - Mutasyon yapan her işlem önizleme/onay adımını korur; GET ve "Geri dön" stok değiştirmez.
 - Varlıklar yereldir (CDN yok). `app.css`/`app.js` değişince `base.html`'deki `?v=ui-N` sürümü artırılır.

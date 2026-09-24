@@ -56,6 +56,8 @@ Durum: `—` başlanmadı · `PROTO` prototip · `DONE` tamam + tarayıcıda do�
 | 29 | accounts | roller, rol izinleri, kullanıcılar, kullanıcı rolleri | `role_list/form/permissions.html`, `user_list.html`, `user_roles.html` | `accounts.manage_access` | 8 | DONE |
 | 30 | admin | `/admin/` | Django Admin | superuser/staff | — | LIMIT: kapsam dışı (kilitli koruma yüzeyi) |
 
+Tüm 29 uygulama ekran grubu DONE; 1 LIMIT. Program tamamlandı (Faz 9).
+
 Uygulanmamış ve **UI üretilmeyecek** backend işleri (PROJECT-SNAPSHOT §5): Excel import UI, raporlama, serialized correction, serialized `COUNT_RECONCILIATION`, paket dönüşümü, üretim staging konfigürasyonu.
 
 ## 3. Fazlar

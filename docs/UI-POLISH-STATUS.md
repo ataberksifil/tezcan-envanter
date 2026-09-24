@@ -1,7 +1,7 @@
 # UI Modernizasyon — Durum
 
 **Başlangıç HEAD:** `fca1ad455ef203f40b09aafc25e15bed54619c25` (= origin/main)
-**Güncel faz:** Faz 9 — Son bütünsel inceleme
+**Güncel faz:** Program tamamlandı (Faz 1–9)
 **Plan:** [UI-POLISH-MASTER-PLAN.md](UI-POLISH-MASTER-PLAN.md) · **Tasarım:** [UI-DESIGN-SYSTEM.md](UI-DESIGN-SYSTEM.md)
 
 ## Tamamlanan fazlar
@@ -15,7 +15,8 @@
 | 5 — Hareket geçmişi ve düzeltmeler | `18b4382` | Hareket listesi/detayı (işaretli miktar, kaynak → hedef plakaları), düzeltme listesi/formu/detayı (fark görünümü, kanıt, karar paneli, tarayıcı onayı), okunur düzeltme seçenek etiketleri |
 | 6 — Barkod tarama ve etiket | `f34959b` | Tarama sayfası (masaüstünde USB okuyucu, telefonda kamera önce; hata sonrası alan seçili), etiket sayfası (gerçek boyut önizleme, 104 mm kılavuz, yalnız etiket yazdırılır) |
 | 7 — Sayım ve kesim | `aab5d70` | Oturum listesi/detayı (ilerleme), kör miktar sayımı (Enter sonraki satıra), tekil sayım, fark inceleme (beklenen → sayılan, yön), başlat/tamamla onayları, kesim listesi/hazırlık/uygula (tarayıcı onayı) |
-| 8 — Yönetim | (bu commit) | Yönetim merkezi (gruplu liste), kategori/birim/lokasyon/çalışan/üretim hattı liste-detay-form (ortak `core/form_page.html`), lokasyon detayında önce "bu raftaki stok" + "Bu rafa yerleştir", roller/izinler/kullanıcılar |
+| 8 — Yönetim | `41c06e9` | Yönetim merkezi (gruplu liste), kategori/birim/lokasyon/çalışan/üretim hattı liste-detay-form (ortak `core/form_page.html`), lokasyon detayında önce "bu raftaki stok" + "Bu rafa yerleştir", roller/izinler/kullanıcılar |
+| 9 — Son bütünsel inceleme | (bu commit) | Impeccable kritiği sonrası toplu düzeltmeler: kalın kenar şeritleri kaldırıldı, geniş ekranda yapışkan tablo başlığı, panel içi tablolar dar ekranda kayar, mobil küçük düğmeler 44 px, düğme odak halkası, satır uzunluğu |
 
 ## Faz 1 kapsamı
 
@@ -83,6 +84,23 @@ Tasarım sistemi (tokenlar, IBM Plex + Bootstrap Icons alt kümesi yerel), kabuk
 - Sandbox (test DB): `manage_access` yalnız sandbox kullanıcısına verildi; roller listesi, yeni rol formu, rol izinleri (31 yönetilebilir izin, ızgara), kullanıcılar ekranları 1440/390 taşma 0. Varsayılan roller "Kapsam dışı / salt okunur".
 - "Yönetim" kırıntısı yalnız yönetim erişimi olan kullanıcıya görünür (mevcut testlerle korunur).
 
-## Sonraki adım
+## Faz 9 doğrulama (son)
 
-Faz 9 — Son bütünsel inceleme (Impeccable kritiği, 1440/1280/1024/768/390, klavye/odak, yazdırma, rol bazlı kontrol, tam test paketi).
+- Impeccable (tek bağlam, bozulmuş mod: maliyet için alt ajan kullanılmadı): statik tarama 0 bulgu (Django şablon etiketleri CSS'i çözemedi); canlı sayfa enjeksiyonu 6 ekran × 2 genişlik → maddi bulgular düzeltildi (kenar şeritleri, satır uzunluğu); `table-wrap` "cramped-padding" ve seçenek etiketlerindeki uzun çizgiler yanlış pozitif sayıldı.
+- axe-core 4.10 (yalnız test için scratchpad'den enjekte, projeye eklenmedi), WCAG 2 A/AA: 19 ekranda (dev + sandbox: Talep, SKT, sayım, düzeltme, kesim dahil) 0 ihlal. Otomatik tarama tam uyum kanıtı değildir.
+- 1440/1280/1024/768/390: 19 ekranda yatay taşma 0 (düzeltme sonrası). Yapışkan tablo başlığı ≥1200 px'te üst çubuğun hemen altında (61/61 px).
+- Klavye: ana sayfada Tab sırası okut/ara → Ara → Kamera → günlük işlemler → Takip; tüm odaklar görünür halka.
+- Tam pytest: **1872 passed** (test DB sıfırlanmış, kanonik kondisyon seed'i yerinde; flaky SKT testi bu koşuda geçti). `manage.py check` temiz; `makemigrations --check` değişiklik yok; `git diff --check` temiz.
+
+## Kalan sınırlar ve backend işleri (UI kusuru değil)
+
+- Uygulanmamış backend yetenekleri için UI üretilmedi: Excel import UI, raporlama, serialized correction, serialized `COUNT_RECONCILIATION`, paket dönüşümü, üretim staging konfigürasyonu.
+- Django Admin (`/admin/`) kapsam dışı (kilitli koruma yüzeyi).
+- Talep Takip izinleri mevcut varsayılan dev Group'larına uygulama ekranından verilemez (bkz. Faz 4 notu); kullanıcı kararı.
+- Önceden var olan flaky test: `inventory/tests/test_expiry.py::test_outcomes_stay_in_history_and_do_not_clear_or_move_stock` (temiz HEAD'de 3/10); UI dışı.
+- Dev DB'deki kanonik olmayan "New" kondisyon kayıtları (`CD-xxxxxxxx`) veri; değiştirilmedi.
+- Sayım alanında daha önce girilmiş değer `type=number` yerel gösterimiyle `15,000` görünebilir (Türkçe 15).
+
+## Sürdürme notu
+
+Yeni oturumda: `git log --oneline -12` ve bu dosya. Tarayıcı testi için oturum çerezi `manage.py shell` ile oluşturulur (parola kullanılmaz). İzole yazma testleri yalnız test DB'de (`POSTGRES_DB=$POSTGRES_TEST_DB`), pytest öncesi test DB `flush` + `catalog.0004` seed.

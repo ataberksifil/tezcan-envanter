@@ -409,7 +409,7 @@ h3, .h3 { font-size: 1.0625rem; }
     margin-bottom: 1.25rem;
 }
 .page-head h1 { margin: 0; }
-.page-head-sub { margin: 0.25rem 0 0; color: var(--tz-ink-2); max-width: 72ch; }
+.page-head-sub { margin: 0.25rem 0 0; color: var(--tz-ink-2); max-width: 68ch; }
 .page-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .breadcrumb-lite {
     display: flex;
@@ -754,7 +754,7 @@ textarea.form-control { min-height: auto; }
 
 @media (max-width: 991.98px) {
     .btn { min-height: var(--tz-control-h); }
-    .btn-sm { min-height: 2.25rem; }
+    .btn-sm { min-height: var(--tz-control-h); }
 }
 
 /* ---- Alerts / notices -------------------------------------------------- */
@@ -763,7 +763,7 @@ textarea.form-control { min-height: auto; }
     display: flex;
     gap: 0.625rem;
     align-items: flex-start;
-    border-width: 1px 1px 1px 4px;
+    border-width: 1px;
 }
 .alert > .icon { margin-top: 0.2rem; width: 1.125rem; height: 1.125rem; }
 .alert-success { --bs-alert-bg: var(--tz-success-soft); --bs-alert-color: #0f4f2a; --bs-alert-border-color: var(--tz-success); }
@@ -778,8 +778,7 @@ textarea.form-control { min-height: auto; }
 
 /* ---- Review before commit --------------------------------------------- */
 .review {
-    border: 1px solid var(--tz-warning-edge);
-    border-left-width: 4px;
+    border: 1.5px solid var(--tz-warning-edge);
     border-radius: var(--tz-radius);
     background: #fffaf0;
     margin-bottom: 1.25rem;
@@ -822,9 +821,9 @@ textarea.form-control { min-height: auto; }
     background: var(--tz-surface);
 }
 .flow-end-label { display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.375rem; }
-.flow-source { border-top: 4px solid var(--tz-warning-edge); }
+.flow-source { border: 1.5px solid var(--tz-warning-edge); background: #fffaf0; }
 .flow-source .flow-end-label { color: var(--tz-warning); }
-.flow-target { border-top: 4px solid var(--tz-success); }
+.flow-target { border: 1.5px solid var(--tz-success); background: #f4fbf6; }
 .flow-target .flow-end-label { color: var(--tz-success); }
 .flow-arrow { display: grid; place-items: center; color: var(--tz-ink-2); }
 .flow-arrow .icon { width: 1.5rem; height: 1.5rem; }
@@ -868,7 +867,7 @@ textarea.form-control { min-height: auto; }
 .home-find-form .scan-input .form-control:focus { border-color: #8fbef5; box-shadow: 0 0 0 3px rgba(143, 190, 245, 0.35); }
 .home-find-form .btn { min-height: 3.5rem; padding-inline: 1.5rem; }
 .home-find .btn-find { --bs-btn-bg: #f2b418; --bs-btn-border-color: #f2b418; --bs-btn-hover-bg: #e0a40c; --bs-btn-hover-border-color: #e0a40c; --bs-btn-color: var(--tz-shell); --bs-btn-hover-color: var(--tz-shell); --bs-btn-active-bg: #d19a0b; --bs-btn-active-border-color: #d19a0b; --bs-btn-active-color: var(--tz-shell); }
-.home-find-help { margin: 0.625rem 0 0; font-size: 0.875rem; color: var(--tz-shell-ink); }
+.home-find-help { margin: 0.625rem 0 0; max-width: 72ch; font-size: 0.875rem; color: var(--tz-shell-ink); }
 .home-find-error { margin: 0.625rem 0 0; padding: 0.5rem 0.75rem; border-radius: var(--tz-radius-sm); background: var(--tz-danger-soft); color: #8a1b12; font-weight: 500; }
 .home-find-error:empty { display: none; }
 @media (max-width: 575.98px) {
@@ -1059,3 +1058,19 @@ fieldset.field { border: 0; padding: 0; min-width: 0; }
 .choice-card input[type="checkbox"], .choice-card input[type="radio"] { margin-top: 0.2rem; flex: none; width: 1.25rem; height: 1.25rem; accent-color: var(--tz-primary); }
 .permission-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.5rem; }
 .permission-grid .choice-card { padding: 0.5rem 0.75rem; align-items: center; }
+
+/* Wide desktop: the table header sticks under the top bar while the page scrolls.
+   Narrower screens keep the wrapper's own horizontal scroll instead. */
+@media (min-width: 1200px) {
+    .table-wrap { overflow: visible; }
+    .table-data thead th { top: calc(var(--tz-topbar-h) + 1px); }
+    .table-wrap > .table-data thead th:first-child { border-top-left-radius: var(--tz-radius); }
+    .table-wrap > .table-data thead th:last-child { border-top-right-radius: var(--tz-radius); }
+}
+
+/* Panels that hold wide tables scroll horizontally below the wide-desktop breakpoint. */
+@media (max-width: 1199.98px) { .panel { overflow-x: auto; } }
+
+/* Keyboard focus on buttons stays a clear ring (Bootstrap reduces it to a faint shadow). */
+.btn:focus-visible { outline: 3px solid var(--tz-primary); outline-offset: 2px; box-shadow: none; }
+.home-find .btn:focus-visible, .app-sidebar .btn:focus-visible { outline-color: #ffffff; }
