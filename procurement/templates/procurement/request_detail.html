@@ -1,75 +1,98 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Talep {{ purchase_request.request_no }} — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Talep {{ purchase_request.request_no }} — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+<div class="page-head">
     <div>
-        <h1 class="h3 mb-1">Talep {{ purchase_request.request_no }}</h1>
-        <p class="mb-0">Talep tarihi {{ purchase_request.request_date|date:"d.m.Y" }}
-            · Onay {% if purchase_request.approval_date %}{{ purchase_request.approval_date|date:"d.m.Y" }}{% else %}—{% endif %}
-            · {{ status_label }}
-            {% if late %}<span class="badge text-bg-warning">Gecikti</span>{% endif %}
+        <ol class="breadcrumb-lite"><li><a href="{% url 'procurement:request-list' %}">Talep Takip</a></li></ol>
+        <h1>Talep <span class="code">{{ purchase_request.request_no }}</span></h1>
+        <p class="page-head-sub d-flex flex-wrap align-items-center gap-2">
+            <span class="tag {% if status_label == 'Tamamlandı' %}tag-success{% elif status_label == 'Kısmen geldi' %}tag-info{% else %}tag-neutral{% endif %}">{{ status_label }}</span>
+            {% if late %}<span class="tag tag-warning">Gecikti</span>{% endif %}
+            <span>Talep tarihi {{ purchase_request.request_date|date:"d.m.Y" }}</span>
+            <span>Onay {% if purchase_request.approval_date %}{{ purchase_request.approval_date|date:"d.m.Y" }}{% else %}—{% endif %}</span>
         </p>
-        {% if purchase_request.note %}<p class="mb-0">{{ purchase_request.note }}</p>{% endif %}
+        {% if purchase_request.note %}<p class="mb-0 mt-1">{{ purchase_request.note }}</p>{% endif %}
     </div>
-    <div class="d-flex gap-2">
-        {% if can_change %}
-            <a class="btn btn-outline-primary" href="{% url 'procurement:request-edit' purchase_request.pk %}">Düzenle</a>
-            <a class="btn btn-primary" href="{% url 'procurement:line-create' purchase_request.pk %}">Kalem ekle</a>
-        {% endif %}
-    </div>
+    {% if can_change %}
+        <div class="page-actions">
+            <a class="btn btn-primary" href="{% url 'procurement:line-create' purchase_request.pk %}">{% icon "plus-lg" %}Kalem ekle</a>
+            <a class="btn btn-outline-secondary" href="{% url 'procurement:request-edit' purchase_request.pk %}">{% icon "pencil-square" %}Düzenle</a>
+        </div>
+    {% endif %}
 </div>
-<p class="text-body-secondary">Karşılanan miktar bağlı stok girişlerinden hesaplanır. Talep stok oluşturmaz.</p>
+
+<p class="text-body-secondary small">Karşılanan miktar bağlı stok girişlerinden hesaplanır. Talep stok oluşturmaz.</p>
+
 {% for row in rows %}
-    <div class="card mb-3">
-        <div class="card-body">
-            <div class="d-flex flex-wrap justify-content-between gap-2">
-                <h2 class="h5 mb-1">{{ row.line.requested_description }}</h2>
-                <span class="badge text-bg-secondary">{{ row.label }}</span>
+    <section class="panel request-line" aria-labelledby="line-{{ row.line.pk }}">
+        <div class="panel-head">
+            <div>
+                <h2 id="line-{{ row.line.pk }}">{{ row.line.requested_description }}</h2>
+                <span class="small text-body-secondary">
+                    {% if row.line.material %}<span class="code">{{ row.line.material.material_code }}</span> {{ row.line.material.name }}{% else %}Malzeme: Bağlı değil{% endif %}
+                </span>
             </div>
-            <ul class="mb-2">
-                <li>İstenen: {{ row.line.requested_quantity }} {{ row.line.unit_code_snapshot }} ({{ row.line.unit_name_snapshot }})</li>
-                <li>Gelen: {{ row.received }}</li>
-                <li>Kalan: {{ row.remaining }}</li>
-                {% if row.over > 0 %}<li>Fazla gelen: {{ row.over }}</li>{% endif %}
-                <li>Tedarikçi: {% if row.line.supplier_name %}{{ row.line.supplier_name }}{% else %}—{% endif %}</li>
-                <li>Birim fiyat: {% if row.line.unit_price is not None %}{{ row.line.unit_price }} {{ row.line.currency_code }} · Toplam {{ row.total }} {{ row.line.currency_code }}{% else %}—{% endif %}</li>
-                <li>Beklenen geliş: {% if row.line.expected_arrival_date %}{{ row.line.expected_arrival_date|date:"d.m.Y" }}{% else %}—{% endif %}
-                    {% if row.line.lead_time_days is not None %} · Termin {{ row.line.lead_time_days }} gün{% endif %}
-                </li>
-                <li>Malzeme: {% if row.line.material %}{{ row.line.material.material_code }} — {{ row.line.material.name }}{% else %}Bağlı değil{% endif %}</li>
-                <li>İlk geliş: {% if row.first_arrival %}{{ row.first_arrival|date:"d.m.Y H:i" }}{% else %}—{% endif %}
-                    · Son geliş: {% if row.latest_arrival %}{{ row.latest_arrival|date:"d.m.Y H:i" }}{% else %}—{% endif %}
-                </li>
-            </ul>
-            {% if can_change %}
-                <div class="d-flex flex-wrap gap-2 mb-2">
-                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'procurement:line-edit' purchase_request.pk row.line.pk %}">Kalemi düzenle</a>
-                    {% if not row.line.material %}
-                        <a class="btn btn-sm btn-outline-primary" href="{% url 'procurement:line-link' purchase_request.pk row.line.pk %}">Malzemeye bağla</a>
-                    {% elif can_receive %}
-                        <a class="btn btn-sm btn-primary" href="{% url 'procurement:line-receive' purchase_request.pk row.line.pk %}">Mal kabul et</a>
+            <span class="tag {% if row.state == 'RECEIVED' %}tag-success{% elif row.state == 'PARTIAL' %}tag-info{% else %}tag-neutral{% endif %}">{{ row.label }}</span>
+        </div>
+        <div class="panel-body">
+            <div class="line-figures">
+                <div><span class="line-figure-label">İstenen</span><span class="qty">{{ row.line.requested_quantity|qty }}<span class="qty-unit">{{ row.line.unit_code_snapshot }}</span></span></div>
+                <div><span class="line-figure-label">Gelen</span><span class="qty">{{ row.received|qty }}<span class="qty-unit">{{ row.line.unit_code_snapshot }}</span></span></div>
+                <div><span class="line-figure-label">Kalan</span><span class="qty{% if row.remaining > 0 %} text-body{% endif %}">{{ row.remaining|qty }}<span class="qty-unit">{{ row.line.unit_code_snapshot }}</span></span></div>
+                {% if row.over > 0 %}<div><span class="line-figure-label">Fazla gelen</span><span class="qty text-warning-emphasis">{{ row.over|qty }}<span class="qty-unit">{{ row.line.unit_code_snapshot }}</span></span></div>{% endif %}
+                <div><span class="line-figure-label">Beklenen geliş</span>{% if row.line.expected_arrival_date %}{{ row.line.expected_arrival_date|date:"d.m.Y" }}{% else %}—{% endif %}</div>
+                <div><span class="line-figure-label">Tedarikçi</span>{% if row.line.supplier_name %}{{ row.line.supplier_name }}{% else %}—{% endif %}</div>
+            </div>
+            <div class="line-progress" role="img" aria-label="Gelen {{ row.received|qty }} / istenen {{ row.line.requested_quantity|qty }} {{ row.line.unit_code_snapshot }}">
+                <span style="width: {% widthratio row.received row.line.requested_quantity 100 %}%"></span>
+            </div>
+
+            <details class="disclosure">
+                <summary>{% icon "chevron-right" %}Fiyat, termin ve stok girişleri{% if row.line.receipts.all %} <span class="summary-note">{{ row.line.receipts.all|length }} giriş</span>{% endif %}</summary>
+                <div class="disclosure-body">
+                    <dl class="kv small">
+                        <dt>Birim</dt><dd>{{ row.line.unit_code_snapshot }} ({{ row.line.unit_name_snapshot }})</dd>
+                        <dt>Birim fiyat</dt><dd>{% if row.line.unit_price is not None %}{{ row.line.unit_price }} {{ row.line.currency_code }}, toplam {{ row.total }} {{ row.line.currency_code }}{% else %}—{% endif %}</dd>
+                        <dt>Termin</dt><dd>{% if row.line.lead_time_days is not None %}{{ row.line.lead_time_days }} gün{% else %}—{% endif %}</dd>
+                        <dt>İlk geliş</dt><dd>{% if row.first_arrival %}{{ row.first_arrival|date:"d.m.Y H:i" }}{% else %}—{% endif %}</dd>
+                        <dt>Son geliş</dt><dd>{% if row.latest_arrival %}{{ row.latest_arrival|date:"d.m.Y H:i" }}{% else %}—{% endif %}</dd>
+                    </dl>
+                    {% if row.line.receipts.all %}
+                        <h3 class="h6 mt-3">Stok girişleri</h3>
+                        <ul class="list-unstyled mb-0 small d-grid gap-1">
+                            {% for receipt in row.line.receipts.all %}
+                                <li>
+                                    <span class="qty">{{ receipt.fulfilled_quantity|qty }}<span class="qty-unit">{{ row.line.unit_code_snapshot }}</span></span>
+                                    <span class="ms-2">{{ receipt.inventory_transaction.occurred_at|date:"d.m.Y H:i" }}</span>
+                                    <span class="ms-2">{{ receipt.inventory_transaction.get_transaction_type_display }}</span>
+                                    {% if perms.inventory.view_inventorytransaction %}<a class="ms-2" href="{% url 'inventory:receipt-detail' receipt.inventory_transaction_id %}">Hareket</a>{% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
                     {% endif %}
                 </div>
-            {% endif %}
-            {% if row.line.receipts.all %}
-                <h3 class="h6">Stok girişleri</h3>
-                <ul class="mb-0">
-                    {% for receipt in row.line.receipts.all %}
-                        <li>
-                            {{ receipt.fulfilled_quantity }} · {{ receipt.inventory_transaction.occurred_at|date:"d.m.Y H:i" }}
-                            · {{ receipt.inventory_transaction.get_transaction_type_display }}
-                            {% if perms.inventory.view_inventorytransaction %}
-                                · <a href="{% url 'inventory:receipt-detail' receipt.inventory_transaction_id %}">Hareket</a>
-                            {% endif %}
-                        </li>
-                    {% endfor %}
-                </ul>
+            </details>
+
+            {% if can_change %}
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    {% if not row.line.material %}
+                        <a class="btn btn-sm btn-primary" href="{% url 'procurement:line-link' purchase_request.pk row.line.pk %}">{% icon "box-seam" %}Malzemeye bağla</a>
+                    {% elif can_receive %}
+                        <a class="btn btn-sm btn-primary" href="{% url 'procurement:line-receive' purchase_request.pk row.line.pk %}">{% icon "box-arrow-in-down" %}Mal kabul et</a>
+                    {% endif %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'procurement:line-edit' purchase_request.pk row.line.pk %}">{% icon "pencil-square" %}Kalemi düzenle</a>
+                </div>
             {% endif %}
         </div>
-    </div>
+    </section>
 {% empty %}
-    <p>Henüz kalem yok.</p>
+    <div class="empty">
+        {% icon "inbox" %}
+        <p class="empty-title">Henüz kalem yok.</p>
+        {% if can_change %}<div class="empty-actions"><a class="btn btn-primary" href="{% url 'procurement:line-create' purchase_request.pk %}">{% icon "plus-lg" %}Kalem ekle</a></div>{% endif %}
+    </div>
 {% endfor %}
 {% endblock %}

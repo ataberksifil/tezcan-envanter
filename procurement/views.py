@@ -12,6 +12,7 @@ from inventory.forms import (
     attach_serialized_receipt_validation_error,
     receipt_metadata_from_cleaned,
 )
+from inventory.services.expiry import expiry_warning_label
 from locations.display import location_path_label
 from procurement.forms import MaterialLinkForm, PurchaseRequestForm, PurchaseRequestLineForm
 from procurement.models import FulfillmentState, PurchaseRequest, PurchaseRequestLine
@@ -457,6 +458,7 @@ class PurchaseRequestLineReceiveView(LoginRequiredMixin, PermissionRequiredMixin
                     form.cleaned_data,
                     include_packaging=True,
                 ),
+                expires_on=form.cleaned_data.get("expires_on"),
             )
         except PermissionDenied:
             raise
@@ -487,6 +489,8 @@ class PurchaseRequestLineReceiveView(LoginRequiredMixin, PermissionRequiredMixin
             "package_count": form.cleaned_data.get("package_count"),
             "package_label": form.cleaned_data.get("package_label") or "",
             "contents_per_package": form.cleaned_data.get("contents_per_package"),
+            "expires_on": form.cleaned_data.get("expires_on"),
+            "expiry_warning": expiry_warning_label(form.cleaned_data.get("expires_on")),
         }
 
     def _render(self, request, line, form, *, preview=None):
@@ -579,6 +583,7 @@ class PurchaseRequestLineSerializedReceiveView(LoginRequiredMixin, PermissionReq
                     form.cleaned_data,
                     include_packaging=False,
                 ),
+                expires_on=form.cleaned_data.get("expires_on"),
             )
         except PermissionDenied:
             raise

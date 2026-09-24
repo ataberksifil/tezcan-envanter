@@ -30,6 +30,18 @@ def expiry_warning_queryset():
     )
 
 
+def expiry_warning_label(expires_on) -> str | None:
+    """Presentation label for an optional receipt SKT: expired, approaching or none."""
+    if expires_on is None:
+        return None
+    today = timezone.localdate()
+    if expires_on < today:
+        return "Süresi geçmiş"
+    if (expires_on - today).days <= SKT_APPROACHING_WINDOW_DAYS:
+        return "Yaklaşıyor"
+    return None
+
+
 def record_physical_inspection(
     *,
     actor,

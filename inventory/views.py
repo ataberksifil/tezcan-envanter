@@ -37,7 +37,6 @@ from inventory.models import (
     ProductionLine,
     ReceiptExpiry,
     ReceiptMetadata,
-    SKT_APPROACHING_WINDOW_DAYS,
     SerializedAsset,
     StockBalance,
 )
@@ -59,7 +58,11 @@ from inventory.transaction_history import (
     filter_params_from_request,
     normalize_transaction_type_filter,
 )
-from inventory.services.expiry import expiry_warning_queryset, record_physical_inspection
+from inventory.services.expiry import (
+    expiry_warning_label,
+    expiry_warning_queryset,
+    record_physical_inspection,
+)
 from inventory.services.issues import issue_quantity, issue_serialized
 from inventory.services.production_lines import (
     create_production_line,
@@ -1179,14 +1182,7 @@ class ReceiptDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
 
 
 def _expiry_warning_label(expires_on):
-    if expires_on is None:
-        return None
-    today = timezone.localdate()
-    if expires_on < today:
-        return "Süresi geçmiş"
-    if (expires_on - today).days <= SKT_APPROACHING_WINDOW_DAYS:
-        return "Yaklaşıyor"
-    return None
+    return expiry_warning_label(expires_on)
 
 
 class ExpiryWarningListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):

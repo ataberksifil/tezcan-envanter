@@ -491,6 +491,7 @@ def receive_quantity_for_line(
     target_location_id,
     quantity,
     receipt_metadata: ReceiptMetadataInput | None = None,
+    expires_on: date | None = None,
     using: str = "default",
 ) -> RequestReceiptResult:
     _authorize(actor, CHANGE_PERMISSION)
@@ -507,6 +508,7 @@ def receive_quantity_for_line(
             target_location_id=target_location_id,
             quantity=normalized_quantity,
             receipt_metadata=receipt_metadata,
+            expires_on=expires_on,
             using=using,
         )
         receipt, replayed = _attach_receipt(
@@ -535,6 +537,7 @@ def receive_serialized_for_line(
     condition_id,
     target_location_id,
     receipt_metadata: ReceiptMetadataInput | None = None,
+    expires_on: date | None = None,
     using: str = "default",
 ) -> RequestReceiptResult:
     _authorize(actor, CHANGE_PERMISSION)
@@ -550,6 +553,7 @@ def receive_serialized_for_line(
             condition_id=condition_id,
             target_location_id=target_location_id,
             receipt_metadata=receipt_metadata,
+            expires_on=expires_on,
             using=using,
         )
         receipt, replayed = _attach_receipt(

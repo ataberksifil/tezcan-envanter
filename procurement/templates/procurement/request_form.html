@@ -1,33 +1,26 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}{{ form_title }} — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}{{ form_title }} — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-body p-4">
-                <h1 class="h3 mb-3">{{ form_title }}</h1>
-                <p class="text-body-secondary">Talep no şirket tarafından verilir. Talep kaydı stok oluşturmaz.</p>
-                <form method="post" novalidate>
-                    {% csrf_token %}
-                    {% if form.non_field_errors %}
-                        <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
-                    {% endif %}
-                    {% for field in form %}
-                        <div class="mb-3">
-                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                            {{ field }}
-                            {% for error in field.errors %}
-                                <div class="invalid-feedback d-block">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    {% endfor %}
-                    <button class="btn btn-primary" type="submit">Kaydet</button>
-                    <a class="btn btn-outline-secondary" href="{% url 'procurement:request-list' %}">Vazgeç</a>
-                </form>
-            </div>
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite"><li><a href="{% url 'procurement:request-list' %}">Talep Takip</a></li></ol>
+            <h1>{{ form_title }}</h1>
+            <p class="page-head-sub">Talep no şirket tarafından verilir. Talep kaydı stok oluşturmaz.</p>
         </div>
     </div>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+        {% include "core/_form_errors.html" %}
+        <section class="panel"><div class="panel-body">{% include "core/_form_fields.html" %}</div></section>
+        <div class="form-actions">
+            <button class="btn btn-primary btn-lg" type="submit">{% icon "check2" %}Kaydet</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'procurement:request-list' %}">Vazgeç</a>
+        </div>
+    </form>
 </div>
 {% endblock %}

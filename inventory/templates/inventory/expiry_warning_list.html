@@ -1,47 +1,57 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}SKT uyarıları — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}SKT uyarıları — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">SKT uyarıları</h1>
+<div class="page-head">
+    <div>
+        <h1>SKT uyarıları</h1>
+        <p class="page-head-sub">Yaklaşan ve süresi geçmiş son kullanma tarihleri giriş kaydına aittir. Uyarı stok düşmez, malzeme kartına yazılmaz ve otomatik imha yapmaz. 30 gün içindeki tarihler yaklaşan sayılır.</p>
+    </div>
 </div>
-<p class="text-body-secondary">Yaklaşan ve süresi geçmiş son kullanma tarihleri giriş kaydına aittir. Uyarı stok düşmez, malzeme kartına yazılmaz ve otomatik imha yapmaz. 30 gün içindeki tarihler yaklaşan sayılır.</p>
 
 {% if warnings %}
-    <div class="table-responsive">
-        <table class="table table-sm align-middle">
+    <div class="table-wrap">
+        <table class="table table-data table-hover table-stack">
             <thead>
                 <tr>
-                    <th>SKT</th>
-                    <th>Durum</th>
-                    <th>Malzeme</th>
-                    <th>Konum</th>
-                    <th>Son kontrol</th>
-                    <th></th>
+                    <th scope="col">SKT</th>
+                    <th scope="col">Malzeme</th>
+                    <th scope="col">Giriş konumu</th>
+                    <th scope="col">Son kontrol</th>
+                    <th scope="col" class="actions"><span class="visually-hidden">İşlemler</span></th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in warnings %}
-                    {% with line=row.transaction.lines.all|first %}
+                    {% with line=row.transaction.lines.all|first latest=row.latest_inspection %}
                         <tr>
-                            <td class="text-nowrap">{{ row.expires_on }}</td>
-                            <td>
+                            <td data-label="SKT">
+                                <span class="fw-semibold text-nowrap">{{ row.expires_on }}</span>
                                 {% if row.warning_status == "expired" %}
-                                    <span class="badge text-bg-danger">Süresi geçmiş</span>
+                                    <span class="d-block mt-1"><span class="tag tag-danger">Süresi geçmiş</span></span>
                                 {% else %}
-                                    <span class="badge text-bg-warning">Yaklaşıyor</span>
+                                    <span class="d-block mt-1"><span class="tag tag-warning">Yaklaşıyor</span></span>
                                 {% endif %}
                             </td>
-                            <td>{{ line.material.material_code }} — {{ line.material.name }}</td>
-                            <td>{% if line.target_location %}{{ line.target_location.code }}{% else %}—{% endif %}</td>
-                            <td>
-                                {% if row.latest_inspection %}{{ row.latest_inspection.get_outcome_display }}{% else %}—{% endif %}
+                            <td class="stack-full" data-label="Malzeme">
+                                <span class="cell-main">{{ line.material.name }}</span>
+                                <span class="cell-sub"><span class="code me-2">{{ line.material.material_code }}</span>{% if line.quantity %}{{ line.quantity|qty }} {{ line.unit.code }} girişi{% endif %}</span>
                             </td>
-                            <td class="text-nowrap">
+                            <td data-label="Giriş konumu">{% if line.target_location %}<span class="loc" title="{{ line.target_location.name }}">{{ line.target_location.code }}</span>{% else %}—{% endif %}</td>
+                            <td data-label="Son kontrol">
+                                {% if latest %}
+                                    <span class="tag {% if latest.outcome == 'KONTROL_EDILDI_UYGUN' %}tag-success{% elif latest.outcome == 'AYIRMA_GEREKIYOR' %}tag-warning{% else %}tag-danger{% endif %}">{{ latest.get_outcome_display }}</span>
+                                    <span class="cell-sub">{{ latest.recorded_at|date:"d.m.Y" }}</span>
+                                {% else %}
+                                    <span class="text-body-secondary">Kontrol yok</span>
+                                {% endif %}
+                            </td>
+                            <td class="actions">
                                 <a class="btn btn-sm btn-outline-secondary" href="{% url 'inventory:receipt-detail' row.transaction_id %}">Giriş</a>
                                 {% if perms.inventory.receive_stock %}
-                                    <a class="btn btn-sm btn-outline-primary" href="{% url 'inventory:expiry-inspection-create' row.transaction_id %}">Kontrol kaydet</a>
+                                    <a class="btn btn-sm btn-primary" href="{% url 'inventory:expiry-inspection-create' row.transaction_id %}">{% icon "clipboard-check" %}Kontrol kaydet</a>
                                 {% endif %}
                             </td>
                         </tr>
@@ -50,20 +60,21 @@
             </tbody>
         </table>
     </div>
+    <p class="text-body-secondary small mt-2 mb-0">Giriş konumu, malzemenin mal kabulde kaydedildiği konumdur; sonradan transfer edilmiş olabilir. Güncel raf için malzeme detayına bakın.</p>
+    {% if is_paginated %}
+        <nav class="table-foot" aria-label="SKT sayfaları">
+            <ul class="pagination mb-0">
+                {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Önceki</a></li>{% endif %}
+                <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Sonraki</a></li>{% endif %}
+            </ul>
+        </nav>
+    {% endif %}
 {% else %}
-    <p>Yaklaşan veya süresi geçmiş SKT kaydı yok.</p>
-{% endif %}
-
-{% if is_paginated %}
-    <nav class="mt-3" aria-label="SKT sayfaları">
-        <ul class="pagination">
-            {% if page_obj.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Önceki</a></li>
-            {% endif %}
-            {% if page_obj.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Sonraki</a></li>
-            {% endif %}
-        </ul>
-    </nav>
+    <div class="empty">
+        {% icon "hourglass-split" %}
+        <p class="empty-title">Yaklaşan veya süresi geçmiş SKT kaydı yok.</p>
+        <p class="mb-0">SKT, mal kabul sırasında isteğe bağlı olarak girilir.</p>
+    </div>
 {% endif %}
 {% endblock %}

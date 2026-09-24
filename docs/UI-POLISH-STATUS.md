@@ -1,7 +1,7 @@
 # UI Modernizasyon — Durum
 
 **Başlangıç HEAD:** `fca1ad455ef203f40b09aafc25e15bed54619c25` (= origin/main)
-**Güncel faz:** Faz 4 — Talep Takip ve SKT
+**Güncel faz:** Faz 5 — Hareket geçmişi ve düzeltmeler
 **Plan:** [UI-POLISH-MASTER-PLAN.md](UI-POLISH-MASTER-PLAN.md) · **Tasarım:** [UI-DESIGN-SYSTEM.md](UI-DESIGN-SYSTEM.md)
 
 ## Tamamlanan fazlar
@@ -10,7 +10,8 @@
 |---|---|---|
 | 1 — Temel sistem + prototip ekranlar | `8313adc` | Kabuk, ana sayfa, Mevcut Stok, Stok girişi, hata sayfaları |
 | 2 — Malzeme bulma ve katalog | `2deb9b4` | Malzeme listesi (stok özeti), detay (raf dağılımı + satır "Taşı"), form (bölümler, model okutma Enter güvenliği), stok aramasında anahtar kelime + kelime sırasından bağımsız eşleşme |
-| 3 — Stok hareket formları ve detayları | (bu commit) | Giriş/çıkış/iade/transfer formları ve detayları, tekil varlık ekranları |
+| 3 — Stok hareket formları ve detayları | `3f9af87` | Giriş/çıkış/iade/transfer formları ve detayları, tekil varlık ekranları |
+| 4 — Talep Takip ve SKT | (bu commit) | Talep liste/detay (istenen/gelen/kalan + ilerleme), formlar; SKT listesi (giriş konumu açıkça), kontrol formu (üç sonuç açıklamalı); talep bağlantılı girişte SKT hatası düzeltildi |
 
 ## Faz 1 kapsamı
 
@@ -43,6 +44,13 @@ Tasarım sistemi (tokenlar, IBM Plex + Bootstrap Icons alt kümesi yerel), kabuk
 - pytest: `inventory procurement identification core` → 918 passed; onaylı biçim nedeniyle güncellenen beklentiler: `test_quantity_return_ui.py` (10/4/6, `Kalan: 10 <birim>`), `test_quantity_transfer_ui.py` (4).
 - Playwright: 12 ekran × 1440/390 → 200, yatay taşma 0, konsol hatası yok; transfer formunda HID okutma + Enter seçim yaptı, gönderim yok; boş çıkış formu sunucu doğrulamasıyla 7 alan hatası.
 
+## Faz 4 doğrulama
+
+- **Hata düzeltmesi (kullanıcı onaylı, dar kapsam):** talep bağlantılı adetli/tekil mal kabul, formda girilen SKT'yi servise iletmiyordu (önizleme "yok" gösteriyor, onayda SKT kayboluyordu). `procurement.services.receive_quantity_for_line` / `receive_serialized_for_line` isteğe bağlı `expires_on` alır ve mevcut `receive_quantity` / `receive_serialized` servislerine iletir (aynı transaction, aynı fingerprint kuralı). Önizleme SKT + uyarı gösterir. `inventory.services.expiry.expiry_warning_label` paylaşılan yardımcı oldu. Test: `procurement/tests/test_purchase_requests.py::test_linked_receipts_keep_the_entered_skt`.
+- pytest: `procurement inventory core` → 808 passed.
+- **İzole tarayıcı ortamı (UI sandbox):** dev Group'larına izin eklenmedi. Sentetik veri yalnız test DB'ye (`test_tezcan_envanter`) gerçek servislerle yüklendi (`ui.yonetici/ui.depocu/ui.teknisyen`, taze `setup_roles` şablonları), ikinci sunucu `localhost:8001` o DB ile çalıştı. Doğrulananlar: ana sayfa SKT sayıları; talep listesi/detay; talep bağlantılı mal kabul önizlemesi SKT + onay → kalem "Tamamlandı"; SKT kontrolü → "Stok değişmedi"; 1024/768/390 taşma 0; rol menüleri (teknisyende Talep yok, `/requests/` açıklamalı 403). Pytest öncesi test DB `flush` + kanonik kondisyon seed'i ile temizlendi.
+- Dev DB için Talep Takip izni gerekirse: Yönetim → Roller → ilgili rol → İzinler ekranında `procurement` altındaki "view/add/change purchase request" kutuları.
+
 ## Sonraki adım
 
-Faz 4 — Talep Takip ve SKT (izole test kullanıcılarıyla; talep bağlantılı mal kabulde SKT doğrulaması).
+Faz 5 — Hareket geçmişi ve düzeltmeler.

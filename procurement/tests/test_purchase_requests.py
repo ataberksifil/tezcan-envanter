@@ -583,3 +583,58 @@ def test_update_preserves_request_and_late_signal_uses_expected_date():
     )
     assert line.expected_arrival_date < timezone.localdate()
     assert connection.vendor == "postgresql"
+
+
+def test_linked_receipts_keep_the_entered_skt(client):
+    """Regression: talep-linked receipts used to drop the SKT the form accepted."""
+    from inventory.models import ReceiptExpiry
+
+    suffix = uuid.uuid4().hex[:8]
+    actor = _user(
+        f"skt-{suffix}",
+        "procurement.view_purchaserequest",
+        "procurement.add_purchaserequest",
+        "procurement.change_purchaserequest",
+        "inventory.receive_stock",
+    )
+    masters = _masters(suffix)
+    purchase_request = _request(actor, f"S-{suffix}")
+    line = _line(actor, purchase_request, masters, requested_quantity=Decimal("10"))
+    expires_on = timezone.localdate() + timedelta(days=10)
+    client.force_login(actor)
+    url = reverse(
+        "procurement:line-receive",
+        kwargs={"pk": purchase_request.pk, "line_pk": line.pk},
+    )
+    data = {
+        "operation_id": str(uuid.uuid4()),
+        "material": str(masters["material"].pk),
+        "quantity": "4",
+        "condition": str(masters["condition"].pk),
+        "target_location": str(masters["location"].pk),
+        "usage_place": "Tavlama",
+        "arrived_on": "2026-09-20",
+        "expires_on": expires_on.isoformat(),
+    }
+    preview = client.post(url, data).content.decode()
+    assert "Yaklaşıyor" in preview
+    assert ReceiptExpiry.objects.count() == 0
+
+    confirmed = client.post(url, {**data, "confirm": "1"})
+    assert confirmed.status_code == 302
+    receipt = PurchaseRequestReceipt.objects.get(line=line)
+    assert ReceiptExpiry.objects.get(pk=receipt.inventory_transaction_id).expires_on == expires_on
+
+    serialized = _masters(f"{suffix}s", tracking=Material.TrackingMode.SERIALIZED)
+    serialized_line = _line(actor, purchase_request, serialized, requested_quantity=Decimal("1"))
+    result = receive_serialized_for_line(
+        actor=actor,
+        line_id=serialized_line.pk,
+        operation_id=uuid.uuid4(),
+        internal_asset_code=f"SKT-{suffix}",
+        serial_number="",
+        condition_id=serialized["condition"].pk,
+        target_location_id=serialized["location"].pk,
+        expires_on=expires_on,
+    )
+    assert ReceiptExpiry.objects.get(pk=result.inventory_result.transaction.pk).expires_on == expires_on

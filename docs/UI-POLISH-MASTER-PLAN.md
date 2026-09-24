@@ -40,8 +40,8 @@ Durum: `—` başlanmadı · `PROTO` prototip · `DONE` tamam + tarayıcıda do�
 | 13 | inventory | `/inventory/issues/new/`, `/<id>/` | `issue_form.html`, `issue_detail.html` | `inventory.issue_stock` | 3 | DONE |
 | 14 | inventory | `/inventory/returns/new/`, `/<id>/` | `return_form.html`, `return_detail.html` | `inventory.return_stock` | 3 | DONE |
 | 15 | inventory | `/inventory/serialized-assets/<id>/` (+ issue / return / transfer) | `serialized_asset_detail.html`, `serialized_issue_form.html`, `serialized_return_form.html`, `serialized_transfer_form.html` | view_stockbalance + hareket izinleri | 3 | DONE |
-| 16 | procurement | `/requests/`, `/new/`, `/<id>/`, `/edit/`, kalem ekle/düzenle, malzeme bağla, kaleme mal kabul (qty/serialized) | `request_list/form/detail.html`, `line_form.html`, `link_form.html` (+ `receipt_form.html`) | `procurement.*_purchaserequest`, `inventory.receive_stock` | 4 | — |
-| 17 | inventory | `/inventory/expiry-warnings/`, `/<id>/inspect/` | `expiry_warning_list.html`, `expiry_inspection_form.html` | view_inventorytransaction / `receive_stock` | 4 | — |
+| 16 | procurement | `/requests/`, `/new/`, `/<id>/`, `/edit/`, kalem ekle/düzenle, malzeme bağla, kaleme mal kabul (qty/serialized) | `request_list/form/detail.html`, `line_form.html`, `link_form.html` (+ `receipt_form.html`) | `procurement.*_purchaserequest`, `inventory.receive_stock` | 4 | DONE |
+| 17 | inventory | `/inventory/expiry-warnings/`, `/<id>/inspect/` | `expiry_warning_list.html`, `expiry_inspection_form.html` | view_inventorytransaction / `receive_stock` | 4 | DONE |
 | 18 | inventory | `/inventory/transactions/`, `/<id>/` | `transaction_history_list.html`, `transaction_history_detail.html` | `inventory.view_inventorytransaction` | 5 | — |
 | 19 | corrections | `/corrections/`, `/new/…`, `/<id>/`, approve/reject, evidence | `request_list/form/detail.html` | `corrections.*` | 5 | — |
 | 20 | identification | `/identification/scan/`, `resolve/` | `scanner.html`, `identification/js/scanner.js` | view_material / view_stockbalance / view_location | 6 | — |

@@ -1,41 +1,58 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Fiziksel kontrol — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Fiziksel kontrol — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-body p-4">
-                <h1 class="h3 mb-3">Fiziksel kontrol</h1>
-                <p class="text-body-secondary">SKT {{ expiry.expires_on }}{% if warning_label %} — {{ warning_label }}{% endif %}. Kayıt stok miktarını, konumu ve defteri değiştirmez. Ayırma işareti fiziksel taşıma kanıtı değildir.</p>
-
-                <form method="post" novalidate>
-                    {% csrf_token %}
-                    {% if form.non_field_errors %}
-                        <div class="alert alert-danger" role="alert">
-                            {% for error in form.non_field_errors %}
-                                <div>{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                    {% for field in form.visible_fields %}
-                        <div class="mb-3">
-                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                            {{ field }}
-                            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-                            {% for error in field.errors %}
-                                <div class="invalid-feedback d-block">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    {% endfor %}
-                    <div class="d-flex flex-wrap gap-2">
-                        <button type="submit" class="btn btn-primary">Kontrolü kaydet</button>
-                        <a class="btn btn-outline-secondary" href="{% url 'inventory:receipt-detail' expiry.transaction_id %}">Vazgeç</a>
-                    </div>
-                </form>
-            </div>
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite">
+                <li><a href="{% url 'inventory:expiry-warning-list' %}">SKT uyarıları</a></li>
+                <li><a href="{% url 'inventory:receipt-detail' expiry.transaction_id %}">Giriş kaydı</a></li>
+            </ol>
+            <h1>Fiziksel kontrol</h1>
+            <p class="page-head-sub">SKT {{ expiry.expires_on }}{% if warning_label %} <span class="tag {% if warning_label == 'Süresi geçmiş' %}tag-danger{% else %}tag-warning{% endif %}">{{ warning_label }}</span>{% endif %}</p>
         </div>
     </div>
+
+    <div class="alert alert-info" role="note">
+        {% icon "info-circle-fill" %}
+        <div class="alert-body">Kayıt stok miktarını, konumu ve defteri değiştirmez. Ayırma işareti fiziksel taşıma kanıtı değildir. Stok otomatik düşülmez, taşınmaz veya imha edilmez.</div>
+    </div>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% include "core/_form_errors.html" %}
+        <section class="panel">
+            <div class="panel-body">
+                <fieldset class="field{% if form.outcome.errors %} has-error{% endif %}">
+                    <legend class="form-label">{{ form.outcome.label }}</legend>
+                    <div class="choice-list">
+                        {% for choice in form.outcome %}
+                            <label class="choice-card">
+                                <input class="form-check-input" type="radio" name="{{ form.outcome.html_name }}" value="{{ choice.data.value }}"{% if choice.data.selected %} checked{% endif %}>
+                                <span>
+                                    <span class="choice-title">{{ choice.choice_label }}</span>
+                                    <span class="choice-sub">
+                                        {% if choice.data.value == "KONTROL_EDILDI_UYGUN" %}Ürün kayıtlı yerde, fiziksel durumu uygun görüldü. Uyarı listede kalır.
+                                        {% elif choice.data.value == "URUN_BULUNAMADI" %}Ürün kontrol edilen yerde bulunamadı. Stok kaydı kendiliğinden değişmez.
+                                        {% elif choice.data.value == "AYIRMA_GEREKIYOR" %}Ürünün kullanılmaması için elle ayrılması gerekiyor. Taşıma bu kayıtla yapılmaz.
+                                        {% endif %}
+                                    </span>
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                    {% for error in form.outcome.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                </fieldset>
+                {% include "core/_field.html" with field=form.note %}
+            </div>
+        </section>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">{% icon "clipboard-check" %}Kontrolü kaydet</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'inventory:receipt-detail' expiry.transaction_id %}">Vazgeç</a>
+        </div>
+    </form>
 </div>
 {% endblock %}
