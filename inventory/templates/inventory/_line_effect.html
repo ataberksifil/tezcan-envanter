@@ -1,0 +1,12 @@
+{% load ui %}{# One ledger line: source decreases, target increases (AGENTS §8). #}
+{% if line.serialized_asset_id %}
+    <span class="code">{{ line.serialized_asset.internal_asset_code }}</span>{% if line.serialized_asset.serial_number %} <span class="text-body-secondary small">/ {{ line.serialized_asset.serial_number }}</span>{% endif %}
+{% elif line.source_location and line.target_location %}
+    <span class="qty">{{ line.quantity|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span>
+{% elif line.target_location %}
+    <span class="qty qty-plus">+{{ line.quantity|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span>
+{% elif line.source_location %}
+    <span class="qty qty-minus">−{{ line.quantity|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span>
+{% else %}
+    <span class="qty">{{ line.quantity|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span>
+{% endif %}

@@ -103,6 +103,17 @@
         }
     });
 
+    // Decisions that change stock ask once more in the browser. The server
+    // remains the authority; this only guards against a stray click.
+    document.addEventListener("submit", function (event) {
+        var form = event.target;
+        var message = form.getAttribute && form.getAttribute("data-confirm");
+        if (message && !window.confirm(message)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }, true);
+
     // Double-submit guard for POST forms. Buttons are disabled after the browser
     // has captured the submitter value, so intent buttons keep working.
     document.addEventListener("submit", function (event) {

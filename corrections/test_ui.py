@@ -122,3 +122,16 @@ def test_transaction_history_filters_and_renders_correction_lineage(
     assert response.status_code == 200
     assert "Satır 1" in content and "Satır 2" in content
     assert str(correction_objects["transaction"].pk) in content
+
+
+
+def test_correction_form_labels_are_readable(client, correction_objects):
+    client.force_login(correction_objects["requester"])
+    response = client.get(
+        reverse("corrections:request-create", args=[correction_objects["transaction"].pk])
+    )
+    content = response.content.decode()
+    line = correction_objects["line"]
+    assert "InventoryTransactionLine object" not in content
+    assert f"Satır {line.line_number}: {line.material.material_code}" in content
+    assert f"{correction_objects['source'].code} — {correction_objects['source'].name}" in content

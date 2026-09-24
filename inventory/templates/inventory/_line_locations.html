@@ -1,0 +1,5 @@
+{# Location plates for one ledger line; the arrow always reads source → target. #}
+{% if line.source_location %}<span class="loc" title="{{ line.source_location.name }}">{{ line.source_location.code }}</span>{% endif %}
+{% if line.source_location and line.target_location %}<span class="mx-1" aria-label="kaynaktan hedefe">→</span>{% endif %}
+{% if line.target_location %}<span class="loc" title="{{ line.target_location.name }}">{{ line.target_location.code }}</span>{% endif %}
+{% if not line.source_location and not line.target_location %}—{% endif %}

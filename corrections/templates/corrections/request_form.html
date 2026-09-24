@@ -1,24 +1,56 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Düzeltme talebi — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Düzeltme talebi — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Düzeltme talebi</h1>
-    <a class="btn btn-outline-secondary" href="{% url 'inventory:transaction-history-detail' original_transaction.pk %}">İşleme dön</a>
-</div>
-<p class="text-body-secondary">Özgün işlem: <span class="font-monospace">{{ original_transaction.pk }}</span>. Talep beklemedeyken stok değişmez.</p>
-<form method="post" enctype="multipart/form-data" novalidate>
-    {% csrf_token %}
-    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
-    {% for field in form %}
-        <div class="mb-3">
-            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-            {{ field }}
-            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-            {% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite">
+                <li><a href="{% url 'inventory:transaction-history-list' %}">Envanter hareketleri</a></li>
+                <li><a href="{% url 'inventory:transaction-history-detail' original_transaction.pk %}">Özgün işlem</a></li>
+            </ol>
+            <h1>Düzeltme talebi</h1>
+            <p class="page-head-sub">Özgün işlem: <span class="font-monospace">{{ original_transaction.pk }}</span>. Talep beklemedeyken stok değişmez; yönetici onayı yeni ve bağlantılı bir hareket oluşturur.</p>
         </div>
-    {% endfor %}
-    <button class="btn btn-primary" type="submit">Talebi oluştur</button>
-</form>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+        {% include "core/_form_errors.html" %}
+        <section class="panel">
+            <div class="panel-body">
+                <div class="form-section">
+                    <h2 class="form-section-title">Neyi düzeltiyorsunuz</h2>
+                    {% include "core/_field.html" with field=form.original_line %}
+                    {% include "core/_field.html" with field=form.original_location %}
+                    <div class="row g-3">
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.effect_type %}</div>
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.quantity_effect %}</div>
+                    </div>
+                </div>
+                <div class="form-section">
+                    <h2 class="form-section-title">Doğru kimlik</h2>
+                    <p class="form-section-note">Yalnız malzeme, konum veya kondisyon yanlış kaydedildiyse doldurun.</p>
+                    {% include "core/_field.html" with field=form.corrected_material %}
+                    <div class="row g-3">
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.corrected_location %}</div>
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.corrected_condition %}</div>
+                    </div>
+                </div>
+                <div class="form-section">
+                    <h2 class="form-section-title">Gerekçe ve kanıt</h2>
+                    {% include "core/_field.html" with field=form.explanation %}
+                    {% include "core/_field.html" with field=form.evidence %}
+                </div>
+            </div>
+        </section>
+        <div class="form-actions">
+            <button class="btn btn-primary btn-lg" type="submit">{% icon "check2" %}Talebi oluştur</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'inventory:transaction-history-detail' original_transaction.pk %}">İşleme dön</a>
+        </div>
+    </form>
+</div>
 {% endblock %}

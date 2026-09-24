@@ -84,6 +84,8 @@ Aralık: 4 px tabanlı (Bootstrap spacer). Radius 6 px (buton/panel), 4 px (men�
 - `data-scan-field` alanında Enter **asla formu göndermez**; odak sonraki alana geçer.
 - **Tek ortak okut/ara davranışı** (`data-scan-search`): ana sayfa alanı, üst çubuk alanı ve liste arama alanları aynı kuralı izler — `TZ1` ile başlayan her değer salt okunur `/identification/resolve/` çözümleyicisine gider (bozuk/bilinmeyen kod → sunucunun açık mesajı; yetkisiz → 403 açıklaması); diğer metin arama olur. Kullanıcı "hangi alana okutmalıyım" diye düşünmez. Ana sayfada üst çubuk alanı gösterilmez (tek birincil alan). `/` tuşu, kullanıcı başka bir alanda yazmıyorsa arama alanına odaklar.
 - `core/_pick_field.html` (`data-scan-select`, `data-scan-kind="M|A|L"`): TZ1 yükü tarayıcıda UUID'ye çözülür ve sunucunun zaten listelediği seçenek seçilir. Yanlış tür, listede olmayan (pasif/uygun olmayan) kayıt ve TZ1 olmayan metin anlaşılır mesajla reddedilir. İstek/mutasyon yoktur; sunucu doğrulaması aynen geçerlidir.
+- `data-confirm="…"` taşıyan POST formları (düzeltme onay/ret, sayım farkı kararı, kesim) gönderimden önce tarayıcı onayı ister; iptal edilirse form gitmez ve düğme kilitlenmez. Sunucu yetkisi ve doğrulaması aynen geçerlidir.
+- Hareket satırı gösterimi (`inventory/_line_effect.html`, `_line_locations.html`): yalnız hedef → `+miktar` yeşil, yalnız kaynak → `−miktar` kırmızı, ikisi → miktar ve `kaynak → hedef` plakaları.
 - Çift gönderim koruması: POST formlarında gönderimden sonra butonlar devre dışı (`aria-busy`); `name/value` taşıyan niyet butonları korunur; geri/ileri önbellekten dönüşte açılır.
 - Odak: 3 px mavi çerçeve, `:focus-visible`. "İçeriğe geç" bağlantısı.
 

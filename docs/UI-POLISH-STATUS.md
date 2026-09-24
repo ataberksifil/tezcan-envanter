@@ -1,7 +1,7 @@
 # UI Modernizasyon — Durum
 
 **Başlangıç HEAD:** `fca1ad455ef203f40b09aafc25e15bed54619c25` (= origin/main)
-**Güncel faz:** Faz 5 — Hareket geçmişi ve düzeltmeler
+**Güncel faz:** Faz 6 — Barkod tarama ve etiket
 **Plan:** [UI-POLISH-MASTER-PLAN.md](UI-POLISH-MASTER-PLAN.md) · **Tasarım:** [UI-DESIGN-SYSTEM.md](UI-DESIGN-SYSTEM.md)
 
 ## Tamamlanan fazlar
@@ -11,7 +11,8 @@
 | 1 — Temel sistem + prototip ekranlar | `8313adc` | Kabuk, ana sayfa, Mevcut Stok, Stok girişi, hata sayfaları |
 | 2 — Malzeme bulma ve katalog | `2deb9b4` | Malzeme listesi (stok özeti), detay (raf dağılımı + satır "Taşı"), form (bölümler, model okutma Enter güvenliği), stok aramasında anahtar kelime + kelime sırasından bağımsız eşleşme |
 | 3 — Stok hareket formları ve detayları | `3f9af87` | Giriş/çıkış/iade/transfer formları ve detayları, tekil varlık ekranları |
-| 4 — Talep Takip ve SKT | (bu commit) | Talep liste/detay (istenen/gelen/kalan + ilerleme), formlar; SKT listesi (giriş konumu açıkça), kontrol formu (üç sonuç açıklamalı); talep bağlantılı girişte SKT hatası düzeltildi |
+| 4 — Talep Takip ve SKT | `c6dcfa9` | Talep liste/detay (istenen/gelen/kalan + ilerleme), formlar; SKT listesi (giriş konumu açıkça), kontrol formu (üç sonuç açıklamalı); talep bağlantılı girişte SKT hatası düzeltildi |
+| 5 — Hareket geçmişi ve düzeltmeler | (bu commit) | Hareket listesi/detayı (işaretli miktar, kaynak → hedef plakaları), düzeltme listesi/formu/detayı (fark görünümü, kanıt, karar paneli, tarayıcı onayı), okunur düzeltme seçenek etiketleri |
 
 ## Faz 1 kapsamı
 
@@ -51,6 +52,13 @@ Tasarım sistemi (tokenlar, IBM Plex + Bootstrap Icons alt kümesi yerel), kabuk
 - **İzole tarayıcı ortamı (UI sandbox):** dev Group'larına izin eklenmedi. Sentetik veri yalnız test DB'ye (`test_tezcan_envanter`) gerçek servislerle yüklendi (`ui.yonetici/ui.depocu/ui.teknisyen`, taze `setup_roles` şablonları), ikinci sunucu `localhost:8001` o DB ile çalıştı. Doğrulananlar: ana sayfa SKT sayıları; talep listesi/detay; talep bağlantılı mal kabul önizlemesi SKT + onay → kalem "Tamamlandı"; SKT kontrolü → "Stok değişmedi"; 1024/768/390 taşma 0; rol menüleri (teknisyende Talep yok, `/requests/` açıklamalı 403). Pytest öncesi test DB `flush` + kanonik kondisyon seed'i ile temizlendi.
 - Dev DB için Talep Takip izni gerekirse: Yönetim → Roller → ilgili rol → İzinler ekranında `procurement` altındaki "view/add/change purchase request" kutuları.
 
+## Faz 5 doğrulama
+
+- Bulgu ve düzeltme: düzeltme formunda "Düzeltilecek satır" seçeneği `InventoryTransactionLine object (uuid)` gösteriyordu; artık "Satır N: KOD ad, miktar birim, kondisyon, KONUM kaynağından azalış / hedefine artış". Doğru malzeme/kondisyon seçenekleri stok formlarıyla aynı etiketleri kullanır (tekrarlı kod için kısa ayırt edici).
+- pytest: `corrections inventory core catalog/tests/test_material_ui.py` → 921 passed.
+- Sandbox (test DB, repo dışı medya kökü `ui_sandbox_settings`): depocu hareketten düzeltme talebi (−2, PNG kanıt) → yönetici detayında fark görünümü → tarayıcı onayı → APPROVED, bağlantılı "Kontrollü düzeltme" hareketi, UI-RAF-A1 bakiyesi 15 → 13; talep eden kendi talebinde karar düğmesi görmez; `data-confirm` iptalinde form gitmez. Hareket listesi mobil taşma 0.
+- Not: pytest transactional testleri test DB'yi boşaltır; sandbox her tarayıcı turundan önce yeniden yüklenir, pytest öncesi `sandbox_reset` (flush + kanonik kondisyon seed) çalıştırılır.
+
 ## Sonraki adım
 
-Faz 5 — Hareket geçmişi ve düzeltmeler.
+Faz 6 — Barkod tarama ve etiket.

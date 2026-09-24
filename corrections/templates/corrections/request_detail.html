@@ -1,55 +1,118 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Düzeltme talebi — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Düzeltme talebi — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Düzeltme talebi</h1>
-    <a class="btn btn-outline-secondary" href="{% url 'corrections:request-list' %}">Listeye dön</a>
+{% with cr=correction_request line=correction_request.original_line %}
+<div class="page-head">
+    <div>
+        <ol class="breadcrumb-lite"><li><a href="{% url 'corrections:request-list' %}">Düzeltme talepleri</a></li></ol>
+        <h1>Düzeltme talebi</h1>
+        <p class="page-head-sub d-flex flex-wrap align-items-center gap-2">
+            <span class="tag {% if cr.status == 'APPROVED' %}tag-success{% elif cr.status == 'REJECTED' %}tag-neutral{% else %}tag-warning{% endif %}">{{ cr.get_status_display }}</span>
+            <span>{{ cr.get_effect_type_display }}</span>
+            <span>{{ cr.requested_at }}</span>
+            <span>{{ cr.requester.get_username }}</span>
+        </p>
+    </div>
 </div>
-<dl class="row">
-    <dt class="col-sm-3">Talep UUID</dt><dd class="col-sm-9 font-monospace">{{ correction_request.pk }}</dd>
-    <dt class="col-sm-3">Özgün işlem</dt><dd class="col-sm-9"><a href="{% url 'inventory:transaction-history-detail' correction_request.original_transaction_id %}">{{ correction_request.original_transaction_id }}</a></dd>
-    <dt class="col-sm-3">Özgün satır</dt><dd class="col-sm-9">{{ correction_request.original_line.line_number }} — {{ correction_request.original_line.material.material_code }} / {{ correction_request.original_line.condition.name }} / {{ correction_request.original_location.code }}</dd>
-    <dt class="col-sm-3">Talep eden</dt><dd class="col-sm-9">{{ correction_request.requester.get_username }}</dd>
-    <dt class="col-sm-3">Açıklama</dt><dd class="col-sm-9">{{ correction_request.explanation }}</dd>
-    <dt class="col-sm-3">Tür</dt><dd class="col-sm-9">{{ correction_request.get_effect_type_display }}</dd>
-    <dt class="col-sm-3">Miktar etkisi</dt><dd class="col-sm-9">{{ correction_request.quantity_effect }}</dd>
-    {% if correction_request.effect_type == "IDENTITY" %}
-        <dt class="col-sm-3">Doğru kimlik</dt><dd class="col-sm-9">{{ correction_request.corrected_material.material_code }} / {{ correction_request.corrected_condition.name }} / {{ correction_request.corrected_location.code }}</dd>
-    {% endif %}
-    <dt class="col-sm-3">Durum</dt><dd class="col-sm-9">{{ correction_request.get_status_display }}</dd>
-    <dt class="col-sm-3">Talep zamanı</dt><dd class="col-sm-9">{{ correction_request.requested_at }}</dd>
-    <dt class="col-sm-3">Karar veren</dt><dd class="col-sm-9">{% if correction_request.decided_by %}{{ correction_request.decided_by.get_username }}{% else %}—{% endif %}</dd>
-    <dt class="col-sm-3">Karar zamanı</dt><dd class="col-sm-9">{{ correction_request.decided_at|default:"—" }}</dd>
-    {% if correction_request.rejection_reason %}<dt class="col-sm-3">Ret gerekçesi</dt><dd class="col-sm-9">{{ correction_request.rejection_reason }}</dd>{% endif %}
-    <dt class="col-sm-3">Sonuç işlemi</dt><dd class="col-sm-9">{% if correction_request.resulting_transaction %}<a href="{% url 'inventory:transaction-history-detail' correction_request.resulting_transaction_id %}">{{ correction_request.resulting_transaction_id }}</a>{% else %}—{% endif %}</dd>
-</dl>
-<section class="mb-4">
-    <h2 class="h5">Kanıt fotoğrafları</h2>
-    {% with evidence_items=correction_request.evidence.all %}
-        {% if evidence_items %}
-            <ul class="list-unstyled">
-                {% for item in evidence_items %}
-                    <li class="mb-2">
-                        <a href="{% url 'corrections:evidence-download' item.pk %}">{{ item.original_filename }}</a>
-                        <span class="text-body-secondary">({{ item.content_type }}, {{ item.size_bytes }} bayt)</span>
-                    </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p class="text-body-secondary mb-0">Bu talepte kayıtlı kanıt fotoğrafı yoktur.</p>
-        {% endif %}
-    {% endwith %}
-</section>
-{% if correction_request.status == "PENDING" and perms.corrections.decide_correctionrequest %}
-    {% if correction_request.requester_id == user.id %}
-        <div class="alert alert-warning">Kendi talebinizde karar veremezsiniz.</div>
-    {% else %}
-        <div class="d-flex flex-wrap gap-3 align-items-start">
-            <form method="post" action="{% url 'corrections:approve' correction_request.pk %}">{% csrf_token %}<button class="btn btn-success" type="submit">Onayla</button></form>
-            <form method="post" action="{% url 'corrections:reject' correction_request.pk %}" class="card card-body">{% csrf_token %}{{ rejection_form.as_p }}<button class="btn btn-danger" type="submit">Reddet</button></form>
+
+<section class="panel mb-3" aria-labelledby="diff-heading">
+    <div class="panel-head"><h2 id="diff-heading">Özgün kayıt ve istenen etki</h2></div>
+    <div class="panel-body">
+        <div class="flow">
+            <div class="flow-end">
+                <span class="flow-end-label">Özgün satır {{ line.line_number }}</span>
+                <span class="cell-main d-block">{{ line.material.name }}</span>
+                <span class="code small">{{ line.material.material_code }}</span>
+                <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
+                    {% if line.quantity is not None %}<span class="qty">{{ line.quantity|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span>{% endif %}
+                    <span class="tag cond-{{ line.condition.code }}">{{ line.condition.name }}</span>
+                    <span class="loc">{{ cr.original_location.code }}</span>
+                </div>
+                <a class="small d-inline-block mt-2" href="{% url 'inventory:transaction-history-detail' cr.original_transaction_id %}">Özgün işlemi aç</a>
+            </div>
+            <div class="flow-arrow" aria-hidden="true">{% icon "arrow-right" %}</div>
+            <div class="flow-end {% if cr.quantity_effect < 0 %}flow-source{% else %}flow-target{% endif %}">
+                <span class="flow-end-label">İstenen etki</span>
+                {% if cr.effect_type == "IDENTITY" %}
+                    <p class="mb-1">Aynı miktar özgün kimlikten düşülüp doğru kimliğe eklenir:</p>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="qty">{{ cr.quantity_effect|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span>
+                        <span class="code">{{ cr.corrected_material.material_code }}</span>
+                        <span class="tag cond-{{ cr.corrected_condition.code }}">{{ cr.corrected_condition.name }}</span>
+                        <span class="loc">{{ cr.corrected_location.code }}</span>
+                    </div>
+                {% else %}
+                    <span class="qty fs-4 {% if cr.quantity_effect < 0 %}qty-minus{% else %}qty-plus{% endif %}">{% if cr.quantity_effect > 0 %}+{% endif %}{{ cr.quantity_effect|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span>
+                    <p class="small text-body-secondary mb-0 mt-1">{% if cr.quantity_effect < 0 %}<span class="loc">{{ cr.original_location.code }}</span> konumundan azalış{% else %}<span class="loc">{{ cr.original_location.code }}</span> konumuna artış{% endif %}</p>
+                {% endif %}
+            </div>
         </div>
-    {% endif %}
-{% endif %}
+        <dl class="kv mt-3">
+            <dt>Açıklama</dt><dd>{{ cr.explanation }}</dd>
+        </dl>
+    </div>
+</section>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <section class="panel h-100" aria-labelledby="evidence-heading">
+            <div class="panel-head"><h2 id="evidence-heading">Kanıt fotoğrafları</h2></div>
+            <div class="panel-body">
+                {% with evidence_items=cr.evidence.all %}
+                    {% if evidence_items %}
+                        <ul class="list-unstyled mb-0 d-grid gap-2">
+                            {% for item in evidence_items %}
+                                <li>
+                                    <a href="{% url 'corrections:evidence-download' item.pk %}">{{ item.original_filename }}</a>
+                                    <span class="text-body-secondary small">({{ item.content_type }}, {{ item.size_bytes }} bayt)</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-body-secondary mb-0">Bu talepte kayıtlı kanıt fotoğrafı yoktur.</p>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </section>
+    </div>
+    <div class="col-lg-6">
+        <section class="panel h-100" aria-labelledby="decision-heading">
+            <div class="panel-head"><h2 id="decision-heading">Karar</h2></div>
+            <div class="panel-body">
+                <dl class="kv">
+                    <dt>Karar veren</dt><dd>{% if cr.decided_by %}{{ cr.decided_by.get_username }}{% else %}—{% endif %}</dd>
+                    <dt>Karar zamanı</dt><dd>{{ cr.decided_at|default:"—" }}</dd>
+                    {% if cr.rejection_reason %}<dt>Ret gerekçesi</dt><dd>{{ cr.rejection_reason }}</dd>{% endif %}
+                    <dt>Sonuç işlemi</dt><dd>{% if cr.resulting_transaction %}<a href="{% url 'inventory:transaction-history-detail' cr.resulting_transaction_id %}">{{ cr.resulting_transaction_id }}</a>{% else %}—{% endif %}</dd>
+                </dl>
+                {% if cr.status == "PENDING" and perms.corrections.decide_correctionrequest %}
+                    {% if cr.requester_id == user.id %}
+                        <div class="alert alert-warning mt-3 mb-0">{% icon "exclamation-triangle-fill" %}<div class="alert-body">Kendi talebinizde karar veremezsiniz.</div></div>
+                    {% else %}
+                        <div class="mt-3 d-grid gap-3">
+                            <form method="post" action="{% url 'corrections:approve' cr.pk %}" data-confirm="Talep onaylanınca bağlantılı düzeltme hareketi oluşturulur ve stok değişir. Devam edilsin mi?">
+                                {% csrf_token %}
+                                <button class="btn btn-primary btn-lg w-100" type="submit">{% icon "check2" %}Onayla ve düzeltmeyi uygula</button>
+                            </form>
+                            <form method="post" action="{% url 'corrections:reject' cr.pk %}" class="border rounded p-3" data-confirm="Talep reddedilsin mi? Stok değişmez.">
+                                {% csrf_token %}
+                                {% include "core/_field.html" with field=rejection_form.rejection_reason hide_optional=True %}
+                                <button class="btn btn-outline-secondary" type="submit">{% icon "x-lg" %}Reddet</button>
+                            </form>
+                        </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </section>
+    </div>
+</div>
+
+<details class="disclosure">
+    <summary>{% icon "chevron-right" %}Sistem bilgileri</summary>
+    <div class="disclosure-body"><dl class="kv small"><dt>Talep UUID</dt><dd class="font-monospace">{{ cr.pk }}</dd><dt>Özgün işlem</dt><dd class="font-monospace">{{ cr.original_transaction_id }}</dd></dl></div>
+</details>
+{% endwith %}
 {% endblock %}

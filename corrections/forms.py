@@ -3,10 +3,35 @@ from decimal import Decimal
 from django import forms
 
 from catalog.models import Material, MaterialCondition
+from core.formatting import format_quantity
 from corrections.evidence import MAX_EVIDENCE_BYTES
 from corrections.models import CorrectionRequest
+from inventory.forms import (
+    condition_choice_label,
+    disambiguate_choice_labels,
+    material_choice_label,
+)
 from inventory.models import InventoryTransaction, InventoryTransactionLine
 from locations.models import Location
+
+
+def original_line_choice_label(line: InventoryTransactionLine) -> str:
+    """Readable ledger line: number, material, quantity, condition and direction."""
+    parts = [
+        f"Satır {line.line_number}: {line.material.material_code} {line.material.name}",
+        f"{format_quantity(line.quantity)} {line.unit.code}",
+        line.condition.name,
+    ]
+    if line.source_location_id:
+        parts.append(f"{line.source_location.code} kaynağından azalış")
+    if line.target_location_id:
+        parts.append(f"{line.target_location.code} hedefine artış")
+    return ", ".join(parts)
+
+
+def location_choice_label(location: Location) -> str:
+    label = f"{location.code} — {location.name}"
+    return label if location.active else f"{label} [Pasif]"
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -114,9 +139,14 @@ class CorrectionRequestForm(forms.Form):
                 corrected_line__isnull=True,
                 material__tracking_mode=Material.TrackingMode.QUANTITY,
             )
-            .select_related("material", "condition", "source_location", "target_location")
+            .select_related(
+                "material", "unit", "condition", "source_location", "target_location"
+            )
             .order_by("line_number")
         )
+        self.fields["original_line"].label_from_instance = original_line_choice_label
+        self.fields["original_location"].label_from_instance = location_choice_label
+        self.fields["corrected_location"].label_from_instance = location_choice_label
         self.fields["original_location"].queryset = Location.objects.order_by(
             "code", "id"
         )
@@ -124,7 +154,7 @@ class CorrectionRequestForm(forms.Form):
             active=True,
             tracking_mode=Material.TrackingMode.QUANTITY,
             unit__isnull=False,
-        ).order_by("material_code", "id")
+        ).select_related("unit").order_by("material_code", "id")
         self.fields["corrected_location"].queryset = Location.objects.filter(
             active=True, can_hold_stock=True
         ).order_by("code", "id")
@@ -133,6 +163,10 @@ class CorrectionRequestForm(forms.Form):
                 "sort_order", "name", "id"
             )
         )
+        self.fields["corrected_material"].label_from_instance = material_choice_label
+        disambiguate_choice_labels(self.fields["corrected_material"], "material_code")
+        self.fields["corrected_condition"].label_from_instance = condition_choice_label
+        disambiguate_choice_labels(self.fields["corrected_condition"], "name")
 
     def clean(self):
         cleaned = super().clean()

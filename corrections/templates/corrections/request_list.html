@@ -1,35 +1,56 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Düzeltme talepleri — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Düzeltme talepleri — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<h1 class="h3 mb-3">Düzeltme talepleri</h1>
-<form class="row g-2 mb-3" method="get">
-    <div class="col-sm-4">
+<div class="page-head">
+    <div>
+        <h1>Düzeltme talepleri</h1>
+        <p class="page-head-sub">Bekleyen talep stoğu değiştirmez. Onaylanan talep, özgün hareketi koruyarak yeni ve bağlantılı bir düzeltme hareketi oluşturur.</p>
+    </div>
+</div>
+
+<form class="filter-bar" method="get" aria-label="Düzeltme filtreleri">
+    <div>
         <label class="form-label" for="id_status">Durum</label>
         <select class="form-select" id="id_status" name="status">
             <option value="">Tümü</option>
             {% for value, label in status_choices %}<option value="{{ value }}"{% if status_filter == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
     </div>
-    <div class="col-sm-2 align-self-end"><button class="btn btn-outline-secondary" type="submit">Filtrele</button></div>
+    <div class="filter-bar-actions">
+        <button class="btn btn-primary" type="submit">{% icon "funnel" %}Filtrele</button>
+        {% if status_filter %}<a class="btn btn-outline-secondary" href="{% url 'corrections:request-list' %}">Temizle</a>{% endif %}
+    </div>
 </form>
-<div class="table-responsive">
-    <table class="table table-striped align-middle">
-        <thead><tr><th>Talep zamanı</th><th>İşlem</th><th>Satır / malzeme</th><th>Talep eden</th><th>Tür</th><th>Durum</th><th></th></tr></thead>
-        <tbody>
-        {% for item in correction_requests %}
-            <tr>
-                <td>{{ item.requested_at }}</td>
-                <td class="font-monospace">{{ item.original_transaction_id }}</td>
-                <td>{{ item.original_line.line_number }} — {{ item.original_line.material.material_code }}</td>
-                <td>{{ item.requester.get_username }}</td>
-                <td>{{ item.get_effect_type_display }}</td>
-                <td>{{ item.get_status_display }}</td>
-                <td><a class="btn btn-sm btn-outline-secondary" href="{% url 'corrections:request-detail' item.pk %}">Detay</a></td>
-            </tr>
-        {% empty %}<tr><td colspan="7" class="text-body-secondary">Kayıt bulunamadı.</td></tr>{% endfor %}
-        </tbody>
-    </table>
-</div>
+
+{% if correction_requests %}
+    <div class="table-wrap">
+        <table class="table table-data table-hover table-stack">
+            <thead><tr><th scope="col">Talep zamanı</th><th scope="col">Malzeme / satır</th><th scope="col">Talep eden</th><th scope="col">Tür</th><th scope="col">Durum</th><th scope="col" class="actions"><span class="visually-hidden">Detay</span></th></tr></thead>
+            <tbody>
+                {% for item in correction_requests %}
+                    <tr>
+                        <td class="text-nowrap" data-label="Talep zamanı">{{ item.requested_at }}</td>
+                        <td class="stack-full">
+                            <span class="code">{{ item.original_line.material.material_code }}</span>
+                            <span class="cell-sub">Satır {{ item.original_line.line_number }} <span class="font-monospace small">{{ item.original_transaction_id|truncatechars:13 }}</span></span>
+                        </td>
+                        <td data-label="Talep eden">{{ item.requester.get_username }}</td>
+                        <td data-label="Tür">{{ item.get_effect_type_display }}</td>
+                        <td data-label="Durum"><span class="tag {% if item.status == 'APPROVED' %}tag-success{% elif item.status == 'REJECTED' %}tag-neutral{% else %}tag-warning{% endif %}">{{ item.get_status_display }}</span></td>
+                        <td class="actions"><a class="btn btn-sm btn-outline-secondary" href="{% url 'corrections:request-detail' item.pk %}">Detay</a></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="empty">
+        {% icon "pencil-square" %}
+        <p class="empty-title">Kayıt bulunamadı.</p>
+        <p class="mb-0">Düzeltme talebi, ilgili hareketin detay sayfasından oluşturulur.</p>
+    </div>
+{% endif %}
 {% endblock %}
