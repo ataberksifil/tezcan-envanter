@@ -1,0 +1,6 @@
+<div class="field{% if field.errors %} has-error{% endif %}">
+    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}{% if not field.field.required and not hide_optional %} <span class="field-optional">(isteğe bağlı)</span>{% endif %}</label>
+    {{ field }}
+    {% if help %}<div class="form-text">{{ help }}</div>{% elif field.help_text and not hide_help %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+    {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+</div>

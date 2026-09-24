@@ -112,7 +112,7 @@ def test_authenticated_home_returns_200(app_client):
     assert "core/home.html" in template_names
     assert "base.html" in template_names
     content = response.content.decode()
-    assert "Oturumunuz açık." in content
+    assert "Hesabınıza henüz işlem yetkisi atanmamış." in content
     assert user.username in content
 
 

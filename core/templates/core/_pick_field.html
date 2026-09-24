@@ -1,0 +1,16 @@
+{% load ui %}
+{# A select plus a label-scan box. The scan box only selects an option locally; it never submits. #}
+<div class="field{% if field.errors %} has-error{% endif %}">
+    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+    <div class="pick">
+        {{ field }}
+        <div class="scan-input">
+            {% icon "upc-scan" %}
+            <label class="visually-hidden" for="scan-{{ field.id_for_label }}">{{ scan_label }}</label>
+            <input class="form-control" type="text" id="scan-{{ field.id_for_label }}" data-scan-field data-scan-select="{{ field.id_for_label }}" data-scan-kind="{{ kind }}" placeholder="{{ scan_label }}" autocomplete="off" spellcheck="false" aria-describedby="scan-{{ field.id_for_label }}-msg">
+        </div>
+    </div>
+    <div class="scan-msg form-text" id="scan-{{ field.id_for_label }}-msg" aria-live="polite"></div>
+    {% if help %}<div class="form-text">{{ help }}</div>{% elif field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+    {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+</div>

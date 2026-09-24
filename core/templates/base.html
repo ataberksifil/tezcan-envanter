@@ -1,139 +1,179 @@
-{% load static management_access %}
+{% load static management_access ui %}
 <!doctype html>
 <html lang="tr">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Elektrik Atölyesi Envanter{% endblock %}</title>
+    <meta name="theme-color" content="#1b2631">
+    <title>{% block title %}Tezcan Envanter{% endblock %}</title>
+    <link rel="icon" href="{% static 'core/favicon.svg' %}" type="image/svg+xml">
     <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
-    <link rel="stylesheet" href="{% static 'core/css/app.css' %}">
+    <link rel="stylesheet" href="{% static 'core/css/app.css' %}?v=ui-6">
     {% block extra_css %}{% endblock %}
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-    <header class="app-header border-bottom bg-body">
-        <div class="container py-3">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                <p class="app-brand mb-0 fw-semibold">Elektrik Atölyesi Envanter ve Malzeme Takip Sistemi</p>
-                {% if user.is_authenticated %}
-                    <div class="d-flex flex-wrap align-items-center gap-3">
-                        <span class="text-body-secondary">{{ user.get_username }}</span>
-                        <form method="post" action="{% url 'logout' %}" class="app-logout-form mb-0">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-outline-secondary btn-sm">Çıkış</button>
-                        </form>
+    <a class="skip-link visually-hidden-focusable" href="#main">İçeriğe geç</a>
+{% if user.is_authenticated %}
+    {% show_management_nav user as management_nav_visible %}
+    {% search_config user as search %}
+    <div class="app-shell">
+        <aside class="app-sidebar offcanvas-lg offcanvas-start" id="appSidebar" tabindex="-1" aria-labelledby="appSidebarLabel">
+            <div class="d-flex align-items-center justify-content-between">
+                <a class="app-brand" href="{% url 'home' %}" id="appSidebarLabel">
+                    <span class="app-brand-mark" aria-hidden="true">TZ</span>
+                    <span class="app-brand-name">Tezcan Envanter<span class="app-brand-sub">Elektrik atölyesi</span></span>
+                </a>
+                <button type="button" class="btn btn-icon text-white d-lg-none me-2" data-bs-dismiss="offcanvas" data-bs-target="#appSidebar" aria-label="Menüyü kapat">{% icon "x-lg" %}</button>
+            </div>
+            <nav class="side-nav" aria-label="Ana menü">
+                <div class="side-nav-group">
+                    <ul>
+                        <li><a href="{% url 'home' %}" {% nav_state "/" %}>{% icon "house" %}Ana sayfa</a></li>
+                    </ul>
+                </div>
+
+                {% if perms.inventory.view_stockbalance or perms.inventory.receive_stock or perms.inventory.transfer_stock or perms.inventory.issue_stock or perms.inventory.return_stock %}
+                    <div class="side-nav-group">
+                        <p class="side-nav-title">Günlük işler</p>
+                        <ul>
+                            {% if perms.inventory.view_stockbalance %}
+                                <li><a href="{% url 'inventory:stock-list' %}" {% nav_state "/inventory/stock/" %}>{% icon "boxes" %}Mevcut Stok</a></li>
+                            {% endif %}
+                            {% if perms.inventory.receive_stock %}
+                                <li><a href="{% url 'inventory:receipt-create' %}" {% nav_state "/inventory/receipts/" %}>{% icon "box-arrow-in-down" %}Stok Girişi</a></li>
+                                <li><a class="side-nav-sub" href="{% url 'inventory:serialized-receipt-create' %}" {% nav_state "/inventory/serialized-receipts/" %}>Tekil varlık (seri no)</a></li>
+                            {% endif %}
+                            {% if perms.inventory.transfer_stock %}
+                                <li><a href="{% url 'inventory:transfer-create' %}" {% nav_state "/inventory/transfers/" %}>{% icon "arrow-left-right" %}Stok Transferi</a></li>
+                            {% endif %}
+                            {% if perms.inventory.issue_stock %}
+                                <li><a href="{% url 'inventory:issue-create' %}" {% nav_state "/inventory/issues/" %}>{% icon "box-arrow-up" %}Stok Çıkışı</a></li>
+                            {% endif %}
+                            {% if perms.inventory.return_stock %}
+                                <li><a href="{% url 'inventory:return-create' %}" {% nav_state "/inventory/returns/" %}>{% icon "arrow-return-left" %}Stok İadesi</a></li>
+                            {% endif %}
+                        </ul>
                     </div>
                 {% endif %}
-            </div>
-            {% if user.is_authenticated %}
-                <nav class="app-primary-nav mt-3" aria-label="Ana menü">
-                    <ul class="nav">
-                        <li class="nav-item">
-                            <a class="nav-link ps-0" href="{% url 'home' %}">Ana sayfa</a>
-                        </li>
-                        {% if perms.catalog.view_material %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'catalog:material-list' %}">Malzemeler</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.catalog.view_material or perms.inventory.view_stockbalance or perms.locations.view_location %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'identification:scanner' %}">Barkod / QR Tara</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.inventory.receive_stock %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'inventory:receipt-create' %}">Stok Girişi</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'inventory:serialized-receipt-create' %}">Tekil Varlık Girişi</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.procurement.view_purchaserequest %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'procurement:request-list' %}">Talep Takip</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.inventory.issue_stock %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'inventory:issue-create' %}">Stok Çıkışı</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.inventory.return_stock %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'inventory:return-create' %}">Stok İadesi</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.inventory.transfer_stock %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'inventory:transfer-create' %}">Stok Transferi</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.inventory.view_stockbalance %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'inventory:stock-list' %}">Mevcut Stok</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.inventory.view_inventorytransaction %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'inventory:expiry-warning-list' %}">SKT</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.inventory.view_inventorytransaction %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'inventory:transaction-history-list' %}">Envanter hareketleri</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.corrections.view_correctionrequest %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'corrections:request-list' %}">Düzeltme talepleri</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.counting.view_physicalcountsession %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'counting:session-list' %}">Fiziksel sayım</a>
-                            </li>
-                        {% endif %}
-                        {% if perms.imports.establish_baseline %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'imports:baseline-list' %}">Kesim</a>
-                            </li>
-                        {% endif %}
-                        {% show_management_nav user as management_nav_visible %}
-                        {% if management_nav_visible %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'management' %}">Yönetim</a>
-                            </li>
-                        {% endif %}
-                    </ul>
-                </nav>
-            {% endif %}
-        </div>
-    </header>
 
-    <main class="container py-4">
-        {% if messages %}
-            <div class="mb-3" role="status" aria-live="polite">
-                {% for message in messages %}
-                    {% if message.tags == 'error' %}
-                        {% with alert_class='danger' %}
-                            <div class="alert alert-{{ alert_class }} mb-2" role="alert">{{ message }}</div>
-                        {% endwith %}
-                    {% elif message.tags == 'debug' %}
-                        <div class="alert alert-secondary mb-2" role="alert">{{ message }}</div>
-                    {% elif message.tags == 'success' or message.tags == 'info' or message.tags == 'warning' %}
-                        <div class="alert alert-{{ message.tags }} mb-2" role="alert">{{ message }}</div>
-                    {% else %}
-                        <div class="alert alert-info mb-2" role="alert">{{ message }}</div>
+                {% if perms.catalog.view_material or perms.inventory.view_inventorytransaction or perms.procurement.view_purchaserequest %}
+                    <div class="side-nav-group">
+                        <p class="side-nav-title">Kayıtlar ve takip</p>
+                        <ul>
+                            {% if perms.catalog.view_material %}
+                                <li><a href="{% url 'catalog:material-list' %}" {% nav_state "/catalog/materials/" %}>{% icon "box-seam" %}Malzemeler</a></li>
+                            {% endif %}
+                            {% if perms.inventory.view_inventorytransaction %}
+                                <li><a href="{% url 'inventory:transaction-history-list' %}" {% nav_state "/inventory/transactions/" "/inventory/serialized-assets/" %}>{% icon "clock-history" %}Envanter hareketleri</a></li>
+                            {% endif %}
+                            {% if perms.procurement.view_purchaserequest %}
+                                <li><a href="{% url 'procurement:request-list' %}" {% nav_state "/requests/" %}>{% icon "file-earmark-text" %}Talep Takip</a></li>
+                            {% endif %}
+                            {% if perms.inventory.view_inventorytransaction %}
+                                <li><a href="{% url 'inventory:expiry-warning-list' %}" {% nav_state "/inventory/expiry-warnings/" %}>{% icon "hourglass-split" %}SKT</a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                {% if perms.counting.view_physicalcountsession or perms.corrections.view_correctionrequest or perms.imports.establish_baseline %}
+                    <div class="side-nav-group">
+                        <p class="side-nav-title">Kontrol</p>
+                        <ul>
+                            {% if perms.counting.view_physicalcountsession %}
+                                <li><a href="{% url 'counting:session-list' %}" {% nav_state "/counts/" %}>{% icon "clipboard-check" %}Fiziksel sayım</a></li>
+                            {% endif %}
+                            {% if perms.corrections.view_correctionrequest %}
+                                <li><a href="{% url 'corrections:request-list' %}" {% nav_state "/corrections/" %}>{% icon "pencil-square" %}Düzeltme talepleri</a></li>
+                            {% endif %}
+                            {% if perms.imports.establish_baseline %}
+                                <li><a href="{% url 'imports:baseline-list' %}" {% nav_state "/baselines/" %}>{% icon "flag" %}Kesim</a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                {% if management_nav_visible or search.can_scan %}
+                    <div class="side-nav-group">
+                        <p class="side-nav-title">Diğer</p>
+                        <ul>
+                            {% if search.can_scan %}
+                                <li><a href="{{ search.scanner_url }}" {% nav_state "/identification/" %}>{% icon "camera" %}Kamera ile tara</a></li>
+                            {% endif %}
+                            {% if management_nav_visible %}
+                                <li><a href="{% url 'management' %}" {% nav_state "/management/" "/catalog/categories/" "/catalog/units/" "/locations/" %}>{% icon "gear" %}Yönetim</a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </nav>
+            <div class="side-account d-lg-none">
+                <div class="side-account-user">
+                    <span class="side-account-name">{{ user.get_username }}</span>
+                    <span class="side-account-role">{% role_label user %}</span>
+                </div>
+                <form method="post" action="{% url 'logout' %}" class="mb-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-light">{% icon "box-arrow-right" %}Çıkış</button>
+                </form>
+            </div>
+        </aside>
+
+        <div class="app-main-col">
+            <header class="app-topbar">
+                <button type="button" class="btn btn-outline-secondary btn-icon d-lg-none" data-bs-toggle="offcanvas" data-bs-target="#appSidebar" aria-controls="appSidebar" aria-label="Menüyü aç">{% icon "list" %}</button>
+                <a class="topbar-brand" href="{% url 'home' %}" aria-label="Ana sayfa"><span class="app-brand-mark" aria-hidden="true">TZ</span><span class="topbar-brand-name">Tezcan Envanter</span></a>
+                {% block topbar_search %}
+                    {% if search %}
+                        <form class="topbar-search{% block topbar_search_class %}{% endblock %}" method="get" action="{{ search.action|default:search.scanner_url }}" role="search" data-scan-search data-require-query data-resolve-url="{{ search.resolve_url }}"{% if not search.action %} data-scan-only{% endif %}>
+                            <label class="visually-hidden" for="global-search">{{ search.placeholder }}</label>
+                            {% icon "search" %}
+                            <input class="form-control" type="search" id="global-search" name="q" placeholder="{{ search.placeholder }}" data-short-placeholder="{{ search.short_placeholder }}" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-describedby="global-search-msg" aria-keyshortcuts="/">
+                            <kbd class="search-kbd" aria-hidden="true">/</kbd>
+                            {% if search.can_scan %}
+                                <a class="search-camera" href="{{ search.scanner_url }}" title="Kamera ile tara" aria-label="Kamera ile tara">{% icon "camera" %}</a>
+                            {% endif %}
+                            <div class="visually-hidden" id="global-search-msg" data-scan-message aria-live="polite"></div>
+                        </form>
                     {% endif %}
-                {% endfor %}
-            </div>
-        {% endif %}
+                {% endblock %}
+                <div class="topbar-user">
+                    <div class="user-chip">
+                        <span class="user-chip-name">{{ user.get_username }}</span>
+                        <span class="user-chip-role">{% role_label user %}</span>
+                    </div>
+                    <form method="post" action="{% url 'logout' %}" class="app-logout-form mb-0 d-none d-sm-block">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-secondary" aria-label="Oturumu kapat">{% icon "box-arrow-right" %}<span class="d-none d-sm-inline">Çıkış</span></button>
+                    </form>
+                </div>
+            </header>
+{% endif %}
+            <main id="main" class="{% if user.is_authenticated %}app-content{% else %}login-wrap{% endif %}" tabindex="-1">
+                {% if not user.is_authenticated %}<div class="login-card">{% endif %}
+                {% include "core/_messages.html" %}
+                {% block content %}{% endblock %}
+                {% if not user.is_authenticated %}</div>{% endif %}
+            </main>
+{% if user.is_authenticated %}
+        </div>
+    </div>
 
-        {% block content %}{% endblock %}
-    </main>
+    <nav class="bottom-nav d-lg-none" aria-label="Hızlı erişim">
+        <a href="{% url 'home' %}" {% nav_state "/" %}><span class="nav-pill">{% icon "house" %}</span><span>Ana sayfa</span></a>
+        {% if perms.inventory.view_stockbalance %}
+            <a href="{% url 'inventory:stock-list' %}" {% nav_state "/inventory/stock/" %}><span class="nav-pill">{% icon "boxes" %}</span><span>Stok</span></a>
+        {% endif %}
+        {% if search.can_scan %}
+            <a class="bottom-nav-scan" href="{{ search.scanner_url }}" {% nav_state "/identification/" %}><span class="scan-disc">{% icon "upc-scan" %}</span><span>Tara</span></a>
+        {% endif %}
+        <button type="button" data-bs-toggle="offcanvas" data-bs-target="#appSidebar" aria-controls="appSidebar"><span class="nav-pill">{% icon "grid" %}</span><span>Menü</span></button>
+    </nav>
+{% endif %}
 
     <script src="{% static 'vendor/htmx/htmx.min.js' %}"></script>
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'core/js/app.js' %}?v=ui-6"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

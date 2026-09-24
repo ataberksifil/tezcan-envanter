@@ -20,12 +20,12 @@ class PurchaseRequestForm(forms.Form):
     )
     request_date = forms.DateField(
         label="Talep tarihi",
-        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"),
     )
     approval_date = forms.DateField(
         label="Onay tarihi",
         required=False,
-        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"),
     )
     note = forms.CharField(
         label="Not",
@@ -81,7 +81,7 @@ class PurchaseRequestLineForm(forms.Form):
     expected_arrival_date = forms.DateField(
         label="Beklenen geliş",
         required=False,
-        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"),
     )
     supplier_name = forms.CharField(
         label="Tedarikçi / firma",

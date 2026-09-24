@@ -1,0 +1,19 @@
+{% load static %}<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Beklenmeyen hata — Tezcan Envanter</title>
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'core/css/app.css' %}">
+</head>
+<body>
+    <main class="login-wrap">
+        <div class="login-card empty">
+            <h1 class="empty-title h5">Beklenmeyen bir hata oluştu.</h1>
+            <p>İşlem tamamlanmadı; yarım kalan stok hareketi oluşmaz. Sayfayı yenileyip tekrar deneyin. Sorun sürerse sistem sorumlusuna saat bilgisiyle bildirin.</p>
+            <a class="btn btn-primary" href="/">Ana sayfa</a>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load ui %}
+
+{% block title %}Bulunamadı — Tezcan Envanter{% endblock %}
+
+{% block content %}
+<div class="empty mt-2">
+    {% icon "inbox" %}
+    <h1 class="empty-title h5">Aradığınız sayfa veya kayıt bulunamadı.</h1>
+    <p class="mb-0">Bağlantı eski olabilir ya da kayıt artık yok.</p>
+    <div class="empty-actions">
+        <a class="btn btn-primary" href="{% url 'home' %}">{% icon "house" %}Ana sayfa</a>
+    </div>
+</div>
+{% endblock %}

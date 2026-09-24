@@ -1,24 +1,85 @@
 {% extends "base.html" %}
+{% load ui inventory_ui %}
 
-{% block title %}Ana Sayfa — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Ana Sayfa — Tezcan Envanter{% endblock %}
+
+{# The home page carries the one primary scan/search field; the top bar copy is omitted here. #}
+{% block topbar_search %}{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-body p-4">
-                <h1 class="h3 mb-3">Ana sayfa</h1>
-                <p class="mb-2">Oturumunuz açık.</p>
-                <p class="mb-3">Giriş yapan kullanıcı: <strong>{{ user.get_username }}</strong></p>
-                {% if perms.procurement.view_purchaserequest %}
-                    <p class="mb-3"><a href="{% url 'procurement:request-list' %}">Talep Takip</a></p>
-                {% endif %}
-                <p class="mb-0 text-body-secondary">
-                    Bu ekran uygulamanın ortak çalışma alanıdır.
-                    Katalog ve stok işlemleri yetkinize göre sonraki aşamalarda eklenecektir.
+{% search_config user as search %}
+<div class="home">
+    <h1 class="visually-hidden">Ana sayfa</h1>
+
+    {% if search %}
+        <section class="home-find" aria-label="Barkod okutma ve malzeme arama">
+            <form method="get" action="{{ search.action|default:search.scanner_url }}" role="search" data-scan-search data-require-query data-resolve-url="{{ search.resolve_url }}"{% if not search.action %} data-scan-only{% endif %}>
+                <label class="home-find-label" for="home-search">{{ search.placeholder }}</label>
+                <div class="home-find-form">
+                    <div class="scan-input">
+                        {% icon "upc-scan" %}
+                        <input class="form-control" type="search" id="home-search" name="q" autocomplete="off" spellcheck="false" enterkeyhint="search" autofocus data-primary-search aria-describedby="home-search-help home-search-msg" aria-keyshortcuts="/">
+                    </div>
+                    <button type="submit" class="btn btn-find">{% icon "search" %}{% if search.action %}Ara{% else %}Çözümle{% endif %}</button>
+                </div>
+                <p class="home-find-help" id="home-search-help">
+                    {% if search.can_scan %}Malzeme, raf veya tekil varlık etiketini okutun{% if search.action %} ya da kod, ad, marka, model yazın{% endif %}.{% else %}Kod, ad, marka veya model yazın.{% endif %}
+                    {% if search.can_scan %}<a class="text-white ms-1" href="{{ search.scanner_url }}">Kamera ile tara</a>{% endif %}
                 </p>
+                <p class="home-find-error" id="home-search-msg" data-scan-message aria-live="polite"></p>
+            </form>
+        </section>
+    {% endif %}
+
+    {% if perms.inventory.view_stockbalance or perms.inventory.receive_stock or perms.inventory.transfer_stock or perms.inventory.issue_stock %}
+        <section class="home-block" aria-labelledby="daily-title">
+            <h2 class="section-title" id="daily-title">Günlük işlemler</h2>
+            <div class="daily-grid">
+                {% if perms.inventory.view_stockbalance %}
+                    <a class="daily-tile" href="{% url 'inventory:stock-list' %}"><span class="tile-icon">{% icon "boxes" %}</span><span><span class="daily-tile-title">Mevcut Stok</span><span class="daily-tile-sub">Hangi rafta ne var</span></span></a>
+                {% endif %}
+                {% if perms.inventory.receive_stock %}
+                    <a class="daily-tile" href="{% url 'inventory:receipt-create' %}"><span class="tile-icon">{% icon "box-arrow-in-down" %}</span><span><span class="daily-tile-title">Mal Kabul</span><span class="daily-tile-sub">Gelen malzemeyi stoka al</span></span></a>
+                {% endif %}
+                {% if perms.inventory.transfer_stock %}
+                    <a class="daily-tile" href="{% url 'inventory:transfer-create' %}"><span class="tile-icon">{% icon "arrow-left-right" %}</span><span><span class="daily-tile-title">Yerleştir / Transfer Et</span><span class="daily-tile-sub">Rafa yerleştir veya taşı</span></span></a>
+                {% endif %}
+                {% if perms.inventory.issue_stock and not perms.inventory.receive_stock %}
+                    <a class="daily-tile" href="{% url 'inventory:issue-create' %}"><span class="tile-icon">{% icon "box-arrow-up" %}</span><span><span class="daily-tile-title">Stok Çıkışı</span><span class="daily-tile-sub">Hatta / personele malzeme ver</span></span></a>
+                {% endif %}
             </div>
+        </section>
+    {% endif %}
+
+    {% if perms.procurement.view_purchaserequest or perms.inventory.view_inventorytransaction %}
+        <section class="home-block" aria-labelledby="follow-title">
+            <h2 class="section-title" id="follow-title">Takip</h2>
+            <ul class="follow-list">
+                {% if perms.procurement.view_purchaserequest %}
+                    <li><a href="{% url 'procurement:request-list' %}">{% icon "file-earmark-text" %}<span class="follow-title">Talep Takip</span><span class="follow-meta text-body-secondary small">Talep No ve teslimatlar</span>{% icon "chevron-right" "chev" %}</a></li>
+                {% endif %}
+                {% if perms.inventory.view_inventorytransaction %}
+                    {% expiry_counts as skt %}
+                    <li>
+                        <a href="{% url 'inventory:expiry-warning-list' %}">{% icon "hourglass-split" %}<span class="follow-title">SKT uyarıları</span>
+                            <span class="follow-meta">
+                                {% if skt.expired %}<span class="tag tag-danger">{{ skt.expired }} süresi geçmiş</span>{% endif %}
+                                {% if skt.approaching %}<span class="tag tag-warning">{{ skt.approaching }} yaklaşıyor</span>{% endif %}
+                                {% if not skt.expired and not skt.approaching %}<span class="tag tag-neutral">Uyarı yok</span>{% endif %}
+                            </span>{% icon "chevron-right" "chev" %}
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </section>
+    {% endif %}
+
+    {% if not search and not perms.inventory.view_stockbalance and not perms.inventory.receive_stock and not perms.inventory.transfer_stock and not perms.inventory.issue_stock and not perms.procurement.view_purchaserequest and not perms.inventory.view_inventorytransaction %}
+        <div class="empty">
+            {% icon "lock" %}
+            <p class="empty-title">Hesabınıza henüz işlem yetkisi atanmamış.</p>
+            <p class="mb-0">Menüdeki ekranlar yetkinize göre görünür. Rol ataması için yöneticinizle görüşün.</p>
         </div>
-    </div>
+    {% endif %}
 </div>
 {% endblock %}

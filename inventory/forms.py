@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from django import forms
 from django.core.exceptions import ValidationError
-from django.db.models import DecimalField, F, Q, Sum, Value
+from django.db.models import Count, DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import timezone
@@ -57,7 +57,6 @@ def material_choice_label(material: Material) -> str:
     if material.unit_id is not None:
         parts.append(f"[{material.unit.code}]")
     parts.append(f"({material.get_tracking_mode_display()})")
-    parts.append(f"— {material.pk}")
     return " ".join(parts)
 
 
@@ -65,7 +64,6 @@ def condition_choice_label(condition: MaterialCondition) -> str:
     parts = [condition.name]
     if not condition.active:
         parts.append("[Pasif]")
-    parts.append(f"— {condition.pk}")
     return " ".join(parts)
 
 
@@ -73,8 +71,33 @@ def stock_location_choice_label(location: Location) -> str:
     parts = [location_path_label(location)]
     if not location.active:
         parts.append("[Pasif]")
-    parts.append(f"— {location.pk}")
     return " ".join(parts)
+
+
+def disambiguate_choice_labels(field, key: str) -> None:
+    """Append a short id only to options whose ``key`` repeats in the queryset.
+
+    Location codes and employee numbers are unique, so their labels need no id.
+    Legacy material codes and condition names may repeat; only those get one.
+    """
+    duplicated = set(
+        field.queryset.order_by()
+        .values(key)
+        .annotate(total=Count("pk"))
+        .filter(total__gt=1)
+        .values_list(key, flat=True)
+    )
+    if not duplicated:
+        return
+    base_label = field.label_from_instance
+
+    def label(obj):
+        text = base_label(obj)
+        if getattr(obj, key) in duplicated:
+            return f"{text} — #{str(obj.pk)[:8]}"
+        return text
+
+    field.label_from_instance = label
 
 
 class ServiceValidatedModelChoiceField(forms.ModelChoiceField):
@@ -136,7 +159,7 @@ class QuantityReceiptForm(forms.Form):
     )
     arrived_on = forms.DateField(
         label="Fiziksel geliş tarihi",
-        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"),
         help_text="Malzeme depoya fiilen geldiği gün. Sistem kayıt saati ayrıca saklanır.",
     )
     supplier_name = forms.CharField(
@@ -170,7 +193,7 @@ class QuantityReceiptForm(forms.Form):
     expires_on = forms.DateField(
         label="SKT (son kullanma tarihi)",
         required=False,
-        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"),
         help_text="İsteğe bağlı. Parti/giriş kaydına aittir; malzeme kartına yazılmaz.",
     )
 
@@ -191,6 +214,7 @@ class QuantityReceiptForm(forms.Form):
         )
         self.fields["material"].queryset = receipt_materials
         self.fields["material"].label_from_instance = material_choice_label
+        disambiguate_choice_labels(self.fields["material"], "material_code")
         self.fields["material"].widget.attrs.update(
             {
                 "hx-get": reverse("inventory:receipt-material-summary"),
@@ -205,6 +229,7 @@ class QuantityReceiptForm(forms.Form):
         )
         self.fields["condition"].queryset = receipt_conditions
         self.fields["condition"].label_from_instance = condition_choice_label
+        disambiguate_choice_labels(self.fields["condition"], "name")
 
         receipt_locations = Location.objects.filter(
             active=True,
@@ -312,7 +337,7 @@ class SerializedReceiptForm(forms.Form):
     )
     arrived_on = forms.DateField(
         label="Fiziksel geliş tarihi",
-        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"),
         help_text="Malzeme depoya fiilen geldiği gün. Sistem kayıt saati ayrıca saklanır.",
     )
     supplier_name = forms.CharField(
@@ -324,7 +349,7 @@ class SerializedReceiptForm(forms.Form):
     expires_on = forms.DateField(
         label="SKT (son kullanma tarihi)",
         required=False,
-        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"),
         help_text="İsteğe bağlı. Parti/giriş kaydına aittir; malzeme kartına yazılmaz.",
     )
 
@@ -344,12 +369,14 @@ class SerializedReceiptForm(forms.Form):
         )
         self.fields["material"].queryset = materials
         self.fields["material"].label_from_instance = material_choice_label
+        disambiguate_choice_labels(self.fields["material"], "material_code")
 
         conditions = MaterialCondition.objects.filter(active=True).order_by(
             "sort_order", "name", "id"
         )
         self.fields["condition"].queryset = conditions
         self.fields["condition"].label_from_instance = condition_choice_label
+        disambiguate_choice_labels(self.fields["condition"], "name")
 
         locations = Location.objects.filter(
             active=True,
@@ -520,7 +547,6 @@ def employee_choice_label(employee: Employee) -> str:
     ]
     if not employee.active:
         parts.append("[Pasif]")
-    parts.append(f"— {employee.pk}")
     return " ".join(parts)
 
 
@@ -581,6 +607,7 @@ class QuantityIssueForm(forms.Form):
         )
         self.fields["material"].queryset = issue_materials
         self.fields["material"].label_from_instance = material_choice_label
+        disambiguate_choice_labels(self.fields["material"], "material_code")
 
         issue_locations = Location.objects.filter(
             active=True,
@@ -594,6 +621,7 @@ class QuantityIssueForm(forms.Form):
         )
         self.fields["condition"].queryset = issue_conditions
         self.fields["condition"].label_from_instance = condition_choice_label
+        disambiguate_choice_labels(self.fields["condition"], "name")
 
         issue_employees = Employee.objects.filter(active=True).order_by(
             "employee_number", "last_name", "first_name", "id"
@@ -1025,6 +1053,7 @@ class QuantityTransferForm(forms.Form):
         )
         self.fields["material"].queryset = transfer_materials
         self.fields["material"].label_from_instance = material_choice_label
+        disambiguate_choice_labels(self.fields["material"], "material_code")
 
         self.fields["unit"].queryset = UnitOfMeasure.objects.order_by("code", "id")
 
@@ -1033,6 +1062,7 @@ class QuantityTransferForm(forms.Form):
         )
         self.fields["condition"].queryset = transfer_conditions
         self.fields["condition"].label_from_instance = condition_choice_label
+        disambiguate_choice_labels(self.fields["condition"], "name")
 
         stock_locations = Location.objects.filter(
             active=True,

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load ui %}
+
+{% block title %}Yetki yok — Tezcan Envanter{% endblock %}
+
+{% block content %}
+<div class="empty mt-2">
+    {% icon "lock" %}
+    <h1 class="empty-title h5">Bu işlem veya kayıt için yetkiniz yok.</h1>
+    <p class="mb-0">Okuttuğunuz etiket ya da açtığınız sayfa rolünüzün izinleri dışında. Gerekirse yöneticinizden yetki isteyin.</p>
+    <div class="empty-actions">
+        <a class="btn btn-primary" href="{% url 'home' %}">{% icon "house" %}Ana sayfa</a>
+    </div>
+</div>
+{% endblock %}

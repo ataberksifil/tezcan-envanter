@@ -514,6 +514,28 @@ def test_preview_post_does_not_mutate_and_shows_full_location_path(
     assert "Girişi kaydet" in content
 
 
+def test_preview_locks_fields_and_confirm_saves_the_reviewed_values(
+    app_client, receipt_master_data
+):
+    user = _grant_receive_stock(_create_ordinary_user("receipt-preview-lock"))
+    app_client.force_login(user)
+    post_data = _valid_post_data(receipt_master_data, operation_id=str(uuid.uuid4()))
+    post_data.pop("confirm", None)
+    response = app_client.post("/inventory/receipts/new/", post_data)
+    content = response.content.decode()
+    form = response.context["form"]
+    for field in form.visible_fields():
+        assert f'type="hidden" name="{field.html_name}"' in content
+        assert f'<select name="{field.html_name}"' not in content
+    assert 'name="intent" value="edit"' in content
+    assert InventoryTransaction.objects.count() == 0
+
+    post_data["confirm"] = "1"
+    app_client.post("/inventory/receipts/new/", post_data)
+    line = InventoryTransactionLine.objects.get()
+    assert line.quantity == Decimal(post_data["quantity"])
+
+
 def test_confirmed_receipt_uses_service_and_offers_putaway_and_labels(
     app_client, receipt_master_data
 ):
