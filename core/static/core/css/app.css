@@ -1057,3 +1057,5 @@ fieldset.field { border: 0; padding: 0; min-width: 0; }
 .diff-figures { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; }
 .diff-figures .qty { font-size: 1.25rem; }
 .choice-card input[type="checkbox"], .choice-card input[type="radio"] { margin-top: 0.2rem; flex: none; width: 1.25rem; height: 1.25rem; accent-color: var(--tz-primary); }
+.permission-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.5rem; }
+.permission-grid .choice-card { padding: 0.5rem 0.75rem; align-items: center; }

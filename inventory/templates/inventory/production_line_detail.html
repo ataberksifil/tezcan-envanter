@@ -1,100 +1,66 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}{{ production_line.name }} — Üretim Hattı — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}{{ production_line.name }} — Üretim Hattı — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">{{ production_line.name }}</h1>
-    <div class="d-flex flex-wrap gap-2">
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite"><li><a href="{% url 'inventory:production-line-list' %}">Üretim Hatları</a></li></ol>
+            <h1>{{ production_line.name }}</h1>
+            <p class="page-head-sub d-flex flex-wrap align-items-center gap-2"><span class="code">{{ production_line.code }}</span>{% if production_line.active %}<span class="tag tag-success">Aktif</span>{% else %}<span class="tag tag-neutral">Pasif</span>{% endif %}</p>
+        </div>
         {% if perms.inventory.change_productionline %}
-            <a class="btn btn-outline-primary" href="{% url 'inventory:production-line-update' production_line.pk %}">Düzenle</a>
-            {% if production_line.active %}
-                <form method="post" action="{% url 'inventory:production-line-deactivate' production_line.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-warning">Pasifleştir</button>
-                </form>
-            {% else %}
-                <form method="post" action="{% url 'inventory:production-line-reactivate' production_line.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-success">Aktifleştir</button>
-                </form>
-            {% endif %}
+            <div class="page-actions"><a class="btn btn-outline-secondary" href="{% url 'inventory:production-line-update' production_line.pk %}">{% icon "pencil-square" %}Düzenle</a></div>
         {% endif %}
-        <a class="btn btn-outline-secondary" href="{% url 'inventory:production-line-list' %}">Listeye dön</a>
     </div>
-</div>
 
-<dl class="row mb-4">
-    <dt class="col-sm-3">UUID</dt>
-    <dd class="col-sm-9 font-monospace">{{ production_line.id }}</dd>
-
-    <dt class="col-sm-3">Kod</dt>
-    <dd class="col-sm-9">{{ production_line.code }}</dd>
-
-    <dt class="col-sm-3">Ad</dt>
-    <dd class="col-sm-9">{{ production_line.name }}</dd>
-
-    <dt class="col-sm-3">Üst hat</dt>
-    <dd class="col-sm-9">
-        {% if production_line.parent %}
-            <a href="{% url 'inventory:production-line-detail' production_line.parent.pk %}">
-                {{ production_line.parent.code }} ({{ production_line.parent.name }})
-            </a>
-            {% if not production_line.parent.active %}
-                <span class="badge text-bg-secondary">Pasif</span>
-            {% endif %}
-        {% else %}
-            —
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Durum</dt>
-    <dd class="col-sm-9">
-        {% if production_line.active %}
-            <span class="badge text-bg-success">Aktif</span>
-        {% else %}
-            <span class="badge text-bg-secondary">Pasif</span>
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Oluşturulma</dt>
-    <dd class="col-sm-9">{{ production_line.created_at }}</dd>
-
-    <dt class="col-sm-3">Güncellenme</dt>
-    <dd class="col-sm-9">{{ production_line.updated_at }}</dd>
-</dl>
-
-<h2 class="h5 mb-3">Doğrudan alt hatlar</h2>
-{% if children %}
-    <div class="table-responsive">
-        <table class="table table-sm align-middle">
-            <thead>
-                <tr>
-                    <th scope="col">Kod</th>
-                    <th scope="col">Ad</th>
-                    <th scope="col">Durum</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for child in children %}
-                    <tr>
-                        <td>
-                            <a href="{% url 'inventory:production-line-detail' child.pk %}">{{ child.code }}</a>
-                        </td>
-                        <td>{{ child.name }}</td>
-                        <td>
-                            {% if child.active %}
-                                <span class="badge text-bg-success">Aktif</span>
+    <section class="panel mb-3">
+        <div class="panel-body">
+            <dl class="kv">
+                <dt>Kod</dt><dd><span class="code">{{ production_line.code }}</span></dd>
+                <dt>Ad</dt><dd>{{ production_line.name }}</dd>
+                <dt>Üst hat</dt>
+                <dd>{% if production_line.parent %}<a href="{% url 'inventory:production-line-detail' production_line.parent.pk %}">{{ production_line.parent.code }} ({{ production_line.parent.name }})</a>{% if not production_line.parent.active %} <span class="tag tag-neutral">Pasif</span>{% endif %}{% else %}—{% endif %}</dd>
+                <dt>Durum</dt><dd>{% if production_line.active %}Aktif{% else %}Pasif{% endif %}</dd>
+            </dl>
+            <details class="disclosure">
+                <summary>{% icon "chevron-right" %}Sistem bilgileri</summary>
+                <div class="disclosure-body">
+                    <dl class="kv small"><dt>UUID</dt><dd class="font-monospace">{{ production_line.id }}</dd><dt>Oluşturulma</dt><dd>{{ production_line.created_at }}</dd><dt>Güncellenme</dt><dd>{{ production_line.updated_at }}</dd></dl>
+                    {% if perms.inventory.change_productionline %}
+                        <div class="mt-3">
+                            {% if production_line.active %}
+                                <form method="post" action="{% url 'inventory:production-line-deactivate' production_line.pk %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary">Pasifleştir</button></form>
                             {% else %}
-                                <span class="badge text-bg-secondary">Pasif</span>
+                                <form method="post" action="{% url 'inventory:production-line-reactivate' production_line.pk %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary">Aktifleştir</button></form>
                             {% endif %}
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-{% else %}
-    <p class="text-body-secondary mb-0">Alt hat yok.</p>
-{% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </details>
+        </div>
+    </section>
+
+    <section class="panel" aria-labelledby="children-heading">
+        <div class="panel-head"><h2 id="children-heading">Doğrudan alt hatlar</h2></div>
+        {% if children %}
+            <table class="table table-data table-hover table-stack mb-0">
+                <thead><tr><th scope="col">Kod</th><th scope="col">Ad</th><th scope="col">Durum</th></tr></thead>
+                <tbody>
+                    {% for child in children %}
+                        <tr>
+                            <td class="stack-full"><a class="row-link code" href="{% url 'inventory:production-line-detail' child.pk %}">{{ child.code }}</a></td>
+                            <td data-label="Ad">{{ child.name }}</td>
+                            <td data-label="Durum">{% if child.active %}<span class="tag tag-success">Aktif</span>{% else %}<span class="tag tag-neutral">Pasif</span>{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="panel-body text-body-secondary">Alt hat yok.</div>
+        {% endif %}
+    </section>
+</div>
 {% endblock %}

@@ -1,124 +1,60 @@
 {% extends "base.html" %}
+{% load ui management_access %}
 
-{% block title %}Kategoriler — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Kategoriler — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Kategoriler</h1>
+<div class="page-head">
+    <div>
+        {% show_management_nav user as can_manage %}{% if can_manage %}<ol class="breadcrumb-lite"><li><a href="{% url 'management' %}">Yönetim</a></li></ol>{% endif %}
+        <h1>Kategoriler</h1>
+    </div>
     {% if perms.catalog.add_category %}
-        <a class="btn btn-primary" href="{% url 'catalog:category-create' %}">Yeni kategori</a>
+        <div class="page-actions"><a class="btn btn-primary" href="{% url 'catalog:category-create' %}">{% icon "plus-lg" %}Yeni kategori</a></div>
     {% endif %}
 </div>
 
-<form method="get" class="row g-2 align-items-end mb-3">
-    <div class="col-md-6">
+<form method="get" class="filter-bar" role="search" aria-label="Kategori filtreleri">
+    <div>
         <label class="form-label" for="id_q">Ara</label>
-        <input
-            type="search"
-            class="form-control"
-            id="id_q"
-            name="q"
-            value="{{ q }}"
-            placeholder="Ad veya kod"
-        >
+        <input type="search" class="form-control" id="id_q" name="q" value="{{ q }}" placeholder="Ad veya kod">
     </div>
-    <div class="col-md-3">
-        <label class="form-label" for="id_status">Durum</label>
-        <select class="form-select" id="id_status" name="status">
-            <option value="all"{% if status == "all" %} selected{% endif %}>Tümü</option>
-            <option value="active"{% if status == "active" %} selected{% endif %}>Aktif</option>
-            <option value="inactive"{% if status == "inactive" %} selected{% endif %}>Pasif</option>
-        </select>
-    </div>
-    <div class="col-md-3">
-        <button type="submit" class="btn btn-outline-secondary">Filtrele</button>
+    {% include "core/_status_filter.html" %}
+    <div class="filter-bar-actions">
+        <button type="submit" class="btn btn-primary">{% icon "funnel" %}Filtrele</button>
+        {% if q or status != "all" %}<a class="btn btn-outline-secondary" href="{% url 'catalog:category-list' %}">Temizle</a>{% endif %}
     </div>
 </form>
 
 {% if categories %}
-    <div class="table-responsive">
-        <table class="table table-striped table-hover align-middle">
-            <thead>
-                <tr>
-                    <th scope="col">Ad</th>
-                    <th scope="col">Kod</th>
-                    <th scope="col">Üst kategori</th>
-                    <th scope="col">Durum</th>
-                    <th scope="col" class="text-nowrap">İşlemler</th>
-                </tr>
-            </thead>
+    <div class="table-wrap">
+        <table class="table table-data table-hover table-stack">
+            <thead><tr><th scope="col">Ad</th><th scope="col">Kod</th><th scope="col">Üst kategori</th><th scope="col">Durum</th><th scope="col" class="actions"><span class="visually-hidden">İşlemler</span></th></tr></thead>
             <tbody>
                 {% for category in categories %}
                     <tr>
-                        <td>
-                            <span title="{{ category.id }}">{{ category.name }}</span>
-                            <div class="small text-body-secondary font-monospace">{{ category.id }}</div>
-                        </td>
-                        <td>{% if category.code %}{{ category.code }}{% else %}—{% endif %}</td>
-                        <td>
+                        <td class="stack-full"><span class="cell-main" title="{{ category.id }}">{{ category.name }}</span></td>
+                        <td data-label="Kod">{% if category.code %}<span class="code">{{ category.code }}</span>{% else %}—{% endif %}</td>
+                        <td data-label="Üst kategori">
                             {% if category.parent %}
-                                <span title="{{ category.parent.id }}">{{ category.parent.name }}</span>
-                                {% if category.parent.code %}
-                                    <span class="text-body-secondary">({{ category.parent.code }})</span>
-                                {% endif %}
-                                {% if not category.parent.active %}
-                                    <span class="badge text-bg-secondary">Pasif</span>
-                                {% endif %}
-                            {% else %}
-                                —
-                            {% endif %}
+                                {{ category.parent.name }}{% if category.parent.code %} <span class="text-body-secondary">({{ category.parent.code }})</span>{% endif %}
+                                {% if not category.parent.active %}<span class="tag tag-neutral row-note">Pasif</span>{% endif %}
+                            {% else %}—{% endif %}
                         </td>
-                        <td>
-                            {% if category.active %}
-                                <span class="badge text-bg-success">Aktif</span>
-                            {% else %}
-                                <span class="badge text-bg-secondary">Pasif</span>
+                        <td data-label="Durum">{% if category.active %}<span class="tag tag-success">Aktif</span>{% else %}<span class="tag tag-neutral">Pasif</span>{% endif %}</td>
+                        <td class="actions">
+                            {% if perms.catalog.change_category %}
+                                {% url 'catalog:category-update' category.pk as edit_url %}{% url 'catalog:category-deactivate' category.pk as deactivate_url %}{% url 'catalog:category-reactivate' category.pk as reactivate_url %}
+                                {% include "core/_state_actions.html" with active=category.active %}
                             {% endif %}
-                        </td>
-                        <td>
-                            <div class="d-flex flex-wrap gap-2">
-                                {% if perms.catalog.change_category %}
-                                    <a class="btn btn-sm btn-outline-primary" href="{% url 'catalog:category-update' category.pk %}">Düzenle</a>
-                                    {% if category.active %}
-                                        <form method="post" action="{% url 'catalog:category-deactivate' category.pk %}">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-outline-warning">Pasifleştir</button>
-                                        </form>
-                                    {% else %}
-                                        <form method="post" action="{% url 'catalog:category-reactivate' category.pk %}">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-outline-success">Aktifleştir</button>
-                                        </form>
-                                    {% endif %}
-                                {% endif %}
-                            </div>
                         </td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    {% include "core/_list_foot.html" with pagination_label="Kategori sayfaları" %}
 {% else %}
-    <p class="text-body-secondary mb-0">Kategori bulunamadı.</p>
-{% endif %}
-
-{% if is_paginated %}
-    <nav class="mt-3" aria-label="Kategori sayfaları">
-        <ul class="pagination mb-0">
-            {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">Önceki</a>
-                </li>
-            {% endif %}
-            <li class="page-item disabled">
-                <span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span>
-            </li>
-            {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="{% querystring page=page_obj.next_page_number %}">Sonraki</a>
-                </li>
-            {% endif %}
-        </ul>
-    </nav>
+    <div class="empty">{% icon "folder2" %}<p class="empty-title mb-0">Kategori bulunamadı.</p></div>
 {% endif %}
 {% endblock %}

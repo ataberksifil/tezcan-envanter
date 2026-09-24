@@ -1,112 +1,57 @@
 {% extends "base.html" %}
+{% load ui management_access %}
 
-{% block title %}Çalışanlar — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Çalışanlar — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Çalışanlar</h1>
+<div class="page-head">
+    <div>
+        {% show_management_nav user as can_manage %}{% if can_manage %}<ol class="breadcrumb-lite"><li><a href="{% url 'management' %}">Yönetim</a></li></ol>{% endif %}
+        <h1>Çalışanlar</h1>
+    </div>
     {% if perms.accounts.add_employee %}
-        <a class="btn btn-primary" href="{% url 'accounts:employee-create' %}">Yeni çalışan</a>
+        <div class="page-actions"><a class="btn btn-primary" href="{% url 'accounts:employee-create' %}">{% icon "plus-lg" %}Yeni çalışan</a></div>
     {% endif %}
 </div>
 
-<form method="get" class="row g-2 align-items-end mb-3">
-    <div class="col-md-6">
+<form method="get" class="filter-bar" role="search" aria-label="Çalışan filtreleri">
+    <div>
         <label class="form-label" for="id_q">Ara</label>
-        <input
-            type="search"
-            class="form-control"
-            id="id_q"
-            name="q"
-            value="{{ q }}"
-            placeholder="Sicil numarası, ad veya soyad"
-        >
+        <input type="search" class="form-control" id="id_q" name="q" value="{{ q }}" placeholder="Sicil numarası, ad veya soyad">
     </div>
-    <div class="col-md-3">
-        <label class="form-label" for="id_status">Durum</label>
-        <select class="form-select" id="id_status" name="status">
-            <option value="all"{% if status == "all" %} selected{% endif %}>Tümü</option>
-            <option value="active"{% if status == "active" %} selected{% endif %}>Aktif</option>
-            <option value="inactive"{% if status == "inactive" %} selected{% endif %}>Pasif</option>
-        </select>
-    </div>
-    <div class="col-md-3">
-        <button type="submit" class="btn btn-outline-secondary">Filtrele</button>
+    {% include "core/_status_filter.html" %}
+    <div class="filter-bar-actions">
+        <button type="submit" class="btn btn-primary">{% icon "funnel" %}Filtrele</button>
+        {% if q or status != "all" %}<a class="btn btn-outline-secondary" href="{% url 'accounts:employee-list' %}">Temizle</a>{% endif %}
     </div>
 </form>
 
 {% if employees %}
-    <div class="table-responsive">
-        <table class="table table-striped table-hover align-middle">
-            <thead>
-                <tr>
-                    <th scope="col">Sicil no</th>
-                    <th scope="col">Ad</th>
-                    <th scope="col">Soyad</th>
-                    <th scope="col">Durum</th>
-                    <th scope="col" class="text-nowrap">İşlemler</th>
-                </tr>
-            </thead>
+    <div class="table-wrap">
+        <table class="table table-data table-hover table-stack">
+            <thead><tr><th scope="col">Sicil no</th><th scope="col">Ad</th><th scope="col">Soyad</th><th scope="col">Durum</th><th scope="col" class="actions"><span class="visually-hidden">İşlemler</span></th></tr></thead>
             <tbody>
                 {% for employee in employees %}
                     <tr>
-                        <td>
-                            <a href="{% url 'accounts:employee-detail' employee.pk %}">{{ employee.employee_number }}</a>
-                        </td>
-                        <td>{{ employee.first_name }}</td>
-                        <td>{{ employee.last_name }}</td>
-                        <td>
-                            {% if employee.active %}
-                                <span class="badge text-bg-success">Aktif</span>
+                        <td class="stack-full"><a class="row-link code" href="{% url 'accounts:employee-detail' employee.pk %}">{{ employee.employee_number }}</a></td>
+                        <td data-label="Ad">{{ employee.first_name }}</td>
+                        <td data-label="Soyad">{{ employee.last_name }}</td>
+                        <td data-label="Durum">{% if employee.active %}<span class="tag tag-success">Aktif</span>{% else %}<span class="tag tag-neutral">Pasif</span>{% endif %}</td>
+                        <td class="actions">
+                            {% if perms.accounts.change_employee %}
+                                {% url 'accounts:employee-update' employee.pk as edit_url %}{% url 'accounts:employee-deactivate' employee.pk as deactivate_url %}{% url 'accounts:employee-reactivate' employee.pk as reactivate_url %}
+                                {% include "core/_state_actions.html" with active=employee.active %}
                             {% else %}
-                                <span class="badge text-bg-secondary">Pasif</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="d-flex flex-wrap gap-2">
                                 <a class="btn btn-sm btn-outline-secondary" href="{% url 'accounts:employee-detail' employee.pk %}">Detay</a>
-                                {% if perms.accounts.change_employee %}
-                                    <a class="btn btn-sm btn-outline-primary" href="{% url 'accounts:employee-update' employee.pk %}">Düzenle</a>
-                                    {% if employee.active %}
-                                        <form method="post" action="{% url 'accounts:employee-deactivate' employee.pk %}">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-outline-warning">Pasifleştir</button>
-                                        </form>
-                                    {% else %}
-                                        <form method="post" action="{% url 'accounts:employee-reactivate' employee.pk %}">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-outline-success">Aktifleştir</button>
-                                        </form>
-                                    {% endif %}
-                                {% endif %}
-                            </div>
+                            {% endif %}
                         </td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    {% include "core/_list_foot.html" with pagination_label="Çalışan sayfaları" %}
 {% else %}
-    <p class="text-body-secondary mb-0">Çalışan bulunamadı.</p>
-{% endif %}
-
-{% if is_paginated %}
-    <nav class="mt-3" aria-label="Çalışan sayfaları">
-        <ul class="pagination mb-0">
-            {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">Önceki</a>
-                </li>
-            {% endif %}
-            <li class="page-item disabled">
-                <span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span>
-            </li>
-            {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="{% querystring page=page_obj.next_page_number %}">Sonraki</a>
-                </li>
-            {% endif %}
-        </ul>
-    </nav>
+    <div class="empty">{% icon "people" %}<p class="empty-title mb-0">Çalışan bulunamadı.</p></div>
 {% endif %}
 {% endblock %}

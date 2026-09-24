@@ -1,7 +1,7 @@
 # UI Modernizasyon — Durum
 
 **Başlangıç HEAD:** `fca1ad455ef203f40b09aafc25e15bed54619c25` (= origin/main)
-**Güncel faz:** Faz 8 — Yönetim
+**Güncel faz:** Faz 9 — Son bütünsel inceleme
 **Plan:** [UI-POLISH-MASTER-PLAN.md](UI-POLISH-MASTER-PLAN.md) · **Tasarım:** [UI-DESIGN-SYSTEM.md](UI-DESIGN-SYSTEM.md)
 
 ## Tamamlanan fazlar
@@ -14,7 +14,8 @@
 | 4 — Talep Takip ve SKT | `c6dcfa9` | Talep liste/detay (istenen/gelen/kalan + ilerleme), formlar; SKT listesi (giriş konumu açıkça), kontrol formu (üç sonuç açıklamalı); talep bağlantılı girişte SKT hatası düzeltildi |
 | 5 — Hareket geçmişi ve düzeltmeler | `18b4382` | Hareket listesi/detayı (işaretli miktar, kaynak → hedef plakaları), düzeltme listesi/formu/detayı (fark görünümü, kanıt, karar paneli, tarayıcı onayı), okunur düzeltme seçenek etiketleri |
 | 6 — Barkod tarama ve etiket | `f34959b` | Tarama sayfası (masaüstünde USB okuyucu, telefonda kamera önce; hata sonrası alan seçili), etiket sayfası (gerçek boyut önizleme, 104 mm kılavuz, yalnız etiket yazdırılır) |
-| 7 — Sayım ve kesim | (bu commit) | Oturum listesi/detayı (ilerleme), kör miktar sayımı (Enter sonraki satıra), tekil sayım, fark inceleme (beklenen → sayılan, yön), başlat/tamamla onayları, kesim listesi/hazırlık/uygula (tarayıcı onayı) |
+| 7 — Sayım ve kesim | `aab5d70` | Oturum listesi/detayı (ilerleme), kör miktar sayımı (Enter sonraki satıra), tekil sayım, fark inceleme (beklenen → sayılan, yön), başlat/tamamla onayları, kesim listesi/hazırlık/uygula (tarayıcı onayı) |
+| 8 — Yönetim | (bu commit) | Yönetim merkezi (gruplu liste), kategori/birim/lokasyon/çalışan/üretim hattı liste-detay-form (ortak `core/form_page.html`), lokasyon detayında önce "bu raftaki stok" + "Bu rafa yerleştir", roller/izinler/kullanıcılar |
 
 ## Faz 1 kapsamı
 
@@ -52,7 +53,7 @@ Tasarım sistemi (tokenlar, IBM Plex + Bootstrap Icons alt kümesi yerel), kabuk
 - **Hata düzeltmesi (kullanıcı onaylı, dar kapsam):** talep bağlantılı adetli/tekil mal kabul, formda girilen SKT'yi servise iletmiyordu (önizleme "yok" gösteriyor, onayda SKT kayboluyordu). `procurement.services.receive_quantity_for_line` / `receive_serialized_for_line` isteğe bağlı `expires_on` alır ve mevcut `receive_quantity` / `receive_serialized` servislerine iletir (aynı transaction, aynı fingerprint kuralı). Önizleme SKT + uyarı gösterir. `inventory.services.expiry.expiry_warning_label` paylaşılan yardımcı oldu. Test: `procurement/tests/test_purchase_requests.py::test_linked_receipts_keep_the_entered_skt`.
 - pytest: `procurement inventory core` → 808 passed.
 - **İzole tarayıcı ortamı (UI sandbox):** dev Group'larına izin eklenmedi. Sentetik veri yalnız test DB'ye (`test_tezcan_envanter`) gerçek servislerle yüklendi (`ui.yonetici/ui.depocu/ui.teknisyen`, taze `setup_roles` şablonları), ikinci sunucu `localhost:8001` o DB ile çalıştı. Doğrulananlar: ana sayfa SKT sayıları; talep listesi/detay; talep bağlantılı mal kabul önizlemesi SKT + onay → kalem "Tamamlandı"; SKT kontrolü → "Stok değişmedi"; 1024/768/390 taşma 0; rol menüleri (teknisyende Talep yok, `/requests/` açıklamalı 403). Pytest öncesi test DB `flush` + kanonik kondisyon seed'i ile temizlendi.
-- Dev DB için Talep Takip izni gerekirse: Yönetim → Roller → ilgili rol → İzinler ekranında `procurement` altındaki "view/add/change purchase request" kutuları.
+- **Düzeltme (Faz 8'de doğrulandı):** Mevcut varsayılan `ADMIN_MANAGER` / `STOREKEEPER` Group'ları, yönetilebilir izin listesi dışında izin taşıdıkları için (örn. `inventory.view_stockbalance`, onay izinleri) uygulama içi rol yönetiminde "Kapsam dışı / salt okunur"dur (`accounts.services.access_management.is_supported_role`). Talep izinleri bu gruplara uygulama ekranından verilemez. Seçenekler (kullanıcı kararı): superuser ile Django Admin → Groups; ya da yönetilebilir izinlerden oluşan yeni bir rol (Yönetim → Roller → Yeni rol → İzinler: "Talep — görüntüleme/oluşturma/düzenleme") oluşturup kullanıcılara ek rol olarak atamak (bu yolun kendisi için `accounts.manage_access` gerekir; dev `demo.yonetici`'de yok).
 
 ## Faz 5 doğrulama
 
@@ -75,6 +76,13 @@ Tasarım sistemi (tokenlar, IBM Plex + Bootstrap Icons alt kümesi yerel), kabuk
 - pytest: `counting imports core` + hareket geçmişi → 340 passed. Onaylı biçim nedeniyle güncellenen beklenti: `counting/test_ui.py` (8/7).
 - Not: kişinin önceden girdiği sayım değeri `type=number` alanında tarayıcı yerel ayarıyla `15,000` görünür (Türkçe'de 15); sunucu değeri değişmez.
 
+## Faz 8 doğrulama
+
+- pytest: `accounts catalog locations core` + üretim hattı UI → 684 passed.
+- Playwright (dev DB, `demo.yonetici`, yalnız görüntüleme): yönetim merkezi, kategori/birim/lokasyon/çalışan/üretim hattı liste + detay + yeni formları 1440/390 → 200, taşma 0, konsol hatası yok. `demo.yonetici`'de `accounts.manage_access` olmadığından roller/kullanıcılar 403 (beklenen; izin eklenmedi).
+- Sandbox (test DB): `manage_access` yalnız sandbox kullanıcısına verildi; roller listesi, yeni rol formu, rol izinleri (31 yönetilebilir izin, ızgara), kullanıcılar ekranları 1440/390 taşma 0. Varsayılan roller "Kapsam dışı / salt okunur".
+- "Yönetim" kırıntısı yalnız yönetim erişimi olan kullanıcıya görünür (mevcut testlerle korunur).
+
 ## Sonraki adım
 
-Faz 8 — Yönetim.
+Faz 9 — Son bütünsel inceleme (Impeccable kritiği, 1440/1280/1024/768/390, klavye/odak, yazdırma, rol bazlı kontrol, tam test paketi).

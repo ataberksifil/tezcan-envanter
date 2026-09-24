@@ -48,12 +48,12 @@ Durum: `—` başlanmadı · `PROTO` prototip · `DONE` tamam + tarayıcıda do�
 | 21 | identification | etiket (Code128 standart, QR kompakt) × Material/Asset/Location | `label.html`, `label.css` | ilgili view izni | 6 | DONE |
 | 22 | counting | `/counts/` liste, yeni, detay, başlat, miktar sayımı, beklenmeyen, sayılmadı, tekil sayım, aday, eksik, tamamla, fark inceleme, onay/red | `session_list/form/detail.html`, `session_start_confirm.html`, `quantity_count.html`, `unexpected_quantity_form.html`, `serialized_count.html`, `candidate_serialized_form.html`, `session_complete_confirm.html`, `discrepancy_review.html` | `counting.*` | 7 | DONE |
 | 23 | imports | `/baselines/`, yeni, detay, kesim | `baseline_list/form/detail.html` | `imports.establish_baseline` | 7 | DONE |
-| 24 | core | `/management/` | `core/management.html` | yönetim erişimi | 8 | — |
-| 25 | catalog | kategoriler, ölçü birimleri (liste/form/pasif-aktif) | `category_list/form.html`, `unit_list/form.html` | `catalog.*` | 8 | — |
-| 26 | locations | `/locations/` liste, detay, form, pasif/aktif | `location_list/detail/form.html` | `locations.*` | 8 | — |
-| 27 | accounts | çalışanlar liste/detay/form | `employee_list/detail/form.html` | `accounts.*_employee` | 8 | — |
-| 28 | inventory | `/management/production-lines/…` | `production_line_list/detail/form.html` | `inventory.*_productionline` | 8 | — |
-| 29 | accounts | roller, rol izinleri, kullanıcılar, kullanıcı rolleri | `role_list/form/permissions.html`, `user_list.html`, `user_roles.html` | `accounts.manage_access` | 8 | — |
+| 24 | core | `/management/` | `core/management.html` | yönetim erişimi | 8 | DONE |
+| 25 | catalog | kategoriler, ölçü birimleri (liste/form/pasif-aktif) | `category_list/form.html`, `unit_list/form.html` | `catalog.*` | 8 | DONE |
+| 26 | locations | `/locations/` liste, detay, form, pasif/aktif | `location_list/detail/form.html` | `locations.*` | 8 | DONE |
+| 27 | accounts | çalışanlar liste/detay/form | `employee_list/detail/form.html` | `accounts.*_employee` | 8 | DONE |
+| 28 | inventory | `/management/production-lines/…` | `production_line_list/detail/form.html` | `inventory.*_productionline` | 8 | DONE |
+| 29 | accounts | roller, rol izinleri, kullanıcılar, kullanıcı rolleri | `role_list/form/permissions.html`, `user_list.html`, `user_roles.html` | `accounts.manage_access` | 8 | DONE |
 | 30 | admin | `/admin/` | Django Admin | superuser/staff | — | LIMIT: kapsam dışı (kilitli koruma yüzeyi) |
 
 Uygulanmamış ve **UI üretilmeyecek** backend işleri (PROJECT-SNAPSHOT §5): Excel import UI, raporlama, serialized correction, serialized `COUNT_RECONCILIATION`, paket dönüşümü, üretim staging konfigürasyonu.

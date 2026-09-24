@@ -1,21 +1,45 @@
 {% extends "base.html" %}
+{% load ui %}
 
 {% block title %}Kullanıcı Rolleri — Yönetim{% endblock %}
 
 {% block content %}
-<div class="row"><div class="col-lg-8">
-    <h1 class="h3 mb-1">Kullanıcı rolleri</h1>
-    <p class="text-body-secondary">{{ target_user.username }}</p>
-    <form method="post" novalidate class="mb-4">
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite"><li><a href="{% url 'management' %}">Yönetim</a></li><li><a href="{% url 'accounts:access-user-list' %}">Kullanıcılar</a></li></ol>
+            <h1>Kullanıcı rolleri</h1>
+            <p class="page-head-sub">{{ target_user.username }}</p>
+        </div>
+    </div>
+    <form method="post" novalidate class="mb-3">
         {% csrf_token %}
-        {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
-        <fieldset class="mb-3"><legend class="h5">{{ form.roles.label }}</legend>{{ form.roles }}{% for error in form.roles.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}</fieldset>
-        <button class="btn btn-primary" type="submit">Rolleri kaydet</button>
-        <a class="btn btn-outline-secondary" href="{% url 'accounts:access-user-list' %}">İptal</a>
+        {% for error in form.non_field_errors %}<div class="alert alert-danger" role="alert">{% icon "x-circle-fill" %}<div class="alert-body">{{ error }}</div></div>{% endfor %}
+        <section class="panel">
+            <div class="panel-body">
+                <fieldset class="field{% if form.roles.errors %} has-error{% endif %}">
+                    <legend class="form-label">{{ form.roles.label }}</legend>
+                    <div class="choice-list">
+                        {% for choice in form.roles %}
+                            <label class="choice-card" for="{{ choice.id_for_label }}">{{ choice.tag }}<span class="choice-title">{{ choice.choice_label }}</span></label>
+                        {% endfor %}
+                    </div>
+                    {% for error in form.roles.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                </fieldset>
+            </div>
+        </section>
+        <div class="form-actions">
+            <button class="btn btn-primary btn-lg" type="submit">{% icon "check2" %}Rolleri kaydet</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'accounts:access-user-list' %}">İptal</a>
+        </div>
     </form>
-    <h2 class="h5">Doğrudan izinler (salt okunur)</h2>
-    <p>{% if snapshot.direct_permissions %}{{ snapshot.direct_permissions|join:", " }}{% else %}—{% endif %}</p>
-    <h2 class="h5">Etkin izinler (salt okunur)</h2>
-    <p>{% if snapshot.effective_permissions %}{{ snapshot.effective_permissions|join:", " }}{% else %}—{% endif %}</p>
-</div></div>
+    <section class="panel">
+        <div class="panel-body">
+            <h2 class="h6">Doğrudan izinler (salt okunur)</h2>
+            <p class="small">{% if snapshot.direct_permissions %}{{ snapshot.direct_permissions|join:", " }}{% else %}—{% endif %}</p>
+            <h2 class="h6">Etkin izinler (salt okunur)</h2>
+            <p class="small mb-0">{% if snapshot.effective_permissions %}{{ snapshot.effective_permissions|join:", " }}{% else %}—{% endif %}</p>
+        </div>
+    </section>
+</div>
 {% endblock %}

@@ -1,0 +1,9 @@
+{% load ui %}{# Edit + deactivate/reactivate for master-data rows; caller checks the change permission. #}
+<div class="d-inline-flex flex-wrap gap-1 justify-content-end">
+    <a class="btn btn-sm btn-outline-secondary" href="{{ edit_url }}">{% icon "pencil-square" %}Düzenle</a>
+    {% if active %}
+        <form method="post" action="{{ deactivate_url }}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary">Pasifleştir</button></form>
+    {% else %}
+        <form method="post" action="{{ reactivate_url }}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary">Aktifleştir</button></form>
+    {% endif %}
+</div>

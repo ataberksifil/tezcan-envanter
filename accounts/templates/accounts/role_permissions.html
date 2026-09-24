@@ -1,21 +1,38 @@
 {% extends "base.html" %}
+{% load ui %}
 
 {% block title %}Rol İzinleri — Yönetim{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center"><div class="col-lg-8">
-    <h1 class="h3 mb-1">Rol izinleri</h1>
-    <p class="text-body-secondary">{{ role.name }}</p>
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite"><li><a href="{% url 'management' %}">Yönetim</a></li><li><a href="{% url 'accounts:role-list' %}">Roller ve Yetkiler</a></li></ol>
+            <h1>Rol izinleri</h1>
+            <p class="page-head-sub">{{ role.name }}</p>
+        </div>
+    </div>
     <form method="post" novalidate>
         {% csrf_token %}
-        {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
-        <fieldset class="mb-4"><legend class="h5">{{ form.catalog_permissions.label }}</legend>
-            {{ form.catalog_permissions }}
-            {% for error in form.catalog_permissions.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
-        </fieldset>
-        {% if form.manage_access %}<div class="form-check mb-4">{{ form.manage_access }} <label class="form-check-label" for="{{ form.manage_access.id_for_label }}">{{ form.manage_access.label }}</label></div>{% endif %}
-        <button class="btn btn-primary" type="submit">İzinleri kaydet</button>
-        <a class="btn btn-outline-secondary" href="{% url 'accounts:role-list' %}">İptal</a>
+        {% for error in form.non_field_errors %}<div class="alert alert-danger" role="alert">{% icon "x-circle-fill" %}<div class="alert-body">{{ error }}</div></div>{% endfor %}
+        <section class="panel">
+            <div class="panel-body">
+                <fieldset class="field{% if form.catalog_permissions.errors %} has-error{% endif %}">
+                    <legend class="form-label">{{ form.catalog_permissions.label }}</legend>
+                    <div class="permission-grid">
+                        {% for choice in form.catalog_permissions %}
+                            <label class="choice-card" for="{{ choice.id_for_label }}">{{ choice.tag }}<span class="choice-title fw-normal">{{ choice.choice_label }}</span></label>
+                        {% endfor %}
+                    </div>
+                    {% for error in form.catalog_permissions.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                </fieldset>
+                {% if form.manage_access %}{% include "core/_field.html" with field=form.manage_access %}{% endif %}
+            </div>
+        </section>
+        <div class="form-actions">
+            <button class="btn btn-primary btn-lg" type="submit">{% icon "check2" %}İzinleri kaydet</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'accounts:role-list' %}">İptal</a>
+        </div>
     </form>
-</div></div>
+</div>
 {% endblock %}

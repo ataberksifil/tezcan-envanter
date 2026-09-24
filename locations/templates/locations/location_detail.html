@@ -1,164 +1,134 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}{{ location.name }} — Lokasyon — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}{{ location.name }} — Lokasyon — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">{{ location.name }}</h1>
-    <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-outline-dark" href="{% url 'identification:location-label' location.pk %}">Etiket yazdır</a>
-        <a class="btn btn-outline-secondary" href="{% url 'identification:location-label-compact' location.pk %}">Kompakt QR</a>
-        {% if perms.inventory.view_stockbalance %}
-            <a class="btn btn-outline-primary" href="{% url 'inventory:stock-list' %}?location={{ location.pk }}">Bu konumdaki stok</a>
+<div class="page-head">
+    <div>
+        <ol class="breadcrumb-lite"><li><a href="{% url 'locations:location-list' %}">Lokasyonlar</a></li>{% if location.parent %}<li><a href="{% url 'locations:location-detail' location.parent.pk %}">{{ location.parent.code }}</a></li>{% endif %}</ol>
+        <h1 class="d-flex flex-wrap align-items-center gap-2"><span class="loc fs-5">{{ location.code }}</span> {{ location.name }}</h1>
+        <p class="page-head-sub d-flex flex-wrap align-items-center gap-2">
+            {% if location.active %}<span class="tag tag-success">Aktif</span>{% else %}<span class="tag tag-neutral">Pasif</span>{% endif %}
+            {% if location.can_hold_stock %}<span class="tag tag-info">Stok tutabilir</span>{% else %}<span class="tag tag-neutral">Stok tutmaz</span>{% endif %}
+            <span>{{ location.path_label }}</span>
+        </p>
+    </div>
+    <div class="page-actions">
+        {% if perms.inventory.transfer_stock and location.active and location.can_hold_stock %}
+            <a class="btn btn-primary" href="{% url 'inventory:transfer-create' %}?target_location={{ location.pk }}">{% icon "box-arrow-in-down" %}Bu rafa yerleştir</a>
         {% endif %}
-        {% if perms.counting.view_physicalcountsession %}
-            <a class="btn btn-outline-primary" href="{% url 'counting:session-list' %}?location={{ location.pk }}">Bu kapsamdaki sayımlar</a>
-        {% endif %}
-        {% if perms.locations.change_location %}
-            <a class="btn btn-outline-primary" href="{% url 'locations:location-update' location.pk %}">Düzenle</a>
-            {% if location.active %}
-                <form method="post" action="{% url 'locations:location-deactivate' location.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-warning">Pasifleştir</button>
-                </form>
-            {% else %}
-                <form method="post" action="{% url 'locations:location-reactivate' location.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-success">Aktifleştir</button>
-                </form>
-            {% endif %}
-        {% endif %}
-        <a class="btn btn-outline-secondary" href="{% url 'locations:location-list' %}">Listeye dön</a>
+        <a class="btn btn-outline-secondary" href="{% url 'identification:location-label' location.pk %}">{% icon "printer" %}Etiket yazdır</a>
     </div>
 </div>
 
-<dl class="row mb-4">
-    <dt class="col-sm-3">UUID</dt>
-    <dd class="col-sm-9 font-monospace">{{ location.id }}</dd>
-
-    <dt class="col-sm-3">Kod</dt>
-    <dd class="col-sm-9">{{ location.code }}</dd>
-
-    <dt class="col-sm-3">Ad</dt>
-    <dd class="col-sm-9">{{ location.name }}</dd>
-
-    <dt class="col-sm-3">Üst lokasyon</dt>
-    <dd class="col-sm-9">
-        {% if location.parent %}
-            <a href="{% url 'locations:location-detail' location.parent.pk %}">
-                {{ location.parent.code }} ({{ location.parent.name }})
-            </a>
-            {% if not location.parent.active %}
-                <span class="badge text-bg-secondary">Pasif</span>
+{% if current_stock_balances is not None %}
+    <section class="panel mb-3" aria-labelledby="location-stock-heading">
+        <div class="panel-head">
+            <h2 id="location-stock-heading">Bu lokasyondaki güncel stok</h2>
+            {% if perms.inventory.view_stockbalance %}<a class="small" href="{% url 'inventory:stock-list' %}?location={{ location.pk }}">Bu konumdaki stok</a>{% endif %}
+        </div>
+        {% if current_stock_balances or current_serialized_assets %}
+            {% if current_stock_balances %}
+                <table class="table table-data table-hover table-stack mb-0">
+                    <thead><tr><th scope="col">Malzeme</th><th scope="col" class="num">Miktar</th><th scope="col">Kondisyon</th></tr></thead>
+                    <tbody>
+                        {% for balance in current_stock_balances %}
+                            <tr>
+                                <td class="stack-full"><a class="row-link" href="{% url 'catalog:material-detail' balance.material.pk %}">{{ balance.material.name }}</a><span class="cell-sub code">{{ balance.material.material_code }}</span></td>
+                                <td class="num" data-label="Miktar"><span class="qty">{{ balance.quantity|qty }}<span class="qty-unit">{{ balance.material.unit.code }}</span></span></td>
+                                <td data-label="Kondisyon"><span class="tag cond-{{ balance.condition.code }}">{{ balance.condition.name }}</span></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+            {% if current_serialized_assets %}
+                <table class="table table-data table-hover table-stack mb-0">
+                    <thead><tr><th scope="col">Tekil varlık</th><th scope="col">Malzeme</th><th scope="col">Kondisyon</th></tr></thead>
+                    <tbody>
+                        {% for asset in current_serialized_assets %}
+                            <tr>
+                                <td class="stack-full"><a class="row-link code" href="{% url 'inventory:serialized-asset-detail' asset.pk %}">{{ asset.internal_asset_code }}</a></td>
+                                <td data-label="Malzeme">{{ asset.material.name }}</td>
+                                <td data-label="Kondisyon"><span class="tag cond-{{ asset.current_condition.code }}">{{ asset.current_condition.name }}</span></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             {% endif %}
         {% else %}
-            —
+            <div class="panel-body text-body-secondary">Pozitif miktar bakiyesi veya stokta tekil varlık bulunmuyor.</div>
         {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Stok tutabilir</dt>
-    <dd class="col-sm-9">
-        {% if location.can_hold_stock %}
-            <span class="badge text-bg-info">Evet</span>
-        {% else %}
-            Hayır
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Durum</dt>
-    <dd class="col-sm-9">
-        {% if location.active %}
-            <span class="badge text-bg-success">Aktif</span>
-        {% else %}
-            <span class="badge text-bg-secondary">Pasif</span>
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Oluşturulma</dt>
-    <dd class="col-sm-9">{{ location.created_at }}</dd>
-
-    <dt class="col-sm-3">Güncellenme</dt>
-    <dd class="col-sm-9">{{ location.updated_at }}</dd>
-</dl>
-
-<section class="mb-4" aria-labelledby="location-id-heading">
-    <h2 class="h5" id="location-id-heading">Makine okunur kimlik</h2>
-    <img src="{% url 'identification:location-code128' location.pk %}" height="48" alt="{{ location.code }} lokasyon Code 128 barkodu">
-</section>
-
-{% if current_stock_balances is not None %}
-<section class="mb-4" aria-labelledby="location-stock-heading">
-    <h2 class="h5" id="location-stock-heading">Bu lokasyondaki güncel stok</h2>
-    {% if current_stock_balances or current_serialized_assets %}
-        {% if current_stock_balances %}
-        <div class="table-responsive mb-3">
-            <table class="table table-sm align-middle">
-                <thead><tr><th>Malzeme</th><th>Kondisyon</th><th>Miktar</th></tr></thead>
-                <tbody>
-                {% for balance in current_stock_balances %}
-                    <tr>
-                        <td><a href="{% url 'catalog:material-detail' balance.material.pk %}">{{ balance.material.material_code }} — {{ balance.material.name }}</a></td>
-                        <td>{{ balance.condition.name }}</td>
-                        <td>{{ balance.quantity }} {{ balance.material.unit.code }}</td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
-        {% if current_serialized_assets %}
-        <div class="table-responsive">
-            <table class="table table-sm align-middle">
-                <thead><tr><th>Tekil varlık</th><th>Malzeme</th><th>Kondisyon</th></tr></thead>
-                <tbody>
-                {% for asset in current_serialized_assets %}
-                    <tr>
-                        <td><a href="{% url 'inventory:serialized-asset-detail' asset.pk %}">{{ asset.internal_asset_code }}</a></td>
-                        <td>{{ asset.material.name }}</td>
-                        <td>{{ asset.current_condition.name }}</td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
-    {% else %}
-        <p class="text-body-secondary">Pozitif miktar bakiyesi veya stokta tekil varlık bulunmuyor.</p>
-    {% endif %}
-</section>
+    </section>
 {% endif %}
 
-<h2 class="h5 mb-3">Doğrudan alt lokasyonlar</h2>
-{% if children %}
-    <div class="table-responsive">
-        <table class="table table-sm align-middle">
-            <thead>
-                <tr>
-                    <th scope="col">Kod</th>
-                    <th scope="col">Ad</th>
-                    <th scope="col">Durum</th>
-                </tr>
-            </thead>
+<div class="row g-3">
+    <div class="col-lg-7">
+        <section class="panel h-100" aria-labelledby="loc-info">
+            <div class="panel-head">
+                <h2 id="loc-info">Lokasyon bilgileri</h2>
+                {% if perms.locations.change_location %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'locations:location-update' location.pk %}">{% icon "pencil-square" %}Düzenle</a>{% endif %}
+            </div>
+            <div class="panel-body">
+                <dl class="kv">
+                    <dt>Kod</dt><dd><span class="code">{{ location.code }}</span></dd>
+                    <dt>Ad</dt><dd>{{ location.name }}</dd>
+                    <dt>Üst lokasyon</dt>
+                    <dd>{% if location.parent %}<a href="{% url 'locations:location-detail' location.parent.pk %}">{{ location.parent.code }} ({{ location.parent.name }})</a>{% if not location.parent.active %} <span class="tag tag-neutral">Pasif</span>{% endif %}{% else %}—{% endif %}</dd>
+                    <dt>Stok tutabilir</dt><dd>{% if location.can_hold_stock %}Evet{% else %}Hayır{% endif %}</dd>
+                    <dt>Durum</dt><dd>{% if location.active %}Aktif{% else %}Pasif{% endif %}</dd>
+                </dl>
+                {% if perms.counting.view_physicalcountsession %}<p class="mt-3 mb-0 small"><a href="{% url 'counting:session-list' %}?location={{ location.pk }}">Bu kapsamdaki sayımlar</a></p>{% endif %}
+                <details class="disclosure">
+                    <summary>{% icon "chevron-right" %}Sistem bilgileri</summary>
+                    <div class="disclosure-body">
+                        <dl class="kv small"><dt>UUID</dt><dd class="font-monospace">{{ location.id }}</dd><dt>Oluşturulma</dt><dd>{{ location.created_at }}</dd><dt>Güncellenme</dt><dd>{{ location.updated_at }}</dd></dl>
+                        {% if perms.locations.change_location %}
+                            <div class="mt-3">
+                                {% if location.active %}
+                                    <form method="post" action="{% url 'locations:location-deactivate' location.pk %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary">Pasifleştir</button></form>
+                                {% else %}
+                                    <form method="post" action="{% url 'locations:location-reactivate' location.pk %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary">Aktifleştir</button></form>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </details>
+            </div>
+        </section>
+    </div>
+    <div class="col-lg-5">
+        <section class="panel h-100" aria-labelledby="location-id-heading">
+            <div class="panel-head"><h2 id="location-id-heading">Makine okunur kimlik</h2></div>
+            <div class="panel-body">
+                <img class="d-block mw-100 mb-3" src="{% url 'identification:location-code128' location.pk %}" height="56" alt="{{ location.code }} lokasyon Code 128 barkodu">
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'identification:location-label' location.pk %}">{% icon "printer" %}Standart etiket</a>
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'identification:location-label-compact' location.pk %}">{% icon "qr-code" %}Kompakt QR</a>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<section class="panel mt-3" aria-labelledby="children-heading">
+    <div class="panel-head"><h2 id="children-heading">Doğrudan alt lokasyonlar</h2></div>
+    {% if children %}
+        <table class="table table-data table-hover table-stack mb-0">
+            <thead><tr><th scope="col">Kod</th><th scope="col">Ad</th><th scope="col">Durum</th></tr></thead>
             <tbody>
                 {% for child in children %}
                     <tr>
-                        <td>
-                            <a href="{% url 'locations:location-detail' child.pk %}">{{ child.code }}</a>
-                        </td>
-                        <td>{{ child.name }}</td>
-                        <td>
-                            {% if child.active %}
-                                <span class="badge text-bg-success">Aktif</span>
-                            {% else %}
-                                <span class="badge text-bg-secondary">Pasif</span>
-                            {% endif %}
-                        </td>
+                        <td class="stack-full"><a class="loc" href="{% url 'locations:location-detail' child.pk %}">{{ child.code }}</a></td>
+                        <td data-label="Ad">{{ child.name }}</td>
+                        <td data-label="Durum">{% if child.active %}<span class="tag tag-success">Aktif</span>{% else %}<span class="tag tag-neutral">Pasif</span>{% endif %}</td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
-    </div>
-{% else %}
-    <p class="text-body-secondary mb-0">Alt lokasyon yok.</p>
-{% endif %}
+    {% else %}
+        <div class="panel-body text-body-secondary">Alt lokasyon yok.</div>
+    {% endif %}
+</section>
 {% endblock %}

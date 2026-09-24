@@ -1,114 +1,43 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Yönetim — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Yönetim — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-10">
-        <h1 class="h3 mb-4">Yönetim</h1>
-        <p class="text-body-secondary mb-4">
-            Katalog ve erişim yönetimi ekranlarına buradan erişebilirsiniz.
-        </p>
-        <div class="row g-3">
-            {% if show_category_management %}
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h2 class="h5 card-title">Kategoriler</h2>
-                            <p class="card-text text-body-secondary">
-                                Malzeme kategorilerini oluşturun ve düzenleyin.
-                            </p>
-                            <a class="stretched-link" href="{% url 'catalog:category-list' %}">Kategorilere git</a>
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
-            {% if show_unit_management %}
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h2 class="h5 card-title">Ölçü Birimleri</h2>
-                            <p class="card-text text-body-secondary">
-                                Ölçü birimlerini oluşturun ve düzenleyin.
-                            </p>
-                            <a class="stretched-link" href="{% url 'catalog:unit-list' %}">Ölçü birimlerine git</a>
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
-            {% if show_material_management %}
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h2 class="h5 card-title">Malzemeler</h2>
-                            <p class="card-text text-body-secondary">
-                                Malzeme tanımlarını oluşturun ve düzenleyin.
-                            </p>
-                            <a class="stretched-link" href="{% url 'catalog:material-list' %}">Malzemelere git</a>
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
-            {% if show_location_management %}
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h2 class="h5 card-title">Lokasyonlar</h2>
-                            <p class="card-text text-body-secondary">
-                                Depo ve atölye lokasyon hiyerarşisini yönetin.
-                            </p>
-                            <a class="stretched-link" href="{% url 'locations:location-list' %}">Lokasyonlara git</a>
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
-            {% if show_employee_management %}
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h2 class="h5 card-title">Çalışanlar</h2>
-                            <p class="card-text text-body-secondary">
-                                Çalışan sicil kayıtlarını oluşturun ve düzenleyin.
-                            </p>
-                            <a class="stretched-link" href="{% url 'accounts:employee-list' %}">Çalışanlara git</a>
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
-            {% if show_production_line_management %}
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h2 class="h5 card-title">Üretim Hatları</h2>
-                            <p class="card-text text-body-secondary">
-                                Üretim hattı hiyerarşisini oluşturun ve düzenleyin.
-                            </p>
-                            <a class="stretched-link" href="{% url 'inventory:production-line-list' %}">Üretim hatlarına git</a>
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
-            {% if show_access_management %}
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h2 class="h5 card-title">Roller ve Yetkiler</h2>
-                            <p class="card-text text-body-secondary">Rolleri ve onaylı katalog izinlerini yönetin.</p>
-                            <a class="stretched-link" href="{% url 'accounts:role-list' %}">Rollere git</a>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h2 class="h5 card-title">Kullanıcılar</h2>
-                            <p class="card-text text-body-secondary">Kullanıcıların rol üyeliklerini yönetin.</p>
-                            <a class="stretched-link" href="{% url 'accounts:access-user-list' %}">Kullanıcılara git</a>
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <h1>Yönetim</h1>
+            <p class="page-head-sub">Katalog ve erişim yönetimi ekranlarına buradan erişebilirsiniz. Stok bu ekranlardan değiştirilmez.</p>
         </div>
     </div>
+
+    {% if show_material_management or show_category_management or show_unit_management %}
+        <h2 class="section-title">Katalog</h2>
+        <ul class="follow-list mb-4">
+            {% if show_material_management %}<li><a href="{% url 'catalog:material-list' %}">{% icon "box-seam" %}<span><span class="follow-title d-block">Malzemeler</span><span class="small text-body-secondary">Malzeme tanımlarını oluşturun ve düzenleyin.</span></span>{% icon "chevron-right" "chev ms-auto" %}</a></li>{% endif %}
+            {% if show_category_management %}<li><a href="{% url 'catalog:category-list' %}">{% icon "folder2" %}<span><span class="follow-title d-block">Kategoriler</span><span class="small text-body-secondary">Malzeme kategorilerini oluşturun ve düzenleyin.</span></span>{% icon "chevron-right" "chev ms-auto" %}</a></li>{% endif %}
+            {% if show_unit_management %}<li><a href="{% url 'catalog:unit-list' %}">{% icon "rulers" %}<span><span class="follow-title d-block">Ölçü Birimleri</span><span class="small text-body-secondary">Ölçü birimlerini oluşturun ve düzenleyin.</span></span>{% icon "chevron-right" "chev ms-auto" %}</a></li>{% endif %}
+        </ul>
+    {% endif %}
+
+    {% if show_location_management or show_production_line_management %}
+        <h2 class="section-title">Yerler</h2>
+        <ul class="follow-list mb-4">
+            {% if show_location_management %}<li><a href="{% url 'locations:location-list' %}">{% icon "geo-alt" %}<span><span class="follow-title d-block">Lokasyonlar</span><span class="small text-body-secondary">Depo ve atölye lokasyon hiyerarşisini yönetin.</span></span>{% icon "chevron-right" "chev ms-auto" %}</a></li>{% endif %}
+            {% if show_production_line_management %}<li><a href="{% url 'inventory:production-line-list' %}">{% icon "diagram-3" %}<span><span class="follow-title d-block">Üretim Hatları</span><span class="small text-body-secondary">Üretim hattı hiyerarşisini oluşturun ve düzenleyin.</span></span>{% icon "chevron-right" "chev ms-auto" %}</a></li>{% endif %}
+        </ul>
+    {% endif %}
+
+    {% if show_employee_management or show_access_management %}
+        <h2 class="section-title">Kişiler ve erişim</h2>
+        <ul class="follow-list">
+            {% if show_employee_management %}<li><a href="{% url 'accounts:employee-list' %}">{% icon "people" %}<span><span class="follow-title d-block">Çalışanlar</span><span class="small text-body-secondary">Çalışan sicil kayıtlarını oluşturun ve düzenleyin.</span></span>{% icon "chevron-right" "chev ms-auto" %}</a></li>{% endif %}
+            {% if show_access_management %}
+                <li><a href="{% url 'accounts:role-list' %}">{% icon "shield-lock" %}<span><span class="follow-title d-block">Roller ve Yetkiler</span><span class="small text-body-secondary">Rolleri ve onaylı katalog izinlerini yönetin.</span></span>{% icon "chevron-right" "chev ms-auto" %}</a></li>
+                <li><a href="{% url 'accounts:access-user-list' %}">{% icon "person-circle" %}<span><span class="follow-title d-block">Kullanıcılar</span><span class="small text-body-secondary">Kullanıcıların rol üyeliklerini yönetin.</span></span>{% icon "chevron-right" "chev ms-auto" %}</a></li>
+            {% endif %}
+        </ul>
+    {% endif %}
 </div>
 {% endblock %}

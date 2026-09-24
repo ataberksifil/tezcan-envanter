@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load ui management_access %}
+{# Shared layout for master-data forms: override form_intro, cancel_url and (rarely) form_body. #}
+
+{% block title %}{{ form_title }} — Tezcan Envanter{% endblock %}
+
+{% block content %}
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite">
+                {% show_management_nav user as can_manage %}{% if can_manage %}<li><a href="{% url 'management' %}">Yönetim</a></li>{% endif %}
+                {% block breadcrumb %}{% endblock %}
+            </ol>
+            <h1>{{ form_title }}</h1>
+            {% block form_intro %}{% endblock %}
+        </div>
+    </div>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+        {% include "core/_form_errors.html" %}
+        <section class="panel">
+            <div class="panel-body">
+                {% block form_body %}{% include "core/_form_fields.html" %}{% endblock %}
+            </div>
+        </section>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">{% icon "check2" %}{{ submit_label }}</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% block cancel_url %}{% url 'home' %}{% endblock %}">İptal</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,8 @@
+<div>
+    <label class="form-label" for="id_status">Durum</label>
+    <select class="form-select" id="id_status" name="status">
+        <option value="all"{% if status == "all" %} selected{% endif %}>Tümü</option>
+        <option value="active"{% if status == "active" %} selected{% endif %}>Aktif</option>
+        <option value="inactive"{% if status == "inactive" %} selected{% endif %}>Pasif</option>
+    </select>
+</div>
