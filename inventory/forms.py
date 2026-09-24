@@ -10,6 +10,7 @@ from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import timezone
 
+from core.formatting import format_quantity
 from inventory.services.receipts import ReceiptMetadataInput
 
 from accounts.models import Employee
@@ -847,11 +848,12 @@ def return_issue_line_choice_label(line: InventoryTransactionLine) -> str:
     returned_quantity = getattr(line, "returned_quantity", Decimal("0.000"))
     remaining_quantity = line.quantity - returned_quantity
     parts = [
-        f"{occurred_at} · {line.transaction_id}",
+        occurred_at,
         f"{line.material.material_code} ({line.material.name})",
         (
-            f"Çıkış: {line.quantity} {line.unit.code} · "
-            f"İade: {returned_quantity} · Kalan: {remaining_quantity}"
+            f"Çıkış: {format_quantity(line.quantity)} {line.unit.code}, "
+            f"İade: {format_quantity(returned_quantity)}, "
+            f"Kalan: {format_quantity(remaining_quantity)} {line.unit.code}"
         ),
         f"Kaynak: {line.source_location.code} ({line.source_location.name})",
     ]

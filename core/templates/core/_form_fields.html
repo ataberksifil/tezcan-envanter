@@ -1,0 +1,10 @@
+{# Visible fields in order. Material and Location selects get the local label-scan box. #}
+{% for field in form.visible_fields %}
+    {% if field.name == "material" and field.field.widget.input_type == "select" %}
+        {% include "core/_pick_field.html" with field=field kind="M" scan_label="Etiket okut (TZ1M)" %}
+    {% elif field.name == "target_location" and field.field.widget.input_type == "select" or field.name == "source_location" and field.field.widget.input_type == "select" %}
+        {% include "core/_pick_field.html" with field=field kind="L" scan_label="Rafı okut (TZ1L)" %}
+    {% else %}
+        {% include "core/_field.html" with field=field %}
+    {% endif %}
+{% endfor %}

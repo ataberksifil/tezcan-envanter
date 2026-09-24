@@ -231,7 +231,13 @@ def test_phone_top_bar_search_is_short_and_not_duplicated_on_stock_page(app_clie
         "catalog.view_material",
         "inventory.view_stockbalance",
     )
-    content = _page(app_client, user, "/catalog/materials/")
+    material = Material.objects.create(
+        material_code=f"PH-{uuid.uuid4().hex[:8]}",
+        name="Telefon arama",
+        category=Category.objects.create(name=f"PH {uuid.uuid4().hex[:8]}"),
+        tracking_mode=Material.TrackingMode.SERIALIZED,
+    )
+    content = _page(app_client, user, f"/catalog/materials/{material.pk}/")
     assert 'data-short-placeholder="Okut veya ara"' in content
     assert "has-page-search" not in content
 

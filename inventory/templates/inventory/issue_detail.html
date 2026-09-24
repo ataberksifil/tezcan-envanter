@@ -1,75 +1,85 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Stok çıkışı — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Stok çıkışı — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Stok çıkışı kaydı</h1>
-    <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-outline-primary" href="{% url 'inventory:issue-create' %}">Yeni stok çıkışı</a>
-        {% if line.serialized_asset_id and perms.inventory.return_stock and serialized_return_available %}
-            <a class="btn btn-outline-success" href="{% url 'inventory:serialized-return-create' line.serialized_asset_id line.pk %}">Tekil varlığı iade al</a>
-        {% elif perms.inventory.return_stock and return_remaining_quantity > 0 %}
-            <a class="btn btn-outline-success" href="{% url 'inventory:return-create' %}?issue_line={{ line.pk }}">İade başlat</a>
+<div class="page-head">
+    <div>
+        {% if perms.inventory.view_inventorytransaction %}
+            <ol class="breadcrumb-lite"><li><a href="{% url 'inventory:transaction-history-list' %}">Envanter hareketleri</a></li></ol>
         {% endif %}
-        <a class="btn btn-outline-secondary" href="{% url 'home' %}">Ana sayfa</a>
+        <h1>Stok çıkışı kaydı</h1>
+        <p class="page-head-sub"><span class="mv mv-ISSUE">{% icon "box-arrow-up" %}Stok çıkışı</span> <span class="ms-2">{{ issue.occurred_at }}</span> <span class="ms-2">{{ issue.acting_user.get_username }}</span></p>
+    </div>
+    <div class="page-actions">
+        {% if line.serialized_asset_id and perms.inventory.return_stock and serialized_return_available %}
+            <a class="btn btn-primary" href="{% url 'inventory:serialized-return-create' line.serialized_asset_id line.pk %}">{% icon "arrow-return-left" %}Tekil varlığı iade al</a>
+        {% elif perms.inventory.return_stock and return_remaining_quantity > 0 %}
+            <a class="btn btn-primary" href="{% url 'inventory:return-create' %}?issue_line={{ line.pk }}">{% icon "arrow-return-left" %}İade başlat</a>
+        {% endif %}
+        <a class="btn btn-outline-secondary" href="{% url 'inventory:issue-create' %}">{% icon "plus-lg" %}Yeni stok çıkışı</a>
     </div>
 </div>
 
-<dl class="row mb-0">
-    <dt class="col-sm-3">İşlem UUID</dt>
-    <dd class="col-sm-9 font-monospace">{{ issue.id }}</dd>
+<div class="row g-3">
+    <div class="col-lg-6">
+        <section class="panel h-100" aria-labelledby="issue-what">
+            <div class="panel-head"><h2 id="issue-what">Verilen</h2></div>
+            <div class="panel-body">
+                <dl class="kv">
+                    <dt>Malzeme</dt>
+                    <dd>{{ line.material.name }}<span class="code d-block">{{ line.material.material_code }}</span></dd>
+                    <dt>{% if line.serialized_asset_id %}Tekil varlık{% else %}Miktar{% endif %}</dt>
+                    <dd>
+                        {% if line.serialized_asset_id %}
+                            {% if perms.inventory.view_stockbalance %}<a class="code" href="{% url 'inventory:serialized-asset-detail' line.serialized_asset.pk %}">{{ line.serialized_asset.internal_asset_code }}</a>{% else %}<span class="code">{{ line.serialized_asset.internal_asset_code }}</span>{% endif %}{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
+                        {% else %}
+                            <span class="qty fs-5 qty-minus">{{ line.quantity|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span> <span class="text-body-secondary small">({{ line.unit.name }})</span>
+                        {% endif %}
+                    </dd>
+                    <dt>Kondisyon</dt>
+                    <dd><span class="tag cond-{{ line.condition.code }}">{{ line.condition.name }}</span></dd>
+                    <dt>Kaynak konum</dt>
+                    <dd><span class="loc" title="{{ line.source_location.name }}">{{ line.source_location.code }}</span></dd>
+                    {% if not line.serialized_asset_id %}
+                        <dt>İade edilebilir miktar</dt>
+                        <dd><span class="qty">{{ return_remaining_quantity|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span></dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </section>
+    </div>
+    <div class="col-lg-6">
+        <section class="panel h-100" aria-labelledby="issue-who">
+            <div class="panel-head"><h2 id="issue-who">Alan ve kullanım</h2></div>
+            <div class="panel-body">
+                <dl class="kv">
+                    <dt>Alıcı ad</dt>
+                    <dd>{{ issue_context.receiver_first_name_snapshot }}</dd>
+                    <dt>Alıcı soyad</dt>
+                    <dd>{{ issue_context.receiver_last_name_snapshot }}</dd>
+                    <dt>Alıcı sicil</dt>
+                    <dd><span class="code">{{ issue_context.receiver_employee_number_snapshot }}</span></dd>
+                    <dt>Üretim hattı</dt>
+                    <dd>{{ issue_context.production_line_code_snapshot }} — {{ issue_context.production_line_name_snapshot }}</dd>
+                    <dt>Kullanım yeri</dt>
+                    <dd>{{ issue_context.usage_location_text }}</dd>
+                </dl>
+                <p class="text-body-secondary small mt-3 mb-0">Alıcı ve hat bilgisi çıkış anındaki haliyle saklanır; çalışan kaydı sonradan değişse de bu kayıt değişmez.</p>
+            </div>
+        </section>
+    </div>
+</div>
 
-    <dt class="col-sm-3">Zaman</dt>
-    <dd class="col-sm-9">{{ issue.occurred_at }}</dd>
-
-    <dt class="col-sm-3">İşlemi yapan</dt>
-    <dd class="col-sm-9">{{ issue.acting_user.get_username }}</dd>
-
-    <dt class="col-sm-3">Malzeme kodu</dt>
-    <dd class="col-sm-9">{{ line.material.material_code }}</dd>
-
-    <dt class="col-sm-3">Malzeme adı</dt>
-    <dd class="col-sm-9">{{ line.material.name }}</dd>
-
-    <dt class="col-sm-3">{% if line.serialized_asset_id %}Tekil varlık{% else %}Miktar{% endif %}</dt>
-    <dd class="col-sm-9">
-        {% if line.serialized_asset_id %}
-            {% if perms.inventory.view_stockbalance %}<a href="{% url 'inventory:serialized-asset-detail' line.serialized_asset.pk %}">{{ line.serialized_asset.internal_asset_code }}</a>{% else %}{{ line.serialized_asset.internal_asset_code }}{% endif %}{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
-        {% else %}
-            {{ line.quantity }}
-        {% endif %}
-    </dd>
-
-    {% if not line.serialized_asset_id %}
-    <dt class="col-sm-3">Birim</dt>
-    <dd class="col-sm-9">{{ line.unit.code }} ({{ line.unit.name }})</dd>
-    {% endif %}
-
-    <dt class="col-sm-3">Kondisyon</dt>
-    <dd class="col-sm-9">{{ line.condition.name }}</dd>
-
-    <dt class="col-sm-3">Kaynak konum</dt>
-    <dd class="col-sm-9">{{ line.source_location.code }}</dd>
-
-    <dt class="col-sm-3">Alıcı ad</dt>
-    <dd class="col-sm-9">{{ issue_context.receiver_first_name_snapshot }}</dd>
-
-    <dt class="col-sm-3">Alıcı soyad</dt>
-    <dd class="col-sm-9">{{ issue_context.receiver_last_name_snapshot }}</dd>
-
-    <dt class="col-sm-3">Alıcı sicil</dt>
-    <dd class="col-sm-9">{{ issue_context.receiver_employee_number_snapshot }}</dd>
-
-    <dt class="col-sm-3">Üretim hattı</dt>
-    <dd class="col-sm-9">{{ issue_context.production_line_code_snapshot }} — {{ issue_context.production_line_name_snapshot }}</dd>
-
-    <dt class="col-sm-3">Kullanım yeri</dt>
-    <dd class="col-sm-9">{{ issue_context.usage_location_text }}</dd>
-
-    {% if not line.serialized_asset_id %}
-    <dt class="col-sm-3">İade edilebilir miktar</dt>
-    <dd class="col-sm-9">{{ return_remaining_quantity }} {{ line.unit.code }}</dd>
-    {% endif %}
-</dl>
+<details class="disclosure">
+    <summary>{% icon "chevron-right" %}Sistem bilgileri</summary>
+    <div class="disclosure-body">
+        <dl class="kv small">
+            <dt>İşlem UUID</dt><dd class="font-monospace">{{ issue.id }}</dd>
+            <dt>Zaman</dt><dd>{{ issue.occurred_at }}</dd>
+            <dt>İşlemi yapan</dt><dd>{{ issue.acting_user.get_username }}</dd>
+        </dl>
+    </div>
+</details>
 {% endblock %}

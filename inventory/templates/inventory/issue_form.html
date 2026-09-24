@@ -1,46 +1,54 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}{{ form_title }} — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}{{ form_title }} — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-body p-4">
-                <h1 class="h3 mb-3">{{ form_title }}</h1>
-
-                <form method="post" novalidate>
-                    {% csrf_token %}
-                    {{ form.operation_id }}
-
-                    {% if form.non_field_errors %}
-                        <div class="alert alert-danger" role="alert">
-                            {% for error in form.non_field_errors %}
-                                <div>{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-
-                    {% for field in form.visible_fields %}
-                        <div class="mb-3">
-                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                            {{ field }}
-                            {% if field.help_text %}
-                                <div class="form-text">{{ field.help_text }}</div>
-                            {% endif %}
-                            {% for error in field.errors %}
-                                <div class="invalid-feedback d-block">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    {% endfor %}
-
-                    <div class="d-flex flex-wrap gap-2">
-                        <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
-                        <a class="btn btn-outline-secondary" href="{% url 'home' %}">İptal</a>
-                    </div>
-                </form>
-            </div>
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <h1>{{ form_title }}</h1>
+            <p class="page-head-sub">Malzemeyi kayıtlı rafından düşer; alan kişi, hat ve kullanım yeri değişmez kayıt olarak saklanır.</p>
         </div>
     </div>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {{ form.operation_id }}
+
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger" role="alert">
+                {% icon "x-circle-fill" %}
+                <div class="alert-body">{% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}</div>
+            </div>
+        {% endif %}
+
+        <section class="panel">
+            <div class="panel-body">
+                <div class="form-section">
+                    <h2 class="form-section-title">Ne veriliyor, hangi raftan</h2>
+                    {% include "core/_pick_field.html" with field=form.material kind="M" scan_label="Etiket okut (TZ1M)" %}
+                    {% include "core/_pick_field.html" with field=form.source_location kind="L" scan_label="Rafı okut (TZ1L)" %}
+                    <div class="row g-3">
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.condition %}</div>
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.quantity %}</div>
+                    </div>
+                </div>
+                <div class="form-section">
+                    <h2 class="form-section-title">Kime ve nerede kullanılacak</h2>
+                    {% include "core/_field.html" with field=form.receiver_employee %}
+                    <div class="row g-3">
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.production_line %}</div>
+                        <div class="col-sm-6">{% include "core/_field.html" with field=form.usage_location_text %}</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">{% icon "box-arrow-up" %}Çıkışı kaydet</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'home' %}">İptal</a>
+        </div>
+    </form>
 </div>
 {% endblock %}

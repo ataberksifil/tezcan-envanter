@@ -282,7 +282,8 @@ def test_create_page_lists_only_eligible_issue_lines_and_targets(
     assert return_data["non_stock_target"].pk not in target_ids
     content = response.content.decode()
     assert return_data["material"].material_code in content
-    assert "Kalan: 10.000" in content
+    # Approved Turkish display format (UI Faz 3).
+    assert f"Kalan: 10 {return_data['issue_line'].unit.code}" in content
     assert return_data["employee"].employee_number in content
 
 
@@ -505,9 +506,10 @@ def test_return_detail_is_read_only_and_uses_issue_snapshots(app_client, return_
         return_data["target"].code,
         return_data["source"].code,
         str(return_data["issue"].pk),
-        "10,000",
-        "4,000",
-        "6,000",
+        # Approved Turkish display format (UI Faz 3): 10.000 / 4.000 / 6.000.
+        '>10<span class="qty-unit">',
+        '>4<span class="qty-unit">',
+        '>6<span class="qty-unit">',
         "Ayşe",
         "Yılmaz",
         return_data["employee"].employee_number,

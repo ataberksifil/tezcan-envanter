@@ -1,70 +1,67 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Stok transferi — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Stok transferi — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Stok transferi kaydı</h1>
-    <div class="d-flex flex-wrap gap-2">
-        {% if perms.inventory.transfer_stock %}
-            <a class="btn btn-outline-primary" href="{% url 'inventory:transfer-create' %}">Yeni stok transferi</a>
-        {% endif %}
+<div class="page-head">
+    <div>
         {% if perms.inventory.view_inventorytransaction %}
-            <a class="btn btn-outline-secondary" href="{% url 'inventory:transaction-history-list' %}">Envanter hareketleri</a>
+            <ol class="breadcrumb-lite"><li><a href="{% url 'inventory:transaction-history-list' %}">Envanter hareketleri</a></li></ol>
         {% endif %}
+        <h1>Stok transferi kaydı</h1>
+        <p class="page-head-sub"><span class="mv mv-TRANSFER">{% icon "arrow-left-right" %}{{ transfer.get_transaction_type_display }}</span> <span class="ms-2">{{ transfer.occurred_at }}</span> <span class="ms-2">{{ transfer.acting_user.get_username }}</span></p>
     </div>
+    {% if perms.inventory.transfer_stock %}
+        <div class="page-actions">
+            <a class="btn btn-outline-secondary" href="{% url 'inventory:transfer-create' %}">{% icon "plus-lg" %}Yeni stok transferi</a>
+        </div>
+    {% endif %}
 </div>
 
-<dl class="row mb-0">
-    <dt class="col-sm-3">İşlem UUID</dt>
-    <dd class="col-sm-9 font-monospace">{{ transfer.id }}</dd>
+<section class="panel mb-3" aria-labelledby="transfer-what">
+    <div class="panel-head"><h2 id="transfer-what">Taşınan</h2></div>
+    <div class="panel-body">
+        <dl class="kv">
+            <dt>Malzeme</dt>
+            <dd>
+                {% if perms.catalog.view_material %}
+                    <a href="{% url 'catalog:material-detail' line.material.pk %}">{{ line.material.material_code }} — {{ line.material.name }}</a>
+                {% else %}
+                    {{ line.material.material_code }} — {{ line.material.name }}
+                {% endif %}
+            </dd>
+            <dt>{% if line.serialized_asset_id %}Tekil varlık{% else %}Miktar{% endif %}</dt>
+            <dd>
+                {% if line.serialized_asset_id %}
+                    {% if perms.inventory.view_stockbalance %}<a class="code" href="{% url 'inventory:serialized-asset-detail' line.serialized_asset.pk %}">{{ line.serialized_asset.internal_asset_code }}</a>{% else %}<span class="code">{{ line.serialized_asset.internal_asset_code }}</span>{% endif %}{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
+                {% else %}
+                    <span class="qty fs-5">{{ line.quantity|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span> <span class="text-body-secondary small">({{ line.unit.name }})</span>
+                {% endif %}
+            </dd>
+            <dt>Kondisyon</dt>
+            <dd><span class="tag cond-{{ line.condition.code }}">{{ line.condition.name }}</span></dd>
+        </dl>
+        <div class="flow mt-3" role="group" aria-label="Nereden nereye">
+            <div class="flow-end flow-source">
+                <span class="flow-end-label">Kaynak konum</span>
+                {% if perms.locations.view_location %}<a class="loc" href="{% url 'locations:location-detail' line.source_location.pk %}">{{ line.source_location.code }}</a>{% else %}<span class="loc">{{ line.source_location.code }}</span>{% endif %}
+                <span class="loc-path">{{ line.source_location.name }}</span>
+            </div>
+            <div class="flow-arrow" aria-hidden="true">→</div>
+            <div class="flow-end flow-target">
+                <span class="flow-end-label">Hedef konum</span>
+                {% if perms.locations.view_location %}<a class="loc" href="{% url 'locations:location-detail' line.target_location.pk %}">{{ line.target_location.code }}</a>{% else %}<span class="loc">{{ line.target_location.code }}</span>{% endif %}
+                <span class="loc-path">{{ line.target_location.name }}</span>
+            </div>
+        </div>
+    </div>
+</section>
 
-    <dt class="col-sm-3">İşlem türü</dt>
-    <dd class="col-sm-9">{{ transfer.get_transaction_type_display }}</dd>
-
-    <dt class="col-sm-3">Zaman</dt>
-    <dd class="col-sm-9">{{ transfer.occurred_at }}</dd>
-
-    <dt class="col-sm-3">İşlemi yapan</dt>
-    <dd class="col-sm-9">{{ transfer.acting_user.get_username }}</dd>
-
-    <dt class="col-sm-3">Malzeme</dt>
-    <dd class="col-sm-9">
-        {% if perms.catalog.view_material %}
-            <a href="{% url 'catalog:material-detail' line.material.pk %}">{{ line.material.material_code }} — {{ line.material.name }}</a>
-        {% else %}
-            {{ line.material.material_code }} — {{ line.material.name }}
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">{% if line.serialized_asset_id %}Tekil varlık{% else %}Miktar{% endif %}</dt>
-    <dd class="col-sm-9">
-        {% if line.serialized_asset_id %}
-            {% if perms.inventory.view_stockbalance %}<a href="{% url 'inventory:serialized-asset-detail' line.serialized_asset.pk %}">{{ line.serialized_asset.internal_asset_code }}</a>{% else %}{{ line.serialized_asset.internal_asset_code }}{% endif %}{% if line.serialized_asset.serial_number %} / {{ line.serialized_asset.serial_number }}{% endif %}
-        {% else %}
-            {{ line.quantity }} {{ line.unit.code }} ({{ line.unit.name }})
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Kondisyon</dt>
-    <dd class="col-sm-9">{{ line.condition.name }}</dd>
-
-    <dt class="col-sm-3">Kaynak konum</dt>
-    <dd class="col-sm-9">
-        {% if perms.locations.view_location %}
-            <a href="{% url 'locations:location-detail' line.source_location.pk %}">{{ line.source_location.code }}</a>
-        {% else %}
-            {{ line.source_location.code }}
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Hedef konum</dt>
-    <dd class="col-sm-9">
-        {% if perms.locations.view_location %}
-            <a href="{% url 'locations:location-detail' line.target_location.pk %}">{{ line.target_location.code }}</a>
-        {% else %}
-            {{ line.target_location.code }}
-        {% endif %}
-    </dd>
-</dl>
+<details class="disclosure">
+    <summary>{% icon "chevron-right" %}Sistem bilgileri</summary>
+    <div class="disclosure-body">
+        <dl class="kv small"><dt>İşlem UUID</dt><dd class="font-monospace">{{ transfer.id }}</dd></dl>
+    </div>
+</details>
 {% endblock %}

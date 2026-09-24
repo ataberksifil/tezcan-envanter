@@ -1,24 +1,41 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}{{ form_title }} — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}{{ form_title }} — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center"><div class="col-lg-8"><div class="card shadow-sm"><div class="card-body p-4">
-    <h1 class="h3 mb-3">{{ form_title }}</h1>
-    <dl class="row mb-4">
-        <dt class="col-sm-4">Dahili varlık kodu</dt><dd class="col-sm-8">{{ asset.internal_asset_code }}</dd>
-        <dt class="col-sm-4">Malzeme</dt><dd class="col-sm-8">{{ asset.material.material_code }} — {{ asset.material.name }}</dd>
-        <dt class="col-sm-4">Orijinal çıkış zamanı</dt><dd class="col-sm-8">{{ issue_line.transaction.occurred_at }}</dd>
-        <dt class="col-sm-4">Alıcı</dt><dd class="col-sm-8">{{ issue_context.receiver_first_name_snapshot }} {{ issue_context.receiver_last_name_snapshot }} ({{ issue_context.receiver_employee_number_snapshot }})</dd>
-        <dt class="col-sm-4">Kondisyon</dt><dd class="col-sm-8">{{ issue_line.condition.name }}</dd>
-        <dt class="col-sm-4">Durum</dt><dd class="col-sm-8">{{ asset.get_current_state_display }}</dd>
-    </dl>
+<div class="app-content-narrow">
+    <div class="page-head">
+        <div>
+            <ol class="breadcrumb-lite"><li><a href="{% url 'inventory:serialized-asset-detail' asset.pk %}">{{ asset.internal_asset_code }}</a></li></ol>
+            <h1>{{ form_title }}</h1>
+        </div>
+    </div>
+    <section class="panel mb-3" aria-label="Tekil varlık">
+        <div class="panel-body">
+            <dl class="kv">
+                <dt>Dahili varlık kodu</dt><dd><span class="code">{{ asset.internal_asset_code }}</span></dd>
+                <dt>Malzeme</dt><dd>{{ asset.material.material_code }} — {{ asset.material.name }}</dd>
+                <dt>Orijinal çıkış zamanı</dt><dd>{{ issue_line.transaction.occurred_at }}</dd>
+                <dt>Alıcı</dt><dd>{{ issue_context.receiver_first_name_snapshot }} {{ issue_context.receiver_last_name_snapshot }} (<span class="code">{{ issue_context.receiver_employee_number_snapshot }}</span>)</dd>
+                <dt>Kondisyon</dt><dd><span class="tag cond-{{ issue_line.condition.code }}">{{ issue_line.condition.name }}</span></dd>
+                <dt>Durum</dt><dd>{{ asset.get_current_state_display }}</dd>
+            </dl>
+        </div>
+    </section>
     <form method="post" novalidate>
         {% csrf_token %}
-        {% for hidden in form.hidden_fields %}{{ hidden }}{% for error in hidden.errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}{% endfor %}
-        {% if form.non_field_errors %}<div class="alert alert-danger">{% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
-        {% for field in form.visible_fields %}<div class="mb-3"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>{% endfor %}
-        <div class="d-flex gap-2"><button class="btn btn-success" type="submit">İadeyi kaydet</button><a class="btn btn-outline-secondary" href="{% url 'inventory:serialized-asset-detail' asset.pk %}">İptal</a></div>
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+        {% include "core/_form_errors.html" %}
+        <section class="panel">
+            <div class="panel-body">
+                {% include "core/_form_fields.html" %}
+            </div>
+        </section>
+        <div class="form-actions">
+            <button class="btn btn-primary btn-lg" type="submit">{% icon "arrow-return-left" %}İadeyi kaydet</button>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'inventory:serialized-asset-detail' asset.pk %}">İptal</a>
+        </div>
     </form>
-</div></div></div></div>
+</div>
 {% endblock %}

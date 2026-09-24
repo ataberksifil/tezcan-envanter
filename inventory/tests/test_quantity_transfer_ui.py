@@ -501,7 +501,8 @@ def test_transfer_detail_is_read_only_and_shows_required_fields(
         str(transfer.pk),
     ):
         assert expected in content
-    assert "4,000" in content or "4.000" in content
+    # Approved Turkish display format (UI Faz 3).
+    assert '>4<span class="qty-unit">' in content
     main = content.split("<main", 1)[-1]
     assert 'method="post"' not in main.lower()
     assert "Düzenle" not in main

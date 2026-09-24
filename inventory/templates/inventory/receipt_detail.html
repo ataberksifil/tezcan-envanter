@@ -1,134 +1,161 @@
 {% extends "base.html" %}
+{% load ui %}
 
-{% block title %}Stok girişi — Elektrik Atölyesi Envanter{% endblock %}
+{% block title %}Stok girişi — Tezcan Envanter{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-    <h1 class="h3 mb-0">Stok girişi kaydı</h1>
-    <div class="d-flex flex-wrap gap-2">
-        {% if line.serialized_asset_id %}
-            <a class="btn btn-outline-primary" href="{% url 'inventory:serialized-receipt-create' %}">Yeni tekil varlık girişi</a>
-            <a class="btn btn-outline-dark" href="{% url 'identification:asset-label' line.serialized_asset_id %}">Etiket yazdır</a>
-            <a class="btn btn-outline-secondary" href="{% url 'identification:asset-label-compact' line.serialized_asset_id %}">Kompakt QR</a>
-        {% else %}
-            <a class="btn btn-outline-primary" href="{% url 'inventory:receipt-create' %}">Yeni stok girişi</a>
-            {% if perms.inventory.transfer_stock %}
-                <a class="btn btn-primary" href="{% url 'inventory:transfer-create' %}?material={{ line.material_id }}&amp;source_location={{ line.target_location_id }}&amp;condition={{ line.condition_id }}">Yerleştir / Transfer Et</a>
-            {% endif %}
-            <a class="btn btn-outline-dark" href="{% url 'identification:material-label' line.material_id %}">Etiket yazdır</a>
-            <a class="btn btn-outline-secondary" href="{% url 'identification:material-label-compact' line.material_id %}">Kompakt QR</a>
+<div class="page-head">
+    <div>
+        {% if perms.inventory.view_inventorytransaction %}
+            <ol class="breadcrumb-lite"><li><a href="{% url 'inventory:transaction-history-list' %}">Envanter hareketleri</a></li></ol>
         {% endif %}
-        <a class="btn btn-outline-secondary" href="{% url 'home' %}">Ana sayfa</a>
+        <h1>Stok girişi kaydı</h1>
+        <p class="page-head-sub"><span class="mv mv-RECEIPT">{% icon "box-arrow-in-down" %}Stok girişi</span> <span class="ms-2">{{ receipt.occurred_at }}</span> <span class="ms-2">{{ receipt.acting_user.get_username }}</span></p>
+    </div>
+    <div class="page-actions">
+        {% if line.serialized_asset_id %}
+            <a class="btn btn-outline-secondary" href="{% url 'inventory:serialized-receipt-create' %}">{% icon "plus-lg" %}Yeni tekil varlık girişi</a>
+        {% else %}
+            <a class="btn btn-outline-secondary" href="{% url 'inventory:receipt-create' %}">{% icon "plus-lg" %}Yeni stok girişi</a>
+        {% endif %}
     </div>
 </div>
 
-<dl class="row mb-0">
-    <dt class="col-sm-3">İşlem UUID</dt>
-    <dd class="col-sm-9 font-monospace">{{ receipt.id }}</dd>
+<section class="panel mb-3" aria-labelledby="next-step-title">
+    <div class="panel-body d-flex flex-wrap align-items-center gap-3">
+        <div class="flex-grow-1">
+            <h2 class="h6 mb-1" id="next-step-title">Sonraki adım</h2>
+            {% if line.serialized_asset_id %}
+                <p class="mb-0 text-body-secondary">Varlığın etiketini yazdırıp üzerine yapıştırın.</p>
+            {% else %}
+                <p class="mb-0 text-body-secondary">Malzeme şu an <span class="loc">{{ line.target_location.code }}</span> konumunda kayıtlı. Rafa koyduğunuzda transfer kaydedin; stok doğrudan son rafa yazılmaz.</p>
+            {% endif %}
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            {% if line.serialized_asset_id %}
+                <a class="btn btn-primary" href="{% url 'identification:asset-label' line.serialized_asset_id %}">{% icon "printer" %}Etiket yazdır</a>
+                <a class="btn btn-outline-secondary" href="{% url 'identification:asset-label-compact' line.serialized_asset_id %}">{% icon "qr-code" %}Kompakt QR</a>
+            {% else %}
+                {% if perms.inventory.transfer_stock %}
+                    <a class="btn btn-primary" href="{% url 'inventory:transfer-create' %}?material={{ line.material_id }}&amp;source_location={{ line.target_location_id }}&amp;condition={{ line.condition_id }}">{% icon "arrow-left-right" %}Yerleştir / Transfer Et</a>
+                {% endif %}
+                <a class="btn btn-outline-secondary" href="{% url 'identification:material-label' line.material_id %}">{% icon "printer" %}Etiket yazdır</a>
+                <a class="btn btn-outline-secondary" href="{% url 'identification:material-label-compact' line.material_id %}">{% icon "qr-code" %}Kompakt QR</a>
+            {% endif %}
+        </div>
+    </div>
+</section>
 
-    <dt class="col-sm-3">Sistem kayıt zamanı</dt>
-    <dd class="col-sm-9">{{ receipt.occurred_at }}</dd>
-
-    <dt class="col-sm-3">İşlemi yapan</dt>
-    <dd class="col-sm-9">{{ receipt.acting_user.get_username }}</dd>
-
-    <dt class="col-sm-3">Malzeme kodu</dt>
-    <dd class="col-sm-9">{{ line.material.material_code }}</dd>
-
-    <dt class="col-sm-3">Malzeme adı</dt>
-    <dd class="col-sm-9">{{ line.material.name }}</dd>
-
-    {% if receipt_metadata %}
-        <dt class="col-sm-3">Kayıt anındaki ad</dt>
-        <dd class="col-sm-9">{{ receipt_metadata.material_name_snapshot }}</dd>
-
-        <dt class="col-sm-3">Kayıt anındaki marka</dt>
-        <dd class="col-sm-9">{% if receipt_metadata.material_brand_snapshot %}{{ receipt_metadata.material_brand_snapshot }}{% else %}—{% endif %}</dd>
-
-        <dt class="col-sm-3">Kayıt anındaki model / teknik tanım</dt>
-        <dd class="col-sm-9">{% if receipt_metadata.material_model_snapshot %}{{ receipt_metadata.material_model_snapshot }}{% else %}—{% endif %}</dd>
-
-        <dt class="col-sm-3">Kullanıldığı yer</dt>
-        <dd class="col-sm-9">{{ receipt_metadata.usage_place }}</dd>
-
-        <dt class="col-sm-3">Fiziksel geliş tarihi</dt>
-        <dd class="col-sm-9">{{ receipt_metadata.arrived_on }}</dd>
-
-        <dt class="col-sm-3">Tedarikçi / firma</dt>
-        <dd class="col-sm-9">{% if receipt_metadata.supplier_name %}{{ receipt_metadata.supplier_name }}{% else %}—{% endif %}</dd>
-
-        {% if receipt_metadata.package_count %}
-            <dt class="col-sm-3">Paket</dt>
-            <dd class="col-sm-9">{{ receipt_metadata.packaging_display }}</dd>
-        {% endif %}
-    {% endif %}
-
-    {% if line.serialized_asset_id %}
-        <dt class="col-sm-3">Dahili varlık kodu</dt>
-        <dd class="col-sm-9">{{ line.serialized_asset.internal_asset_code }}</dd>
-
-        <dt class="col-sm-3">Üretici seri numarası</dt>
-        <dd class="col-sm-9">{% if line.serialized_asset.serial_number %}{{ line.serialized_asset.serial_number }}{% else %}—{% endif %}</dd>
-
-        <dt class="col-sm-3">Varlık durumu</dt>
-        <dd class="col-sm-9">{{ line.serialized_asset.get_current_state_display }}</dd>
-    {% else %}
-        <dt class="col-sm-3">Miktar</dt>
-        <dd class="col-sm-9">{{ line.quantity }} {{ line.unit.code }}</dd>
-
-        <dt class="col-sm-3">Birim</dt>
-        <dd class="col-sm-9">{{ line.unit.code }} ({{ line.unit.name }})</dd>
-    {% endif %}
-
-    <dt class="col-sm-3">Kondisyon</dt>
-    <dd class="col-sm-9">{{ line.condition.name }}</dd>
-
-    <dt class="col-sm-3">SKT</dt>
-    <dd class="col-sm-9">
-        {% if receipt_expiry %}
-            {{ receipt_expiry.expires_on }}
-            {% if expiry_warning %}<span class="badge text-bg-warning">{{ expiry_warning }}</span>{% endif %}
-        {% else %}
-            —
-        {% endif %}
-    </dd>
-
-    <dt class="col-sm-3">Kaydedilen konum</dt>
-    <dd class="col-sm-9">
-        {% if location_path %}{{ location_path }}{% else %}{{ line.target_location.code }} ({{ line.target_location.name }}){% endif %}
-    </dd>
-
-    {% if resulting_balance %}
-        <dt class="col-sm-3">Güncel bakiye</dt>
-        <dd class="col-sm-9">{{ resulting_balance.quantity }} {{ line.unit.code }} — {{ location_path }}</dd>
-    {% endif %}
-</dl>
+<div class="row g-3">
+    <div class="col-lg-7">
+        <section class="panel h-100" aria-labelledby="receipt-record-title">
+            <div class="panel-head"><h2 id="receipt-record-title">Kayıt</h2></div>
+            <div class="panel-body">
+                <dl class="kv">
+                    <dt>Malzeme</dt>
+                    <dd>
+                        {% if perms.catalog.view_material %}<a href="{% url 'catalog:material-detail' line.material_id %}">{{ line.material.name }}</a>{% else %}{{ line.material.name }}{% endif %}
+                        <span class="code d-block">{{ line.material.material_code }}</span>
+                    </dd>
+                    {% if line.serialized_asset_id %}
+                        <dt>Dahili varlık kodu</dt>
+                        <dd><span class="code">{{ line.serialized_asset.internal_asset_code }}</span></dd>
+                        <dt>Üretici seri numarası</dt>
+                        <dd>{% if line.serialized_asset.serial_number %}<span class="code">{{ line.serialized_asset.serial_number }}</span>{% else %}—{% endif %}</dd>
+                        <dt>Varlık durumu</dt>
+                        <dd>{{ line.serialized_asset.get_current_state_display }}</dd>
+                    {% else %}
+                        <dt>Miktar</dt>
+                        <dd><span class="qty fs-5">{{ line.quantity|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span> <span class="text-body-secondary small">({{ line.unit.name }})</span></dd>
+                    {% endif %}
+                    <dt>Kondisyon</dt>
+                    <dd><span class="tag cond-{{ line.condition.code }}">{{ line.condition.name }}</span></dd>
+                    <dt>Kaydedilen konum</dt>
+                    <dd><span class="loc">{{ line.target_location.code }}</span><span class="loc-path">{% if location_path %}{{ location_path }}{% else %}{{ line.target_location.name }}{% endif %}</span></dd>
+                    {% if resulting_balance %}
+                        <dt>Güncel bakiye</dt>
+                        <dd><span class="qty">{{ resulting_balance.quantity|qty }}<span class="qty-unit">{{ line.unit.code }}</span></span> <span class="text-body-secondary small">{{ location_path }}</span></dd>
+                    {% endif %}
+                    <dt>SKT</dt>
+                    <dd>{% if receipt_expiry %}{{ receipt_expiry.expires_on }}{% if expiry_warning %} <span class="tag {% if expiry_warning == 'Süresi geçmiş' %}tag-danger{% else %}tag-warning{% endif %}">{{ expiry_warning }}</span>{% endif %}{% else %}—{% endif %}</dd>
+                    <dt>Sistem kayıt zamanı</dt>
+                    <dd>{{ receipt.occurred_at }}</dd>
+                    <dt>İşlemi yapan</dt>
+                    <dd>{{ receipt.acting_user.get_username }}</dd>
+                </dl>
+                <details class="disclosure">
+                    <summary>{% icon "chevron-right" %}Sistem bilgileri</summary>
+                    <div class="disclosure-body">
+                        <dl class="kv small"><dt>İşlem UUID</dt><dd class="font-monospace">{{ receipt.id }}</dd></dl>
+                    </div>
+                </details>
+            </div>
+        </section>
+    </div>
+    <div class="col-lg-5">
+        <section class="panel h-100" aria-labelledby="receipt-meta-title">
+            <div class="panel-head"><h2 id="receipt-meta-title">Mal kabul bilgileri</h2></div>
+            <div class="panel-body">
+                {% if receipt_metadata %}
+                    <dl class="kv">
+                        <dt>Kullanıldığı yer</dt>
+                        <dd>{{ receipt_metadata.usage_place }}</dd>
+                        <dt>Fiziksel geliş tarihi</dt>
+                        <dd>{{ receipt_metadata.arrived_on }}</dd>
+                        <dt>Tedarikçi / firma</dt>
+                        <dd>{% if receipt_metadata.supplier_name %}{{ receipt_metadata.supplier_name }}{% else %}—{% endif %}</dd>
+                        {% if receipt_metadata.package_count %}
+                            <dt>Paket</dt>
+                            <dd>{{ receipt_metadata.packaging_display }}</dd>
+                        {% endif %}
+                    </dl>
+                    <details class="disclosure">
+                        <summary>{% icon "chevron-right" %}Kayıt anındaki malzeme tanımı</summary>
+                        <div class="disclosure-body">
+                            <dl class="kv small">
+                                <dt>Kayıt anındaki ad</dt>
+                                <dd>{{ receipt_metadata.material_name_snapshot }}</dd>
+                                <dt>Kayıt anındaki marka</dt>
+                                <dd>{% if receipt_metadata.material_brand_snapshot %}{{ receipt_metadata.material_brand_snapshot }}{% else %}—{% endif %}</dd>
+                                <dt>Kayıt anındaki model / teknik tanım</dt>
+                                <dd>{% if receipt_metadata.material_model_snapshot %}{{ receipt_metadata.material_model_snapshot }}{% else %}—{% endif %}</dd>
+                            </dl>
+                        </div>
+                    </details>
+                {% else %}
+                    <p class="text-body-secondary mb-0">Bu giriş mal kabul bilgisi olmadan kaydedilmiş (önceki sürüm kaydı).</p>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+</div>
 
 {% if receipt_expiry %}
-    <h2 class="h5 mt-4">Fiziksel kontrol</h2>
-    <p class="text-body-secondary">Kontrol kaydı stok miktarını, konumu ve defteri değiştirmez. Otomatik düşüm veya imha yoktur.</p>
-    {% if expiry_inspections %}
-        {% with latest=expiry_inspections|last %}
-            <p>Son sonuç: <strong>{{ latest.get_outcome_display }}</strong>. Uyarı, kontrol kaydı yüzünden kalkmaz.</p>
-        {% endwith %}
-        <ul class="list-group mb-3">
-            {% for inspection in expiry_inspections %}
-                <li class="list-group-item">
-                    <div class="small text-body-secondary">{{ inspection.recorded_at }} — {{ inspection.actor.get_username }} — {{ inspection.get_outcome_display }}</div>
-                    <div>{{ inspection.note }}</div>
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p>Henüz fiziksel kontrol kaydı yok.</p>
-    {% endif %}
-    {% if perms.inventory.receive_stock %}
-        <a class="btn btn-outline-primary" href="{% url 'inventory:expiry-inspection-create' receipt.id %}">Fiziksel kontrol kaydet</a>
-    {% endif %}
+    <section class="panel mt-3" aria-labelledby="inspection-title">
+        <div class="panel-head">
+            <h2 id="inspection-title">Fiziksel kontrol</h2>
+            {% if perms.inventory.receive_stock %}
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'inventory:expiry-inspection-create' receipt.id %}">{% icon "clipboard-check" %}Fiziksel kontrol kaydet</a>
+            {% endif %}
+        </div>
+        <div class="panel-body">
+            <p class="text-body-secondary">Kontrol kaydı stok miktarını, konumu ve defteri değiştirmez. Otomatik düşüm veya imha yoktur.</p>
+            {% if expiry_inspections %}
+                {% with latest=expiry_inspections|last %}
+                    <p>Son sonuç: <strong>{{ latest.get_outcome_display }}</strong>. Uyarı, kontrol kaydı yüzünden kalkmaz.</p>
+                {% endwith %}
+                <ul class="list-group mb-0">
+                    {% for inspection in expiry_inspections %}
+                        <li class="list-group-item">
+                            <div class="small text-body-secondary">{{ inspection.recorded_at }} — {{ inspection.actor.get_username }} — {{ inspection.get_outcome_display }}</div>
+                            <div>{{ inspection.note }}</div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="mb-0">Henüz fiziksel kontrol kaydı yok.</p>
+            {% endif %}
+        </div>
+    </section>
 {% endif %}
-
-{% if not line.serialized_asset_id and perms.inventory.transfer_stock %}
-    <p class="mt-4 mb-0">Bu kayıt malzemenin bulunduğu konumdur. Kullanıldığı yer raf yerleşimi değildir. Fiziksel rafa yerleştirmek için <strong>Yerleştir / Transfer Et</strong> kullanın; stok doğrudan son rafa yazılmaz.</p>
-{% endif %}
-<p class="mt-3 mb-0 text-body-secondary small">Bu ekran gelen mal kabul kaydını gösterir. Giden hareket veya tam Excel kolon eşlemesi bu dilimde yoktur.</p>
 {% endblock %}

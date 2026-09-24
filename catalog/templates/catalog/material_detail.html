@@ -222,7 +222,7 @@
                             </td>
                             <td class="stack-full" data-label="Konum">
                                 {% if line.source_location %}<span class="loc" title="{{ line.source_location.name }}">{{ line.source_location.code }}</span>{% endif %}
-                                {% if line.source_location and line.target_location %}{% icon "arrow-right" %}{% endif %}
+                                {% if line.source_location and line.target_location %}<span class="mx-1">→</span>{% endif %}
                                 {% if line.target_location %}<span class="loc" title="{{ line.target_location.name }}">{{ line.target_location.code }}</span>{% endif %}
                                 {% if not line.source_location and not line.target_location %}—{% endif %}
                             </td>

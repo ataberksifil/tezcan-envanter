@@ -1,7 +1,7 @@
 # UI Modernizasyon — Durum
 
 **Başlangıç HEAD:** `fca1ad455ef203f40b09aafc25e15bed54619c25` (= origin/main)
-**Güncel faz:** Faz 3 — Stok hareket formları ve detayları
+**Güncel faz:** Faz 4 — Talep Takip ve SKT
 **Plan:** [UI-POLISH-MASTER-PLAN.md](UI-POLISH-MASTER-PLAN.md) · **Tasarım:** [UI-DESIGN-SYSTEM.md](UI-DESIGN-SYSTEM.md)
 
 ## Tamamlanan fazlar
@@ -9,7 +9,8 @@
 | Faz | Commit | Not |
 |---|---|---|
 | 1 — Temel sistem + prototip ekranlar | `8313adc` | Kabuk, ana sayfa, Mevcut Stok, Stok girişi, hata sayfaları |
-| 2 — Malzeme bulma ve katalog | (bu commit) | Malzeme listesi (stok özeti), detay (raf dağılımı + satır "Taşı"), form (bölümler, model okutma Enter güvenliği), stok aramasında anahtar kelime + kelime sırasından bağımsız eşleşme |
+| 2 — Malzeme bulma ve katalog | `2deb9b4` | Malzeme listesi (stok özeti), detay (raf dağılımı + satır "Taşı"), form (bölümler, model okutma Enter güvenliği), stok aramasında anahtar kelime + kelime sırasından bağımsız eşleşme |
+| 3 — Stok hareket formları ve detayları | (bu commit) | Giriş/çıkış/iade/transfer formları ve detayları, tekil varlık ekranları |
 
 ## Faz 1 kapsamı
 
@@ -35,6 +36,13 @@ Tasarım sistemi (tokenlar, IBM Plex + Bootstrap Icons alt kümesi yerel), kabuk
 - Onaylı miktar biçimi nedeniyle güncellenen beklentiler: `inventory/tests/test_stock_list_ui.py` (malzeme detayı 5/2), `catalog/tests/test_material_ui.py` (minimum stok `12,5`).
 - Playwright: malzeme listesi/detay/form 1440/1280/1024/768/390 taşma 0; "Taşı" → transfer formu malzeme+kaynak+kondisyon ön-dolu; model alanına HID okutma + Enter formu kaydetmedi. Dev DB'de atölye malzemeleri (teflon, 63A…) yok; bu aramalar otomatik testte sentetik veriyle doğrulandı.
 
+## Faz 3 doğrulama
+
+- Kapsam: stok girişi detayı ("Sonraki adım": Yerleştir / Transfer Et + etiket), tekil varlık girişi, transfer (kaynak sarı → hedef yeşil, iki rafa da okutma), stok çıkışı (ne/nereden ve kime/nerede bölümleri), iade, tüm hareket detayları, tekil varlık detayı ve varlık çıkış/iade/transfer formları; ortak `core/_form_fields.html` ve `_form_errors.html`; iade seçenek etiketinden UUID kaldırıldı, miktarlar Türkçe biçimde (`core/formatting.py`).
+- Transfer ve çıkışta önizleme adımı yoktur (mevcut davranış: açık "…kaydet" düğmesi). Okuyucu Enter'ı bu formları göndermez.
+- pytest: `inventory procurement identification core` → 918 passed; onaylı biçim nedeniyle güncellenen beklentiler: `test_quantity_return_ui.py` (10/4/6, `Kalan: 10 <birim>`), `test_quantity_transfer_ui.py` (4).
+- Playwright: 12 ekran × 1440/390 → 200, yatay taşma 0, konsol hatası yok; transfer formunda HID okutma + Enter seçim yaptı, gönderim yok; boş çıkış formu sunucu doğrulamasıyla 7 alan hatası.
+
 ## Sonraki adım
 
-Faz 3 — Stok hareket formları ve detayları.
+Faz 4 — Talep Takip ve SKT (izole test kullanıcılarıyla; talep bağlantılı mal kabulde SKT doğrulaması).

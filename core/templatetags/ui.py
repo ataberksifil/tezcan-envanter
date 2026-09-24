@@ -1,11 +1,10 @@
-from decimal import Decimal, InvalidOperation
-
 from django import template
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
+from core.formatting import format_quantity
 from core.ui_session import ROLE_LABEL_SESSION_KEY, build_role_label
 
 register = template.Library()
@@ -52,32 +51,8 @@ def role_label(context, user):
 
 @register.filter
 def qty(value):
-    """Show a stored quantity in Turkish notation without padded zeros.
-
-    Presentation only: 80.000 -> "80", 2.500 -> "2,5", 1250.750 -> "1.250,75".
-    Stored Decimal values and form parsing are unchanged.
-    """
-    if value is None or value == "":
-        return "—"
-    try:
-        number = Decimal(str(value))
-    except (InvalidOperation, ValueError):
-        return value
-    if not number.is_finite():
-        return value
-    if number == number.to_integral_value():
-        number = number.quantize(Decimal(1))
-    else:
-        number = number.normalize()
-    sign = "-" if number < 0 else ""
-    integer_part, _, fraction = format(abs(number), "f").partition(".")
-    groups = []
-    while len(integer_part) > 3:
-        groups.insert(0, integer_part[-3:])
-        integer_part = integer_part[:-3]
-    groups.insert(0, integer_part)
-    text = sign + ".".join(groups)
-    return f"{text},{fraction}" if fraction else text
+    """Turkish quantity display; see core.formatting.format_quantity."""
+    return format_quantity(value)
 
 
 # The resolver accepts any of these view permissions (identification.views).
