@@ -69,6 +69,8 @@ def _post_data(objects, **overrides):
         "serial_number": "UI-SERIAL-001",
         "condition": str(objects["condition"].pk),
         "target_location": str(objects["location"].pk),
+        "usage_place": "Tavlama",
+        "arrived_on": "2026-09-20",
     }
     values.update(overrides)
     return values

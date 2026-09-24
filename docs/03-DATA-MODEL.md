@@ -158,7 +158,7 @@ Belge yürütülebilir SQL, Django modeli veya migration içermez. Tablo ve kıs
 - **Check Constraints:** `tracking_mode IN (QUANTITY, SERIALIZED)`; `minimum_stock_value IS NULL OR minimum_stock_value >= 0`; `technical_specs` JSON object olmalıdır.
 - **Recommended Indexes:** `material_code`, `name`, `category_id`, `active`. GIN yalnızca gerçek JSONB arama ihtiyacı ölçüldüğünde.
 - **Delete Policy:** Referans varsa `SOFT DELETE / DEACTIVATE`; history sonrası hard delete yok.
-- **Notes / TBD:** `stock_quantity` alanı kesinlikle yoktur. Bir material herhangi bir inventory ledger history'ye sahip olduktan sonra `tracking_mode` normal uygulama yollarında immutable'dır (`DEC-013`). Exceptional veri dönüşümü ayrı iş kararı ve migration projesidir. Historical material code uniqueness ve import matching `DEC-OPEN-021` açık kalır. Kategori-özel teknik alanlar controlled `TechnicalFieldDefinition`-style metadata ile yönetilir (`DEC-021`, `DEC-OPEN-019`). `DEC-039` Talep tabloları `procurement` app'indedir ve ledger'a FK taşımaz. SKT/paket/usage-place tabloları yoktur.
+- **Notes / TBD:** `stock_quantity` alanı kesinlikle yoktur. Bir material herhangi bir inventory ledger history'ye sahip olduktan sonra `tracking_mode` normal uygulama yollarında immutable'dır (`DEC-013`). Exceptional veri dönüşümü ayrı iş kararı ve migration projesidir. Historical material code uniqueness ve import matching `DEC-OPEN-021` açık kalır. Kategori-özel teknik alanlar controlled `TechnicalFieldDefinition`-style metadata ile yönetilir (`DEC-021`, `DEC-OPEN-019`). `DEC-039` Talep tabloları `procurement` app'indedir ve ledger'a FK taşımaz. `DEC-040` receipt metadata `inventory` app'indedir; SKT tablosu yoktur.
 
 ## 6. Location Tabloları
 
@@ -342,6 +342,35 @@ Module owner: `inventory`. Location hiyerarşisinden bağımsız ayrı domain ya
 - **Recommended Indexes:** `receiver_employee_id`, gerekirse `receiver_employee_number_snapshot`; transaction PK indeksi yeterlidir.
 - **Delete Policy:** İlgili transaction gibi `IMMUTABLE / NO DELETE`.
 - **Notes / TBD:** Ayrı tablo; ISSUE dışı işlemlerde gereksiz nullable kolonları önler. `transaction_type = ISSUE`, her ISSUE için context completeness ve persisted context immutability Phase 4.2A PostgreSQL guards ile uygulanmıştır; RETURN IssueContext sahiplenemez. ProductionLine foundation `DEC-025`, Employee foundation `DEC-024`, quantity ISSUE contract `DEC-027` ile kararlıdır. `usage_location_text` exact usage place olarak ayrı required free text kalır; `UsagePlace` modeli yoktur; Location veya ProductionLine'dan infer edilmez.
+
+## 10A. Receipt Metadata
+
+### 10A.1 `receipt_metadata`
+
+**Purpose:** İsteğe bağlı, immutable mal kabul kaydı. Historical `RECEIPT` satırları bu tablo olmadan geçerli kalır (`DEC-040`).
+
+| Column | Conceptual Type | Null | Constraint | Description |
+|---|---|---:|---|---|
+| `transaction_id` | UUID | Hayır | PK, FK, UNIQUE | İlgili `RECEIPT` transaction. |
+| `usage_place` | VARCHAR(255) | Hayır | Boş olamaz | Kullanıldığı / uygulandığı yer; Location değildir. |
+| `arrived_on` | DATE | Hayır | Gelecek gün değil (servis) | Fiziksel geliş tarihi; `occurred_at` değildir. |
+| `supplier_name` | VARCHAR(255) | Evet | Boş ise NULL | Receipt-level serbest metin; tedarikçi master yoktur. |
+| `package_count` | INTEGER | Evet | Paket grubu ile birlikte | İsteğe bağlı paket adedi. |
+| `package_label` | VARCHAR(64) | Evet | Boş ise NULL | Örn. `KUTU`; UoM FK değildir. |
+| `contents_per_package` | NUMERIC(18,3) | Evet | Paket grubu ile birlikte | Stok birimindeki paket içi miktar. |
+| `material_code_snapshot` | VARCHAR(64) | Hayır | Boş olamaz | Kayıt anındaki malzeme kodu. |
+| `material_name_snapshot` | VARCHAR(255) | Hayır | Boş olamaz | Kayıt anındaki ad. |
+| `material_brand_snapshot` | VARCHAR(255) | Evet | Boş ise NULL | Kayıt anındaki marka. |
+| `material_model_snapshot` | VARCHAR(255) | Evet | Boş ise NULL | Kayıt anındaki model / teknik tanım. |
+| `unit_code_snapshot` | VARCHAR(64) | Evet | Boş ise NULL | Kayıt anındaki stok birim kodu. |
+| `unit_name_snapshot` | VARCHAR(255) | Evet | Boş ise NULL | Kayıt anındaki stok birim adı. |
+| `created_at` | TIMESTAMPTZ | Hayır | Sistem zamanı | Metadata kayıt zamanı. |
+
+- **Primary Key:** `transaction_id`
+- **Foreign Keys:** `transaction_id → inventory_transactions.id`; delete restricted.
+- **Check Constraints:** usage/name/code boş olamaz; packaging ya tamamen boştur ya da `package_count >= 1` ve `contents_per_package > 0`.
+- **Delete Policy:** `IMMUTABLE / NO DELETE`.
+- **Notes:** RECEIPT type guard + immutability trigger. Tüm RECEIPT'ler için zorunlu completeness trigger yoktur. Paket çarpımı serviste, quantity RECEIVE için `package_count × contents_per_package = received quantity`. Generic UoM conversion yoktur. Ledger Talep FK taşımaz.
 
 ## 11. Correction Tabloları
 
@@ -796,6 +825,7 @@ Broader RETURN ve controlled correction semantics kesinleşmeden DB'ye ek zorunl
 | `inventory_transaction_lines` | IMMUTABLE / NO DELETE | Yetkili ledger ayrıntısı. |
 | `stock_balances` | SYSTEM-REBUILDABLE | Projection; kullanıcı düzenleme/silme yetkisi yok. |
 | `issue_contexts` | IMMUTABLE / NO DELETE | Tarihsel alıcı ve kullanım snapshot'ı. |
+| `receipt_metadata` | IMMUTABLE / NO DELETE | İsteğe bağlı mal kabul kaydı; historical RECEIPT'siz geçerli (`DEC-040`). |
 | `correction_requests` | NO HARD DELETE AFTER SUBMISSION | Talep ve karar izi korunur. |
 | `correction_evidence` | IMMUTABLE / NO HARD DELETE | Kanıt fotoğrafı metadata'sı; V1 otomatik silme yok (`DEC-034`). |
 | `physical_count_sessions` | RETAIN / NO HARD DELETE | Mutabakat kanıtı. |

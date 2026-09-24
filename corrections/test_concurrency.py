@@ -103,6 +103,7 @@ class ControlledCorrectionConcurrencyTests(TransactionTestCase):
                     audit_auditevent,
                     corrections_correctionevidence,
                     corrections_correctionrequest,
+                    inventory_receiptmetadata,
                     inventory_issuecontext,
                     inventory_inventorytransactionline,
                     inventory_inventorytransaction,

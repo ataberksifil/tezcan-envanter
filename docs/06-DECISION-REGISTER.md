@@ -596,6 +596,26 @@ Task 0.8 mimari audit bulguları bu belgede `Gate0-AUD-001`–`Gate0-AUD-018` ol
 - **Consequence:** `procurement` owns Talep data and calls existing inventory receive services. Inventory kernel math is unchanged.
 - **Implementation status:** Implemented in `feat: add purchase request tracking` (`DEC-039`).
 
+### DEC-040 — Mal Kabul Receipt Metadata
+
+- **Status:** `DECIDED`
+- **Required before / recorded with:** Inbound / Mal Kabul receipt-metadata slice
+- **Extends:** `DEC-037` items 6 and 11 (packaging metadata, usage/application place); `DEC-003` RECEIPT remains the stock increase; `DEC-039` Talep RECEIPT linkage and single-count fulfillment
+- **Does not resolve:** `DEC-OPEN-010` unit conversion; SKT/expiry/FEFO/lot allocation; supplier master; procurement accounting; carton unique identity; Excel import/export; outgoing-record Excel parity
+- **Decision:**
+  1. **Optional immutable sidecar.** `ReceiptMetadata` is inventory-owned, 1:1 with a `RECEIPT` `InventoryTransaction`. Historical receipts remain valid without a row. A RECEIPT may have at most one metadata row. Non-RECEIPT transactions cannot own it. Persisted metadata is immutable; ordinary UPDATE/DELETE is blocked at model and DB-guard level.
+  2. **Usage/application place ≠ Location.** Required free text when metadata is supplied (trim leading/trailing whitespace; internal text/case preserved). Examples: `Tavlama`, `SOĞUTMA KULESİ PANEL`. Physical stock Location remains the RECEIPT `target_location` (for example `Elektrik Ambarı → R03 → G07` or staging `MK-BEKLEYEN`). Location is not reused as usage place. `UsagePlace` master is not introduced. Recording usage place never writes or implies shelf placement; staging RECEIVE → TRANSFER putaway is unchanged.
+  3. **Physical arrival date is separate from ledger time.** `arrived_on` is a date. It may be earlier than system entry. It cannot be a future local date. `InventoryTransaction.occurred_at` remains the actual recording timestamp and is not rewritten.
+  4. **Identification snapshots.** When metadata is written, the service snapshots Material `material_code`, `name`, `brand`, `model` and unit code/name at commit time. Later Material card edits do not change stored snapshots. Live Material fields remain for navigation; they are not the historical inbound record.
+  5. **Supplier is receipt-level free text.** Optional; no supplier master. A Talep line company/supplier name may prefill the form and stays editable. The editable value is what is stored on `ReceiptMetadata`.
+  6. **Packaging is optional metadata, not conversion.** Quantity RECEIVE may record `package_count`, optional `package_label`, and `contents_per_package` in the Material's authoritative stock unit. If any packaging field is present, count and contents are required together. `package_count × contents_per_package` must equal the received quantity. A Material stocked in `KUTU` uses that unit (for example `2 × 1 KUTU`). A Material stocked in `ADET` may record `2 KUTU × 1000 ADET` only when the received quantity is `2000 ADET`. No general UoM conversion engine. No unique carton identity. Serialized RECEIVE uses the same usage/arrival/supplier/snapshot semantics and rejects packaging arithmetic.
+  7. **Atomic commit and idempotency.** Metadata is created in the same DB transaction as the RECEIPT. Failure rolls back ledger, projection and metadata. Metadata semantic fields participate in `request_fingerprint` only when metadata is supplied; absent metadata keeps the previous fingerprint contract. Same `operation_id` + same fingerprint replays the existing row and does not create a second metadata row. Same ID + different metadata is conflict.
+  8. **Talep integration preserved.** `PurchaseRequestReceipt` still points at the immutable RECEIPT and counts that receipt exactly once. ISSUE/TRANSFER cannot fulfill. Idempotent retry of a linked receive does not double-count. Ledger still has no Talep FK.
+  9. **UI.** Quantity RECEIVE preview/back remains non-mutating and shows usage place, arrival date, supplier and packaging before confirm. Receipt detail and transaction history show the recorded inbound record. Outgoing Excel columns are not claimed complete.
+  10. **Permissions and arithmetic unchanged.** `inventory.receive_stock` remains the receive permission. Authoritative inventory quantity/serialized math, TZ1 identity and `DEC-OPEN-010` are unchanged.
+- **Consequence:** Depot inbound records can retain product/brand, technical/model snapshot, quantity/unit, usage/application place, arrival date, optional supplier and optional packaging without changing stock math or putaway.
+- **Implementation status:** Implemented and committed (`DEC-040`, `feat: add receipt metadata`). Inbound / Mal Kabul programı COMPLETE işaretlenmez.
+
 ## 3. Açık İş Kararları
 
 Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` alanında kanonik karar kaydına bağlanır.
@@ -666,7 +686,7 @@ Bu tablo legacy kimlikleri silmez. Aynı konuya ait eski kimlikler `Source IDs` 
 | Baseline schema/cutover | **COMPLETE** (Phase 5.4 backend + 5.4E permission rollout + operational UI at `1dedd34`). `InventoryBaseline`, scoped `INITIAL_BALANCE`, combined QUANTITY+SERIALIZED establishment. `DEC-002` / `DEC-015` / `DEC-032` / `DEC-033` korunur. |
 | Low stock/reporting | `DEC-OPEN-003`, `DEC-OPEN-014`, `DEC-OPEN-017` |
 | Machine-readable identification | **COMPLETE** (Phase 5.8, `DEC-036`) at `c53a34a4b33e060e5f6365a9f191a1f24b1f17f0`. Code128 standart / QR kompakt; canonical `TZ1M`/`TZ1A`/`TZ1L` payload. `DEC-037` tedarikçi barkodunun yetkili kimlik olmadığını teyit eder. Workshop hardware profile `DEC-038`. `DEC-IT-006` mobile/tablet intranet; ownership `DEC-011` |
-| Inbound / Mal Kabul V1 first slice | **COMMITTED** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`). Program COMPLETE değildir. Talep Takip V1 `DEC-039` ile uygulanır. SKT, paket conversion, inbound usage-place/packaging metadata ve production staging-location configuration sonraki dilimdir. |
+| Inbound / Mal Kabul V1 first slice | **COMMITTED** at `c6cc90e131a65816fadf55aa3f63f6bdfa254426` (`DEC-037`). Program COMPLETE değildir. Talep Takip V1 `DEC-039` ile uygulanır. Receipt metadata (usage/application place, arrival date, supplier, optional packaging) `DEC-040` ile uygulanır. SKT, generic paket conversion ve production staging-location configuration sonraki dilimdir. |
 | Deployment/pilot | `DEC-IT-001`–`DEC-IT-005`, restore drill; uzun dönem retention için `DEC-OPEN-018` |
 | Phase 2 catalog/configuration UI | `DEC-021`: dynamic configuration principle, seed≠whitelist, UoM/role/technical-spec boundaries |
 | Phase 2.9B-0 access management policy | `DEC-022`: management capability, allowlist, anti-escalation, audit identity, Admin/UI boundary |

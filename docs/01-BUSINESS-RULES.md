@@ -87,8 +87,9 @@ Bilinen başlangıç alanları Elektrik Deposu, Alkali Elektrik alanındaki kabl
 | RCV-004 | CONFIRMED | Stok girişi, malzemenin takip moduna uygun miktar veya tekil varlık bilgisiyle ve geçerli hedef lokasyonla kaydedilmelidir. | Miktar ve tekil takip birbirine karıştırılmamalıdır. |
 | RCV-005 | TBD DEPENDENCY | Satın alma, sipariş, tedarikçi, irsaliye ve kabul kontrolü kuralları onaylanmamıştır. | Bu bilgiler stok girişi için zorunlu kabul edilemez. |
 | RCV-006 | CONFIRMED | Gelen malzeme fiziksel son rafa ulaşmadan, gerçek stok tutan bir mal kabul / yerleştirme bekleyen Location'a `RECEIVE` edilebilir; raf yerleşimi mevcut `TRANSFER` ile yapılır (`DEC-037`). Sahte son-raf stoğu yazılmaz. | Fiziksel konum gerçeği korunur. |
-| RCV-007 | CONFIRMED | Malzemenin stok birimi authoritative'dir; paket adedi stoğu sessizce çarpmaz. Generic birim dönüşümü yoktur (`DEC-037`, `DEC-OPEN-010` OPEN). | `2 KUTU × 1000 ADET` örneği ancak açık miktar olarak `2000 ADET` kaydedilir. |
+| RCV-007 | CONFIRMED | Malzemenin stok birimi authoritative'dir; paket adedi stoğu sessizce çarpmaz. Generic birim dönüşümü yoktur (`DEC-037`, `DEC-040`, `DEC-OPEN-010` OPEN). | `2 KUTU × 1000 ADET` paket bilgisi yalnız stok birimi `ADET` ve miktar `2000` iken metadata olarak tutulur. |
 | RCV-008 | DECIDED | Şirket Talep No takibi stok oluşturmaz. Karşılanan miktar yalnız gerçek `RECEIVE` bağlantısından türetilir (`DEC-039`). Tedarikçi serbest metindir; sipariş/fatura/SKT bu kuralın parçası değildir. | `RCV-005` satın alma master'ını açmaz. |
+| RCV-009 | DECIDED | Yeni mal kabul kaydı, kullanıldığı/uygulandığı yeri fiziksel stok Location'dan ayrı serbest metin olarak ve fiziksel geliş tarihini sistem kayıt zamanından ayrı tutar (`DEC-040`). Tedarikçi ve paket bilgisi isteğe bağlıdır. Historical RECEIPT metadata'sız geçerli kalır. | `Tavlama` raf adresi değildir; `occurred_at` değişmez. |
 
 ### 7.1 Saha / Atölye Malzeme Alım Talepleri
 

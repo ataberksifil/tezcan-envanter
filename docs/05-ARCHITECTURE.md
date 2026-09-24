@@ -98,7 +98,7 @@ Pragmatik V1 yapısı dokuz başlangıç Django app'i, Phase 5.8 `identification
 | `accounts` | Employee, user profile, rol/grup kurulum politikası | Django auth, `audit` write API | Stok veya katalog değiştirmek |
 | `catalog` | Category, UnitOfMeasure, MaterialCondition, Material | `audit` write API | StockBalance/ledger değiştirmek |
 | `locations` | Location hiyerarşisi ve pasifleştirme | `audit` write API | Transfer veya stok düzeltmesi yapmak |
-| `inventory` | SerializedAsset, InventoryTransaction/Line, IssueContext, StockBalance; tüm stok mutation servisleri | `accounts`, `catalog`, `locations`, `audit` | Import UI, correction kararı veya rapor sahipliği |
+| `inventory` | SerializedAsset, InventoryTransaction/Line, IssueContext, ReceiptMetadata, StockBalance; tüm stok mutation servisleri | `accounts`, `catalog`, `locations`, `audit` | Import UI, correction kararı veya rapor sahipliği |
 | `corrections` | CorrectionRequest, CorrectionEvidence; talep/karar/evidence orkestrasyonu | `accounts`, `inventory`, `core.storage`, `audit` | Ledger'ı doğrudan yazmak; inventory service çağırır |
 | `counting` | PhysicalCountSession, quantity/asset count lines, discrepancy approval/disposition ve baseline session links | `accounts`, `catalog`, `locations`, `inventory`, `audit` | Farkı doğrudan StockBalance'a yazmak veya routine discrepancy'yi `CorrectionRequest`a yönlendirmek |
 | `imports` | ImportBatch/Row, Excel parse/validate/preview, InventoryBaseline orkestrasyonu | `accounts`, `catalog`, `locations`, `inventory`, `counting`, `audit`, `core.storage` | Upload sonrası doğrudan yetkili bakiye yazmak |
@@ -561,6 +561,7 @@ V1 raporları ilişkisel sorgularla şu kaynaklardan üretilir:
 - `InventoryTransaction`
 - `InventoryTransactionLine`
 - `IssueContext`
+- `ReceiptMetadata`
 - `StockBalance`
 - `SerializedAsset`
 - `Material`

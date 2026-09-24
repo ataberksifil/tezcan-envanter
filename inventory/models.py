@@ -569,6 +569,116 @@ class IssueContext(models.Model):
         raise ValidationError("Stok çıkış bağlamı silinemez.")
 
 
+class ReceiptMetadata(models.Model):
+    """Optional immutable inbound record for a RECEIPT. Historical receipts may omit it."""
+
+    transaction = models.OneToOneField(
+        InventoryTransaction,
+        primary_key=True,
+        on_delete=models.RESTRICT,
+        related_name="receipt_metadata",
+    )
+    usage_place = models.CharField(max_length=255)
+    arrived_on = models.DateField()
+    supplier_name = models.CharField(max_length=255, null=True, blank=True)
+    package_count = models.PositiveIntegerField(null=True, blank=True)
+    package_label = models.CharField(max_length=64, null=True, blank=True)
+    contents_per_package = models.DecimalField(
+        max_digits=18,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    material_code_snapshot = models.CharField(max_length=64)
+    material_name_snapshot = models.CharField(max_length=255)
+    material_brand_snapshot = models.CharField(max_length=255, null=True, blank=True)
+    material_model_snapshot = models.CharField(max_length=255, null=True, blank=True)
+    unit_code_snapshot = models.CharField(max_length=64, null=True, blank=True)
+    unit_name_snapshot = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["arrived_on"], name="inventory_rcpt_meta_arr_idx"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=~Q(usage_place__regex=r"^\s*$"),
+                name="inventory_rcpt_meta_usage_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=~Q(material_code_snapshot__regex=r"^\s*$"),
+                name="inventory_rcpt_meta_code_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=~Q(material_name_snapshot__regex=r"^\s*$"),
+                name="inventory_rcpt_meta_name_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=Q(supplier_name__isnull=True)
+                | ~Q(supplier_name__regex=r"^\s*$"),
+                name="inventory_rcpt_meta_supplier_shape",
+            ),
+            models.CheckConstraint(
+                condition=Q(material_brand_snapshot__isnull=True)
+                | ~Q(material_brand_snapshot__regex=r"^\s*$"),
+                name="inventory_rcpt_meta_brand_shape",
+            ),
+            models.CheckConstraint(
+                condition=Q(material_model_snapshot__isnull=True)
+                | ~Q(material_model_snapshot__regex=r"^\s*$"),
+                name="inventory_rcpt_meta_model_shape",
+            ),
+            models.CheckConstraint(
+                condition=Q(unit_code_snapshot__isnull=True)
+                | ~Q(unit_code_snapshot__regex=r"^\s*$"),
+                name="inventory_rcpt_meta_unit_code_shape",
+            ),
+            models.CheckConstraint(
+                condition=Q(unit_name_snapshot__isnull=True)
+                | ~Q(unit_name_snapshot__regex=r"^\s*$"),
+                name="inventory_rcpt_meta_unit_name_shape",
+            ),
+            models.CheckConstraint(
+                condition=Q(package_label__isnull=True)
+                | ~Q(package_label__regex=r"^\s*$"),
+                name="inventory_rcpt_meta_pkg_label_shape",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        package_count__isnull=True,
+                        contents_per_package__isnull=True,
+                        package_label__isnull=True,
+                    )
+                    | (
+                        Q(package_count__gte=1)
+                        & Q(contents_per_package__gt=Decimal("0"))
+                    )
+                ),
+                name="inventory_rcpt_meta_packaging_shape",
+            ),
+        ]
+
+    def packaging_display(self) -> str | None:
+        if self.package_count is None or self.contents_per_package is None:
+            return None
+        label = self.package_label or "paket"
+        unit = self.unit_code_snapshot or ""
+        contents = format(self.contents_per_package, "f")
+        if unit:
+            return f"{self.package_count} {label} × {contents} {unit}"
+        return f"{self.package_count} {label} × {contents}"
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Mal kabul kaydı değiştirilemez.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Mal kabul kaydı silinemez.")
+
+
 class StockBalance(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     material = models.ForeignKey(

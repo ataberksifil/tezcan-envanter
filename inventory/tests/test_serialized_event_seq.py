@@ -65,30 +65,35 @@ class SerializedEventSeqMigrationTests(TransactionTestCase):
         )
 
     def _truncate_inventory(self):
+        tables = (
+            "inventory_baseline_transaction_links",
+            "inventory_baseline_count_session_links",
+            "inventory_baselines",
+            "counting_physicalcountserializedline",
+            "counting_physicalcountquantityrejection",
+            "counting_physicalcountquantityline",
+            "counting_physicalcountsession",
+            "corrections_correctionevidence",
+            "corrections_correctionrequest",
+            "inventory_receiptmetadata",
+            "inventory_issuecontext",
+            "inventory_inventorytransactionline",
+            "inventory_inventorytransaction",
+            "inventory_stockbalance",
+            "inventory_serializedasset",
+        )
+        existing = set(connection.introspection.table_names())
+        present = [name for name in tables if name in existing]
+        if not present:
+            return
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                TRUNCATE TABLE
-                    inventory_baseline_transaction_links,
-                    inventory_baseline_count_session_links,
-                    inventory_baselines,
-                    counting_physicalcountserializedline,
-                    counting_physicalcountquantityrejection,
-                    counting_physicalcountquantityline,
-                    counting_physicalcountsession,
-                    corrections_correctionevidence,
-                    corrections_correctionrequest,
-                    inventory_issuecontext,
-                    inventory_inventorytransactionline,
-                    inventory_inventorytransaction,
-                    inventory_stockbalance,
-                    inventory_serializedasset
-                """
-            )
+            cursor.execute("TRUNCATE TABLE " + ", ".join(present))
 
     def _fixture_teardown(self):
-        self._truncate_inventory()
-        call_command("migrate", verbosity=0)
+        try:
+            self._truncate_inventory()
+        finally:
+            call_command("migrate", verbosity=0)
         Material.objects.filter(pk=self.material.pk).delete()
         Location.objects.filter(pk=self.location.pk).delete()
         MaterialCondition.objects.filter(pk=self.condition.pk).delete()

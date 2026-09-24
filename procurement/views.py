@@ -10,6 +10,7 @@ from inventory.forms import (
     SerializedReceiptForm,
     attach_receipt_validation_error,
     attach_serialized_receipt_validation_error,
+    receipt_metadata_from_cleaned,
 )
 from locations.display import location_path_label
 from procurement.forms import MaterialLinkForm, PurchaseRequestForm, PurchaseRequestLineForm
@@ -422,6 +423,8 @@ class PurchaseRequestLineReceiveView(LoginRequiredMixin, PermissionRequiredMixin
         initial = {"material": line.material_id}
         if remaining > 0:
             initial["quantity"] = remaining
+        if line.supplier_name:
+            initial["supplier_name"] = line.supplier_name
         return self._render(request, line, QuantityReceiptForm(initial=initial))
 
     def post(self, request, pk, line_pk):
@@ -450,6 +453,10 @@ class PurchaseRequestLineReceiveView(LoginRequiredMixin, PermissionRequiredMixin
                 condition_id=form.cleaned_data["condition"].pk,
                 target_location_id=form.cleaned_data["target_location"].pk,
                 quantity=form.cleaned_data["quantity"],
+                receipt_metadata=receipt_metadata_from_cleaned(
+                    form.cleaned_data,
+                    include_packaging=True,
+                ),
             )
         except PermissionDenied:
             raise
@@ -474,6 +481,12 @@ class PurchaseRequestLineReceiveView(LoginRequiredMixin, PermissionRequiredMixin
             "condition": form.cleaned_data["condition"],
             "quantity": form.cleaned_data["quantity"],
             "unit": material.unit,
+            "usage_place": form.cleaned_data["usage_place"],
+            "arrived_on": form.cleaned_data["arrived_on"],
+            "supplier_name": form.cleaned_data.get("supplier_name") or "",
+            "package_count": form.cleaned_data.get("package_count"),
+            "package_label": form.cleaned_data.get("package_label") or "",
+            "contents_per_package": form.cleaned_data.get("contents_per_package"),
         }
 
     def _render(self, request, line, form, *, preview=None):
@@ -515,7 +528,12 @@ class PurchaseRequestLineSerializedReceiveView(LoginRequiredMixin, PermissionReq
             request,
             self.template_name,
             {
-                "form": SerializedReceiptForm(initial={"material": line.material_id}),
+                "form": SerializedReceiptForm(
+                    initial={
+                        "material": line.material_id,
+                        "supplier_name": line.supplier_name or "",
+                    }
+                ),
                 "form_title": "Talep için tekil varlık girişi",
                 "submit_label": "Kaydet",
                 "purchase_request_line": line,
@@ -557,6 +575,10 @@ class PurchaseRequestLineSerializedReceiveView(LoginRequiredMixin, PermissionReq
                 serial_number=form.cleaned_data["serial_number"],
                 condition_id=form.cleaned_data["condition"].pk,
                 target_location_id=form.cleaned_data["target_location"].pk,
+                receipt_metadata=receipt_metadata_from_cleaned(
+                    form.cleaned_data,
+                    include_packaging=False,
+                ),
             )
         except PermissionDenied:
             raise

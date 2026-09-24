@@ -14,6 +14,7 @@ from inventory.services.projections import (
 from inventory.services.issues import issue_quantity, issue_serialized
 from inventory.services.receipts import (
     InventoryMutationResult,
+    ReceiptMetadataInput,
     receive_quantity,
     receive_serialized,
 )
@@ -23,6 +24,7 @@ from inventory.services.reconciliations import reconcile_quantity_count
 
 __all__ = [
     "InventoryMutationResult",
+    "ReceiptMetadataInput",
     "QuantityOpening",
     "QuantityProjectionMismatch",
     "SerializedOpening",

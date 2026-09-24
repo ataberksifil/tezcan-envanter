@@ -16,7 +16,7 @@
             id="id_q"
             name="q"
             value="{{ q }}"
-            placeholder="Malzeme, varlık kodu/seri, kullanıcı, alıcı, kullanım yeri"
+            placeholder="Malzeme, varlık kodu/seri, kullanıcı, alıcı, kullanım yeri, tedarikçi"
         >
     </div>
     <div class="col-md-2">
@@ -114,6 +114,9 @@
                                     {{ line.source_location.code }}
                                 {% elif transaction.transaction_type == "RECEIPT" and line.target_location %}
                                     {{ line.target_location.code }}
+                                    {% if transaction.receipt_metadata %}
+                                        <div class="small text-body-secondary">Kullanım: {{ transaction.receipt_metadata.usage_place }}</div>
+                                    {% endif %}
                                 {% elif transaction.transaction_type == "RETURN" and line.target_location %}
                                     {{ line.target_location.code }}
                                 {% elif transaction.transaction_type == "TRANSFER" and line.source_location and line.target_location %}

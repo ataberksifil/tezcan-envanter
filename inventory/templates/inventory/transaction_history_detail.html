@@ -18,7 +18,7 @@
     <dt class="col-sm-3">İşlem türü</dt>
     <dd class="col-sm-9">{{ transaction.get_transaction_type_display }}</dd>
 
-    <dt class="col-sm-3">Zaman</dt>
+    <dt class="col-sm-3">Sistem kayıt zamanı</dt>
     <dd class="col-sm-9">{{ transaction.occurred_at }}</dd>
 
     <dt class="col-sm-3">İşlemi yapan</dt>
@@ -41,6 +41,29 @@
             {% endif %}
         </dd>
     {% endfor %}
+
+    {% if transaction.transaction_type == "RECEIPT" and receipt_metadata %}
+        <dt class="col-sm-3">Kayıt anındaki ad / marka</dt>
+        <dd class="col-sm-9">
+            {{ receipt_metadata.material_name_snapshot }}
+            {% if receipt_metadata.material_brand_snapshot %} — {{ receipt_metadata.material_brand_snapshot }}{% endif %}
+            {% if receipt_metadata.material_model_snapshot %} — {{ receipt_metadata.material_model_snapshot }}{% endif %}
+        </dd>
+
+        <dt class="col-sm-3">Kullanıldığı yer</dt>
+        <dd class="col-sm-9">{{ receipt_metadata.usage_place }}</dd>
+
+        <dt class="col-sm-3">Fiziksel geliş tarihi</dt>
+        <dd class="col-sm-9">{{ receipt_metadata.arrived_on }}</dd>
+
+        <dt class="col-sm-3">Tedarikçi / firma</dt>
+        <dd class="col-sm-9">{% if receipt_metadata.supplier_name %}{{ receipt_metadata.supplier_name }}{% else %}—{% endif %}</dd>
+
+        {% if receipt_metadata.package_count %}
+            <dt class="col-sm-3">Paket</dt>
+            <dd class="col-sm-9">{{ receipt_metadata.packaging_display }}</dd>
+        {% endif %}
+    {% endif %}
 
     {% if transaction.transaction_type == "ISSUE" and issue_context %}
         <dt class="col-sm-3">Alıcı ad</dt>

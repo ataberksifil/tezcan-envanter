@@ -15,6 +15,7 @@ from audit.services import record_audit_event
 from catalog.models import Material, UnitOfMeasure, turkish_casefold, turkish_fold_expr
 from inventory.models import InventoryTransaction
 from inventory.services.receipts import (
+    ReceiptMetadataInput,
     normalize_quantity,
     receive_quantity,
     receive_serialized,
@@ -489,6 +490,7 @@ def receive_quantity_for_line(
     condition_id,
     target_location_id,
     quantity,
+    receipt_metadata: ReceiptMetadataInput | None = None,
     using: str = "default",
 ) -> RequestReceiptResult:
     _authorize(actor, CHANGE_PERMISSION)
@@ -504,6 +506,7 @@ def receive_quantity_for_line(
             condition_id=condition_id,
             target_location_id=target_location_id,
             quantity=normalized_quantity,
+            receipt_metadata=receipt_metadata,
             using=using,
         )
         receipt, replayed = _attach_receipt(
@@ -531,6 +534,7 @@ def receive_serialized_for_line(
     serial_number,
     condition_id,
     target_location_id,
+    receipt_metadata: ReceiptMetadataInput | None = None,
     using: str = "default",
 ) -> RequestReceiptResult:
     _authorize(actor, CHANGE_PERMISSION)
@@ -545,6 +549,7 @@ def receive_serialized_for_line(
             serial_number=serial_number,
             condition_id=condition_id,
             target_location_id=target_location_id,
+            receipt_metadata=receipt_metadata,
             using=using,
         )
         receipt, replayed = _attach_receipt(

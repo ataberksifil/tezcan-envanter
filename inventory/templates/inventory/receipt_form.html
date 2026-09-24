@@ -25,6 +25,12 @@
                             <li>Miktar: {{ preview.quantity }} {{ preview.unit.code }}</li>
                             <li>Kondisyon: {{ preview.condition.name }}</li>
                             <li>Kaydedilecek konum: {{ preview.location_path }}</li>
+                            <li>Kullanıldığı yer: {{ preview.usage_place }}</li>
+                            <li>Fiziksel geliş: {{ preview.arrived_on }}</li>
+                            {% if preview.supplier_name %}<li>Tedarikçi: {{ preview.supplier_name }}</li>{% endif %}
+                            {% if preview.package_count %}
+                                <li>Paket: {{ preview.package_count }} {% if preview.package_label %}{{ preview.package_label }}{% else %}paket{% endif %} × {{ preview.contents_per_package }} {{ preview.unit.code }}</li>
+                            {% endif %}
                         </ul>
                     </div>
                 {% endif %}

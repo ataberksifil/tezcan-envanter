@@ -295,6 +295,8 @@ def test_quantity_receipt_workflow_is_idempotent_and_rejects_foreign_movement(cl
             "quantity": "60.000",
             "condition": str(masters["condition"].pk),
             "target_location": str(masters["location"].pk),
+            "usage_place": "Tavlama",
+            "arrived_on": "2026-09-20",
         },
     )
     assert preview.status_code == 200
@@ -309,6 +311,8 @@ def test_quantity_receipt_workflow_is_idempotent_and_rejects_foreign_movement(cl
             "quantity": "60.000",
             "condition": str(masters["condition"].pk),
             "target_location": str(masters["location"].pk),
+            "usage_place": "Tavlama",
+            "arrived_on": "2026-09-20",
             "confirm": "1",
         },
     )
@@ -323,6 +327,8 @@ def test_quantity_receipt_workflow_is_idempotent_and_rejects_foreign_movement(cl
             "quantity": "60.000",
             "condition": str(masters["condition"].pk),
             "target_location": str(masters["location"].pk),
+            "usage_place": "Tavlama",
+            "arrived_on": "2026-09-20",
             "confirm": "1",
         },
     )
@@ -343,6 +349,8 @@ def test_quantity_receipt_workflow_is_idempotent_and_rejects_foreign_movement(cl
             "quantity": "1.000",
             "condition": str(masters["condition"].pk),
             "target_location": str(masters["location"].pk),
+            "usage_place": "Tavlama",
+            "arrived_on": "2026-09-20",
             "confirm": "1",
         },
     )

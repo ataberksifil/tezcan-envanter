@@ -4,6 +4,7 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, localcontext
 
 from django.contrib.auth import get_user_model
@@ -16,6 +17,7 @@ from inventory.models import (
     InventoryTransaction,
     InventoryTransactionLine,
     IssueContext,
+    ReceiptMetadata,
     SerializedAsset,
     StockBalance,
 )
@@ -34,6 +36,11 @@ INVALID_DESTINATION = "inventory.invalid_destination"
 INVALID_INTERNAL_ASSET_CODE = "inventory.invalid_internal_asset_code"
 INTERNAL_ASSET_CODE_CONFLICT = "inventory.internal_asset_code_conflict"
 SERIAL_NUMBER_CONFLICT = "inventory.serial_number_conflict"
+INVALID_USAGE_PLACE = "inventory.invalid_usage_place"
+INVALID_ARRIVAL_DATE = "inventory.invalid_arrival_date"
+INVALID_SUPPLIER = "inventory.invalid_supplier"
+INVALID_PACKAGING = "inventory.invalid_packaging"
+PACKAGING_QUANTITY_MISMATCH = "inventory.packaging_quantity_mismatch"
 
 OPERATION_ID_UNIQUE_CONSTRAINT = "inventory_tx_operation_id_uniq"
 BALANCE_IDENTITY_UNIQUE_CONSTRAINT = "inventory_bal_identity_uniq"
@@ -45,12 +52,23 @@ MAX_QUANTITY = Decimal("999999999999999.999")
 
 
 @dataclass(frozen=True)
+class ReceiptMetadataInput:
+    usage_place: str
+    arrived_on: date
+    supplier_name: str | None = None
+    package_count: int | None = None
+    package_label: str | None = None
+    contents_per_package: Decimal | None = None
+
+
+@dataclass(frozen=True)
 class InventoryMutationResult:
     transaction: InventoryTransaction
     lines: tuple[InventoryTransactionLine, ...]
     replayed: bool
     issue_context: IssueContext | None = None
     serialized_asset: SerializedAsset | None = None
+    receipt_metadata: ReceiptMetadata | None = None
 
 
 def receive_quantity(
@@ -62,6 +80,7 @@ def receive_quantity(
     condition_id,
     target_location_id,
     quantity,
+    receipt_metadata: ReceiptMetadataInput | None = None,
     using: str = "default",
 ) -> InventoryMutationResult:
     """Atomically append one quantity RECEIPT and update its projection.
@@ -97,6 +116,11 @@ def receive_quantity(
         code=INVALID_DESTINATION,
     )
     normalized_quantity = normalize_quantity(quantity)
+    normalized_metadata = normalize_receipt_metadata(
+        receipt_metadata,
+        quantity=normalized_quantity,
+        allow_packaging=True,
+    )
     fingerprint = _request_fingerprint(
         acting_user_id=current_actor.pk,
         material_id=normalized_material_id,
@@ -104,6 +128,7 @@ def receive_quantity(
         condition_id=normalized_condition_id,
         target_location_id=normalized_target_location_id,
         quantity=normalized_quantity,
+        receipt_metadata=normalized_metadata,
     )
 
     with transaction.atomic(using=using):
@@ -160,11 +185,18 @@ def receive_quantity(
         )
         balance.quantity = balance.quantity + normalized_quantity
         balance.save(using=using, update_fields=["quantity", "updated_at"])
+        metadata_row = _create_receipt_metadata(
+            header=header,
+            material=material,
+            normalized=normalized_metadata,
+            using=using,
+        )
 
         return InventoryMutationResult(
             transaction=header,
             lines=(line,),
             replayed=False,
+            receipt_metadata=metadata_row,
         )
 
 
@@ -177,6 +209,7 @@ def receive_serialized(
     serial_number,
     condition_id,
     target_location_id,
+    receipt_metadata: ReceiptMetadataInput | None = None,
     using: str = "default",
 ) -> InventoryMutationResult:
     """Atomically create one asset, append its RECEIVE, and establish projection.
@@ -211,6 +244,11 @@ def receive_serialized(
         internal_asset_code
     )
     normalized_serial_number = normalize_serial_number(serial_number)
+    normalized_metadata = normalize_receipt_metadata(
+        receipt_metadata,
+        quantity=None,
+        allow_packaging=False,
+    )
     fingerprint = _serialized_request_fingerprint(
         acting_user_id=current_actor.pk,
         material_id=normalized_material_id,
@@ -218,6 +256,7 @@ def receive_serialized(
         serial_number=normalized_serial_number,
         condition_id=normalized_condition_id,
         target_location_id=normalized_target_location_id,
+        receipt_metadata=normalized_metadata,
     )
 
     with transaction.atomic(using=using):
@@ -292,11 +331,18 @@ def receive_serialized(
             target_location=location,
             asset_event_seq=next_serialized_asset_event_seq(asset.pk, using=using),
         )
+        metadata_row = _create_receipt_metadata(
+            header=header,
+            material=material,
+            normalized=normalized_metadata,
+            using=using,
+        )
         return InventoryMutationResult(
             transaction=header,
             lines=(line,),
             replayed=False,
             serialized_asset=asset,
+            receipt_metadata=metadata_row,
         )
 
 
@@ -371,6 +417,159 @@ def normalize_serial_number(value) -> str | None:
     return normalized
 
 
+def normalize_receipt_metadata(
+    value,
+    *,
+    quantity: Decimal | None,
+    allow_packaging: bool,
+) -> ReceiptMetadataInput | None:
+    if value is None:
+        return None
+    if not isinstance(value, ReceiptMetadataInput):
+        _raise_validation(
+            INVALID_USAGE_PLACE,
+            "Mal kabul bilgisi geçersiz.",
+        )
+    usage_place = _normalize_required_text(
+        value.usage_place,
+        field="usage_place",
+        code=INVALID_USAGE_PLACE,
+        empty_message="Kullanıldığı yer boş olamaz.",
+        max_length=255,
+    )
+    arrived_on = _normalize_arrival_date(value.arrived_on)
+    supplier_name = _normalize_optional_text(
+        value.supplier_name,
+        field="supplier_name",
+        code=INVALID_SUPPLIER,
+        max_length=255,
+    )
+    package_count, package_label, contents_per_package = _normalize_packaging(
+        package_count=value.package_count,
+        package_label=value.package_label,
+        contents_per_package=value.contents_per_package,
+        quantity=quantity,
+        allow_packaging=allow_packaging,
+    )
+    return ReceiptMetadataInput(
+        usage_place=usage_place,
+        arrived_on=arrived_on,
+        supplier_name=supplier_name,
+        package_count=package_count,
+        package_label=package_label,
+        contents_per_package=contents_per_package,
+    )
+
+
+def _normalize_required_text(value, *, field: str, code: str, empty_message: str, max_length: int) -> str:
+    if not isinstance(value, str):
+        _raise_validation(code, f"{field} metin olmalıdır.")
+    normalized = value.strip()
+    if not normalized:
+        _raise_validation(code, empty_message)
+    if len(normalized) > max_length:
+        _raise_validation(code, f"{field} en fazla {max_length} karakter olabilir.")
+    return normalized
+
+
+def _normalize_optional_text(value, *, field: str, code: str, max_length: int) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        _raise_validation(code, f"{field} metin olmalıdır.")
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if len(normalized) > max_length:
+        _raise_validation(code, f"{field} en fazla {max_length} karakter olabilir.")
+    return normalized
+
+
+def _normalize_arrival_date(value) -> date:
+    if not isinstance(value, date) or isinstance(value, datetime):
+        _raise_validation(INVALID_ARRIVAL_DATE, "Geliş tarihi geçerli bir tarih olmalıdır.")
+    today = timezone.localdate()
+    if value > today:
+        _raise_validation(INVALID_ARRIVAL_DATE, "Geliş tarihi gelecek bir gün olamaz.")
+    return value
+
+
+def _normalize_packaging(
+    *,
+    package_count,
+    package_label,
+    contents_per_package,
+    quantity: Decimal | None,
+    allow_packaging: bool,
+):
+    label = _normalize_optional_text(
+        package_label,
+        field="package_label",
+        code=INVALID_PACKAGING,
+        max_length=64,
+    )
+    has_count = package_count not in (None, "")
+    has_contents = contents_per_package not in (None, "")
+    if not has_count and not has_contents and label is None:
+        return None, None, None
+    if not allow_packaging:
+        _raise_validation(
+            INVALID_PACKAGING,
+            "Tekil varlık girişinde paket çarpımı kullanılmaz.",
+        )
+    if not has_count or not has_contents:
+        _raise_validation(
+            INVALID_PACKAGING,
+            "Paket bilgisi için hem paket adedi hem paket içi miktar girilmelidir.",
+        )
+    if isinstance(package_count, bool) or not isinstance(package_count, int):
+        _raise_validation(INVALID_PACKAGING, "Paket adedi tam sayı olmalıdır.")
+    if package_count < 1:
+        _raise_validation(INVALID_PACKAGING, "Paket adedi en az 1 olmalıdır.")
+    contents = normalize_quantity(contents_per_package)
+    if quantity is None:
+        _raise_validation(
+            INVALID_PACKAGING,
+            "Paket çarpımı yalnız miktar girişinde kullanılır.",
+        )
+    expected = contents * package_count
+    if expected != quantity:
+        _raise_validation(
+            PACKAGING_QUANTITY_MISMATCH,
+            "Paket adedi × paket içi miktar, kaydedilen stok miktarına eşit olmalıdır. "
+            "Stok birimi değişmez; dönüşüm yapılmaz.",
+        )
+    return package_count, label, contents
+
+
+def _create_receipt_metadata(*, header, material, normalized, using: str):
+    if normalized is None:
+        return None
+    unit = material.unit
+    return ReceiptMetadata.objects.using(using).create(
+        transaction=header,
+        usage_place=normalized.usage_place,
+        arrived_on=normalized.arrived_on,
+        supplier_name=normalized.supplier_name,
+        package_count=normalized.package_count,
+        package_label=normalized.package_label,
+        contents_per_package=normalized.contents_per_package,
+        material_code_snapshot=material.material_code,
+        material_name_snapshot=material.name,
+        material_brand_snapshot=_blank_to_null(material.brand),
+        material_model_snapshot=_blank_to_null(material.model),
+        unit_code_snapshot=unit.code if unit is not None else None,
+        unit_name_snapshot=unit.name if unit is not None else None,
+    )
+
+
+def _blank_to_null(value):
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None
+
+
 def _authorize_actor(actor, using: str):
     if actor is None or getattr(actor, "pk", None) is None:
         raise PermissionDenied
@@ -404,6 +603,7 @@ def _request_fingerprint(
     condition_id: uuid.UUID,
     target_location_id: uuid.UUID,
     quantity: Decimal,
+    receipt_metadata: ReceiptMetadataInput | None = None,
 ) -> str:
     payload = {
         "acting_user_id": str(acting_user_id),
@@ -414,6 +614,7 @@ def _request_fingerprint(
         "transaction_type": InventoryTransaction.TransactionType.RECEIPT,
         "unit_id": str(unit_id),
     }
+    payload.update(_receipt_metadata_fingerprint_fields(receipt_metadata))
     canonical_json = json.dumps(
         payload,
         sort_keys=True,
@@ -431,6 +632,7 @@ def _serialized_request_fingerprint(
     serial_number: str | None,
     condition_id: uuid.UUID,
     target_location_id: uuid.UUID,
+    receipt_metadata: ReceiptMetadataInput | None = None,
 ) -> str:
     payload = {
         "acting_user_id": str(acting_user_id),
@@ -442,6 +644,7 @@ def _serialized_request_fingerprint(
         "transaction_type": InventoryTransaction.TransactionType.RECEIPT,
         "tracking_mode": Material.TrackingMode.SERIALIZED,
     }
+    payload.update(_receipt_metadata_fingerprint_fields(receipt_metadata))
     canonical_json = json.dumps(
         payload,
         sort_keys=True,
@@ -470,12 +673,36 @@ def _replay_or_conflict(
         (line.serialized_asset for line in lines if line.serialized_asset_id),
         None,
     )
+    try:
+        receipt_metadata = transaction_record.receipt_metadata
+    except ReceiptMetadata.DoesNotExist:
+        receipt_metadata = None
     return InventoryMutationResult(
         transaction=transaction_record,
         lines=lines,
         replayed=True,
         serialized_asset=serialized_asset,
+        receipt_metadata=receipt_metadata,
     )
+
+
+def _receipt_metadata_fingerprint_fields(
+    receipt_metadata: ReceiptMetadataInput | None,
+) -> dict:
+    if receipt_metadata is None:
+        return {}
+    return {
+        "receipt_arrived_on": receipt_metadata.arrived_on.isoformat(),
+        "receipt_contents_per_package": (
+            format(receipt_metadata.contents_per_package, ".3f")
+            if receipt_metadata.contents_per_package is not None
+            else None
+        ),
+        "receipt_package_count": receipt_metadata.package_count,
+        "receipt_package_label": receipt_metadata.package_label,
+        "receipt_supplier_name": receipt_metadata.supplier_name,
+        "receipt_usage_place": receipt_metadata.usage_place,
+    }
 
 
 def _locked_material(material_id: uuid.UUID, using: str) -> Material:

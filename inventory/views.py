@@ -27,11 +27,13 @@ from inventory.forms import (
     attach_serialized_return_validation_error,
     attach_serialized_transfer_validation_error,
     attach_transfer_validation_error,
+    receipt_metadata_from_cleaned,
 )
 from inventory.models import (
     InventoryTransaction,
     InventoryTransactionLine,
     ProductionLine,
+    ReceiptMetadata,
     SerializedAsset,
     StockBalance,
 )
@@ -62,6 +64,13 @@ from inventory.services.production_lines import (
 from inventory.services.receipts import receive_quantity, receive_serialized
 from inventory.services.returns import return_quantity, return_serialized
 from inventory.services.transfers import transfer_quantity, transfer_serialized
+
+def _optional_receipt_metadata(transaction):
+    try:
+        return transaction.receipt_metadata
+    except ReceiptMetadata.DoesNotExist:
+        return None
+
 
 PRODUCTION_LINE_LIST_PAGE_SIZE = 50
 STATUS_ALL = "all"
@@ -303,6 +312,12 @@ class ReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
             "condition": condition,
             "quantity": quantity,
             "unit": material.unit,
+            "usage_place": form.cleaned_data["usage_place"],
+            "arrived_on": form.cleaned_data["arrived_on"],
+            "supplier_name": form.cleaned_data.get("supplier_name") or "",
+            "package_count": form.cleaned_data.get("package_count"),
+            "package_label": form.cleaned_data.get("package_label") or "",
+            "contents_per_package": form.cleaned_data.get("contents_per_package"),
         }
 
     def get(self, request):
@@ -339,6 +354,10 @@ class ReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 condition_id=form.cleaned_data["condition"].pk,
                 target_location_id=form.cleaned_data["target_location"].pk,
                 quantity=form.cleaned_data["quantity"],
+                receipt_metadata=receipt_metadata_from_cleaned(
+                    form.cleaned_data,
+                    include_packaging=True,
+                ),
             )
         except PermissionDenied:
             raise
@@ -423,6 +442,10 @@ class SerializedReceiptCreateView(LoginRequiredMixin, PermissionRequiredMixin, V
                 serial_number=form.cleaned_data["serial_number"],
                 condition_id=form.cleaned_data["condition"].pk,
                 target_location_id=form.cleaned_data["target_location"].pk,
+                receipt_metadata=receipt_metadata_from_cleaned(
+                    form.cleaned_data,
+                    include_packaging=False,
+                ),
             )
         except PermissionDenied:
             raise
@@ -962,7 +985,7 @@ class TransactionHistoryDetailView(LoginRequiredMixin, PermissionRequiredMixin, 
                     InventoryTransaction.TransactionType.INITIAL_BALANCE,
                 )
             )
-            .select_related("acting_user", "issue_context")
+            .select_related("acting_user", "issue_context", "receipt_metadata")
             .prefetch_related(LINE_PREFETCH)
         )
 
@@ -976,6 +999,7 @@ class TransactionHistoryDetailView(LoginRequiredMixin, PermissionRequiredMixin, 
         context["linked_correction_requests"] = self.object.correction_requests.select_related(
             "requester", "decided_by", "resulting_transaction"
         ).order_by("requested_at", "id")
+        context["receipt_metadata"] = _optional_receipt_metadata(self.object)
         if self.object.transaction_type == InventoryTransaction.TransactionType.ISSUE:
             context["issue_context"] = self.object.issue_context
         elif self.object.transaction_type == InventoryTransaction.TransactionType.RETURN:
@@ -1084,7 +1108,7 @@ class ReceiptDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
             InventoryTransaction.objects.filter(
                 transaction_type=InventoryTransaction.TransactionType.RECEIPT,
             )
-            .select_related("acting_user")
+            .select_related("acting_user", "receipt_metadata")
             .prefetch_related(
                 "lines__material__unit",
                 "lines__serialized_asset",
@@ -1105,6 +1129,7 @@ class ReceiptDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
             if line.target_location_id
             else ""
         )
+        context["receipt_metadata"] = _optional_receipt_metadata(self.object)
         context["resulting_balance"] = None
         if (
             line.serialized_asset_id is None

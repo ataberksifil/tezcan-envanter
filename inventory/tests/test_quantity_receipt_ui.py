@@ -160,6 +160,8 @@ def _valid_post_data(receipt_master_data, **overrides):
         "quantity": "2.500",
         "condition": str(receipt_master_data["condition"].pk),
         "target_location": str(receipt_master_data["location"].pk),
+        "usage_place": "Tavlama",
+        "arrived_on": "2026-09-20",
         "confirm": "1",
     }
     values.update(overrides)
@@ -586,6 +588,8 @@ def test_preview_back_with_confirm_and_intent_edit_does_not_mutate(
     assert str(form["quantity"].value()) == "3.250"
     assert str(form["condition"].value()) == str(receipt_master_data["condition"].pk)
     assert str(form["target_location"].value()) == str(receipt_master_data["location"].pk)
+    assert form["usage_place"].value() == "Tavlama"
+    assert str(form["arrived_on"].value()) == "2026-09-20"
     content = response.content.decode()
     assert "Kayıt önizlemesi" not in content
     assert "Önizle" in content

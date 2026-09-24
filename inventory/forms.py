@@ -10,6 +10,8 @@ from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import timezone
 
+from inventory.services.receipts import ReceiptMetadataInput
+
 from accounts.models import Employee
 from catalog.models import Material, MaterialCondition, UnitOfMeasure
 from inventory.models import (
@@ -122,14 +124,54 @@ class QuantityReceiptForm(forms.Form):
         help_text=(
             "Gelen malzeme önce mal kabul / yerleştirme bekleyen stok konumuna "
             "alınabilir. Raf yerleşimi kayıt sonrası mevcut Transfer ile yapılır. "
-            "Sistem tek bir sabit raf zorlamaz."
+            "Sistem tek bir sabit raf zorlamaz. Kullanıldığı yer bu konum değildir."
         ),
+    )
+    usage_place = forms.CharField(
+        label="Kullanıldığı / uygulandığı yer",
+        max_length=255,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+        help_text="Örn. Tavlama. Fiziksel raf/bin konumu değildir.",
+    )
+    arrived_on = forms.DateField(
+        label="Fiziksel geliş tarihi",
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        help_text="Malzeme depoya fiilen geldiği gün. Sistem kayıt saati ayrıca saklanır.",
+    )
+    supplier_name = forms.CharField(
+        label="Tedarikçi / firma",
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    package_count = forms.IntegerField(
+        label="Paket adedi",
+        required=False,
+        min_value=1,
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
+    )
+    package_label = forms.CharField(
+        label="Paket tanımı",
+        max_length=64,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "KUTU"}),
+        help_text="İsteğe bağlı. Ölçü birimi değildir; dönüşüm yapılmaz.",
+    )
+    contents_per_package = forms.DecimalField(
+        label="Paket içi miktar (stok biriminde)",
+        required=False,
+        max_digits=18,
+        decimal_places=3,
+        min_value=Decimal("0.001"),
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.001"}),
+        help_text="Doluysa paket adedi × paket içi miktar, girilen stok miktarına eşit olmalıdır.",
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not self.is_bound:
             self.fields["operation_id"].initial = uuid.uuid4()
+            self.fields["arrived_on"].initial = timezone.localdate()
 
         receipt_materials = (
             Material.objects.filter(
@@ -185,6 +227,27 @@ class QuantityReceiptForm(forms.Form):
         except (ValueError, TypeError, Material.DoesNotExist):
             return None
 
+    def clean_usage_place(self):
+        return self.cleaned_data["usage_place"].strip()
+
+    def clean_supplier_name(self):
+        value = self.cleaned_data.get("supplier_name") or ""
+        return value.strip()
+
+    def clean_package_label(self):
+        value = self.cleaned_data.get("package_label") or ""
+        return value.strip()
+
+    def clean_arrived_on(self):
+        value = self.cleaned_data["arrived_on"]
+        if value > timezone.localdate():
+            raise ValidationError("Geliş tarihi gelecek bir gün olamaz.")
+        return value
+
+    def clean(self):
+        cleaned = super().clean()
+        return _clean_quantity_packaging(cleaned)
+
 
 RECEIPT_ERROR_FIELD_MAP = {
     "inventory.invalid_quantity": "quantity",
@@ -194,6 +257,11 @@ RECEIPT_ERROR_FIELD_MAP = {
     "inventory.inactive_condition": "condition",
     "inventory.invalid_destination": "target_location",
     "inventory.invalid_operation_id": "operation_id",
+    "inventory.invalid_usage_place": "usage_place",
+    "inventory.invalid_arrival_date": "arrived_on",
+    "inventory.invalid_supplier": "supplier_name",
+    "inventory.invalid_packaging": "package_count",
+    "inventory.packaging_quantity_mismatch": "contents_per_package",
 }
 
 
@@ -226,12 +294,31 @@ class SerializedReceiptForm(forms.Form):
         label="Hedef konum",
         queryset=Location.objects.none(),
         widget=forms.Select(attrs={"class": "form-select"}),
+        help_text="Fiziksel stok konumu. Kullanıldığı yer bu alan değildir.",
+    )
+    usage_place = forms.CharField(
+        label="Kullanıldığı / uygulandığı yer",
+        max_length=255,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+        help_text="Örn. Tavlama. Fiziksel raf/bin konumu değildir.",
+    )
+    arrived_on = forms.DateField(
+        label="Fiziksel geliş tarihi",
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        help_text="Malzeme depoya fiilen geldiği gün. Sistem kayıt saati ayrıca saklanır.",
+    )
+    supplier_name = forms.CharField(
+        label="Tedarikçi / firma",
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not self.is_bound:
             self.fields["operation_id"].initial = uuid.uuid4()
+            self.fields["arrived_on"].initial = timezone.localdate()
 
         materials = (
             Material.objects.filter(
@@ -260,6 +347,19 @@ class SerializedReceiptForm(forms.Form):
     def clean_serial_number(self):
         value = self.cleaned_data["serial_number"].strip()
         return value or None
+
+    def clean_usage_place(self):
+        return self.cleaned_data["usage_place"].strip()
+
+    def clean_supplier_name(self):
+        value = self.cleaned_data.get("supplier_name") or ""
+        return value.strip()
+
+    def clean_arrived_on(self):
+        value = self.cleaned_data["arrived_on"]
+        if value > timezone.localdate():
+            raise ValidationError("Geliş tarihi gelecek bir gün olamaz.")
+        return value
 
     def clean(self):
         cleaned = super().clean()
@@ -295,7 +395,49 @@ SERIALIZED_RECEIPT_ERROR_FIELD_MAP = {
     "inventory.inactive_condition": "condition",
     "inventory.invalid_destination": "target_location",
     "inventory.invalid_operation_id": "operation_id",
+    "inventory.invalid_usage_place": "usage_place",
+    "inventory.invalid_arrival_date": "arrived_on",
+    "inventory.invalid_supplier": "supplier_name",
+    "inventory.invalid_packaging": "usage_place",
 }
+
+
+def _clean_quantity_packaging(cleaned):
+    package_count = cleaned.get("package_count")
+    contents = cleaned.get("contents_per_package")
+    label = cleaned.get("package_label") or ""
+    quantity = cleaned.get("quantity")
+    has_packaging = package_count is not None or contents is not None or bool(label)
+    if not has_packaging:
+        cleaned["package_label"] = ""
+        return cleaned
+    if package_count is None or contents is None:
+        raise ValidationError(
+            "Paket bilgisi için hem paket adedi hem paket içi miktar girilmelidir."
+        )
+    if quantity is not None and (contents * package_count) != quantity:
+        raise ValidationError(
+            {
+                "contents_per_package": (
+                    "Paket adedi × paket içi miktar, kaydedilen stok miktarına "
+                    "eşit olmalıdır. Stok birimi değişmez."
+                )
+            }
+        )
+    return cleaned
+
+
+def receipt_metadata_from_cleaned(cleaned, *, include_packaging: bool) -> ReceiptMetadataInput:
+    return ReceiptMetadataInput(
+        usage_place=cleaned["usage_place"],
+        arrived_on=cleaned["arrived_on"],
+        supplier_name=cleaned.get("supplier_name") or None,
+        package_count=cleaned.get("package_count") if include_packaging else None,
+        package_label=(cleaned.get("package_label") or None) if include_packaging else None,
+        contents_per_package=(
+            cleaned.get("contents_per_package") if include_packaging else None
+        ),
+    )
 
 
 def attach_serialized_receipt_validation_error(

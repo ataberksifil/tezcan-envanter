@@ -22,6 +22,7 @@ from inventory.models import (
     InventoryTransactionLine,
     IssueContext,
     ProductionLine,
+    ReceiptMetadata,
     StockBalance,
 )
 from inventory.urls import urlpatterns as inventory_urlpatterns
@@ -1138,6 +1139,7 @@ def test_receipt_and_issue_routes_are_operational_not_management_and_admin_stays
     assert InventoryTransaction not in admin.site._registry
     assert InventoryTransactionLine not in admin.site._registry
     assert IssueContext not in admin.site._registry
+    assert ReceiptMetadata not in admin.site._registry
     assert StockBalance not in admin.site._registry
 
 

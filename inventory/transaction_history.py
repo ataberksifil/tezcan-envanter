@@ -88,7 +88,7 @@ def base_transaction_history_queryset() -> QuerySet[InventoryTransaction]:
         InventoryTransaction.objects.filter(
             transaction_type__in=ALLOWED_TRANSACTION_TYPE_FILTERS,
         )
-        .select_related("acting_user", "issue_context")
+        .select_related("acting_user", "issue_context", "receipt_metadata")
         .prefetch_related(LINE_PREFETCH)
         .order_by("-occurred_at", "-id")
     )
@@ -192,6 +192,10 @@ def apply_transaction_history_filters(
             | Q(issue_context__receiver_first_name_snapshot__icontains=q)
             | Q(issue_context__receiver_last_name_snapshot__icontains=q)
             | Q(issue_context__usage_location_text__icontains=q)
+            | Q(receipt_metadata__usage_place__icontains=q)
+            | Q(receipt_metadata__supplier_name__icontains=q)
+            | Q(receipt_metadata__material_name_snapshot__icontains=q)
+            | Q(receipt_metadata__material_brand_snapshot__icontains=q)
         ).distinct()
 
     return queryset

@@ -50,6 +50,7 @@ Bu belge:
 | `InventoryTransaction` | Entity / Aggregate Root | Tamamlanmış stok değişiminin değişmez ve denetlenebilir iş olayı. |
 | `InventoryTransactionLine` | Entity | Bir işlem içindeki malzeme/miktar veya tekil varlık etkisi. |
 | `IssueContext` | Value Object | Stok çıkışının alıcı, üretim hattı ve fiili kullanım yeri bağlamı. |
+| `ReceiptMetadata` | Value Object | İsteğe bağlı, immutable mal kabul kaydı: kullanım/uygulama yeri, fiziksel geliş tarihi, tedarikçi, paket bilgisi ve malzeme kimlik snapshot'ı. |
 | `StockBalance` | Projection | Miktar bazlı güncel stok görünümü. |
 | `SerializedAssetState` | Projection | Tekil varlığın geçmişten türetilen güncel konum ve kondisyonu. |
 | `CorrectionRequest` | Entity / Aggregate Root | Tamamlanmış bir işlemi kontrollü biçimde düzeltme talebi. |
@@ -355,6 +356,10 @@ Alıcı için `Employee` UUID referansı ve zorunlu kimlik snapshot'ı (`employe
 
 Quantity ISSUE first slice `DEC-027` doğrultusunda Phase 4.2A–4.2C'de kernel, service, UI ve `inventory.issue_stock` managed rollout ile tamamlanmıştır. Serialized ISSUE (`DEC-035`) aynı `ISSUE` type ve `IssueContext` sözleşmesini kullanır; `SerializedAsset` alıcı/hat/kullanım yeri kopyalamaz.
 
+### ReceiptMetadata
+
+`ReceiptMetadata` inbound `RECEIPT` için isteğe bağlı immutable kayıttır (`DEC-040`). Historical RECEIPT satırları olmadan geçerlidir. Kullanıldığı yer Location değildir; fiziksel geliş tarihi ledger `occurred_at` değildir; tedarikçi ve paket isteğe bağlıdır; malzeme ad/marka/model snapshot'ı Material kartı değişince sessizce güncellenmez. `UsagePlace` modeli yoktur.
+
 ### Quantity RETURN Lineage (`DEC-028`)
 
 Unused linked QUANTITY RETURN tam olarak bir immutable original ISSUE line'a `InventoryTransactionLine.original_issue_line` self-FK'siyle bağlanır ve tam olarak bir RETURN line taşır. RETURN line source'u null, target'ı zorunludur; target original ISSUE source olmak zorunda değildir. Material, unit ve condition original ISSUE line ile aynıdır. Aynı ISSUE line'a partial ve multiple RETURN bağlanabilir; cumulative quantity original ISSUE quantity'sini aşamaz. Concurrency serialization point original ISSUE line row lock'ıdır. Ayrı `ReturnContext` yoktur; `IssueContext` yalnız ISSUE transaction'a aittir.
@@ -505,7 +510,7 @@ V1 first-party kimlik, persisted `BarcodeIdentifier` tablosu değildir (`DEC-036
 
 Carrier entity identity'nin parçası değildir. Neutral `identification` modülü codec, rendering, scan ve resolver'ı sahiplenilir; `Catalog`, `Inventory` ve `Locations` core domain operasyonu için `identification`'a bağımlı olmaz (`DEC-011`). Bir taranabilir kod aynı anda birden fazla nesneye çözülemez. Koda sahip olmak yetki vermez; tarama stok değiştirmez. DataMatrix V1'de yoktur. External/legacy barcode registry ayrı gelecekteki karardır. `DEC-037`: tedarikçi barkodu TZ1M/A/L yerine geçmez; Material model alanında düzeltilebilir yardımcı metin olabilir.
 
-Kullanıldığı yer (hat/uygulama alanı) ile fiziksel stok `Location` ayrı kavramlardır. `DEC-039` Talep Takip V1: şirket Talep No, çoklu kalem, malzemesiz kalem, kısmi teslimat ve RECEIPT bağlantısından türetilen karşılama. Talep stok oluşturmaz. SKT, paket conversion ve usage-place receipt metadata bu dilimde yoktur. `DEC-OPEN-010` OPEN kalır.
+Kullanıldığı yer (hat/uygulama alanı) ile fiziksel stok `Location` ayrı kavramlardır. `DEC-040` inbound `ReceiptMetadata` bu ayrımı RECEIPT üzerinde serbest metin kullanım yeri olarak kaydeder; Location'ı yeniden kullanmaz. `DEC-039` Talep Takip V1: şirket Talep No, çoklu kalem, malzemesiz kalem, kısmi teslimat ve RECEIPT bağlantısından türetilen karşılama. Talep stok oluşturmaz. SKT ve generic paket conversion bu dilimde yoktur. `DEC-OPEN-010` OPEN kalır.
 
 ## 15. Attachment ve Audit Domaini
 
@@ -578,6 +583,7 @@ Bu seçeneklerden hiçbiri seçilmiş değildir. `MinimumStockStatus`, ledger ve
 | `Employee` | isteğe bağlı bağlanır | `ApplicationUser` | Nullable one-to-one; ownership Employee; delete `SET_NULL` (`DEC-024`). |
 | `ProductionLine` | üstüdür | `ProductionLine` | Nullable recursive parent; arbitrary depth; Location'dan bağımsız (`DEC-025`). |
 | `InventoryTransaction` | taşıyabilir | `IssueContext` | `ISSUE` için tam `1`; diğer türler için yoktur. |
+| `InventoryTransaction` | taşıyabilir | `ReceiptMetadata` | `RECEIPT` için `0..1`; historical satırlar metadata'sız geçerli kalır; diğer türler için yoktur (`DEC-040`). |
 | `IssueContext` | referans verir | `Employee` | Receiver UUID referansı; tarihsel ad/soyad/sicil snapshot zorunlu (`DEC-024`). |
 | `IssueContext` | referans verir | `ProductionLine` | Seçilen hat UUID referansı; tarihsel code/name snapshot zorunlu (`DEC-025`). |
 | `CorrectionRequest` | düzeltir | `InventoryTransaction` | Her talep tam `1` özgün işleme; işlem `0..N` talebe konu olabilir. Birden çok talep davranışı **TBD**. |

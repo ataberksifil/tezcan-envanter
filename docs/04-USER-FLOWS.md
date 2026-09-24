@@ -271,9 +271,10 @@ Onaylı politika: `DEC-022`. Bu akışlar generic IAM değildir; küçük uygula
 3. Sistem takip modunu gösterir.
 4. Kondisyon seçilir.
 5. Hedef depolama lokasyonu seçilir; seçenekler insan-okunur tam yol gösterir. Gelen malzeme önce stok tutan mal kabul / yerleştirme bekleyen konuma kaydedilebilir (`DEC-037`). Sistem tek sabit raf zorlamaz.
-6. **QUANTITY:** Geçerli stok biriminde miktar girilir; birim alanda görünür. Paket adedi stoğu çarpmaz.
+6. **QUANTITY:** Geçerli stok biriminde miktar girilir; birim alanda görünür. Paket adedi stoğu çarpmaz. İsteğe bağlı paket metadata'sı (`2 KUTU × 1000`) yalnız stok birimiyle tutarlıysa kaydedilir (`DEC-040`).
 7. **SERIALIZED:** Ayrı functional workflow'da zorunlu `internal_asset_code` ve optional manufacturer `serial_number` girilir; asset UUID + RECEIVE ledger + `IN_STOCK` projection atomik oluşturulur (`DEC-032`).
-8. Özet ekranı gösterilir; henüz stok değişmez.
+7a. Kullanıldığı / uygulandığı yer (serbest metin) ve fiziksel geliş tarihi girilir. Tedarikçi isteğe bağlıdır; Talep satırından gelebilir ve düzenlenebilir. Bu alanlar stok Location'ı değiştirmez (`DEC-040`).
+8. Özet ekranı gösterilir; henüz stok değişmez. Önizleme kullanım yeri, geliş tarihi, tedarikçi ve paketi de gösterir.
 9. Kullanıcı onaylar.
 10. Sistem `operation_id` ile ledger kaydı oluşturur.
 11. `stock_balances` veya `serialized_assets` projection güncellenir.
@@ -320,7 +321,7 @@ flowchart TD
 - Acting user, `occurred_at`, işlem detayı ledger'da.
 
 **Scope Boundary**
-- `DEC-037` quantity RECEIVE UX foundation: staging Location seçilebilir, putaway mevcut TRANSFER, TZ1 etiket devamı. `DEC-039` Talep Takip: şirket Talep No, kalem, kısmi mal kabul mevcut RECEIVE ile. SKT, paket conversion ve usage-place receipt metadata sonraki dilimdir. Kullanıldığı yer stok Location değildir.
+- `DEC-037` quantity RECEIVE UX foundation: staging Location seçilebilir, putaway mevcut TRANSFER, TZ1 etiket devamı. `DEC-039` Talep Takip: şirket Talep No, kalem, kısmi mal kabul mevcut RECEIVE ile. `DEC-040` receipt metadata: kullanım yeri, geliş tarihi, tedarikçi, isteğe bağlı paket ve malzeme snapshot. SKT ve generic paket conversion sonraki dilimdir. Kullanıldığı yer stok Location değildir. Giden Excel kolon eşlemesi tam değildir.
 - `DEC-032` identity + serialized RECEIVE korunur. `DEC-035` V1 states `IN_STOCK`/`ISSUED` ve serialized ISSUE/linked unused RETURN/in-stock TRANSFER backend'ini tanımlar. Serialized correction, serialized `COUNT_RECONCILIATION` ve broader lifecycle deferred kalır.
 
 ### UF-INT-001 — Saha / Atölye Malzeme Alım Talebi

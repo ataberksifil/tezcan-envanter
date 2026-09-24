@@ -84,7 +84,7 @@ Yalnız şu ana modülleri kullan:
 | `accounts` | Employee, user/auth entegrasyonu | Stock mutation |
 | `catalog` | Category, UnitOfMeasure, MaterialCondition, Material | Stock/ledger mutation |
 | `locations` | Location hiyerarşisi | Inventory mutation |
-| `inventory` | InventoryTransaction/Line, StockBalance, SerializedAsset inventory state, IssueContext ve tüm stok servisleri | Correction/import/report workflow sahipliği |
+| `inventory` | InventoryTransaction/Line, StockBalance, SerializedAsset inventory state, IssueContext, ReceiptMetadata ve tüm stok servisleri | Correction/import/report workflow sahipliği |
 | `corrections` | CorrectionRequest ve kanıt fotoğrafı workflow'u | StockBalance/ledger'ı doğrudan yazmak |
 | `counting` | Physical count ve reconciliation workflow'u | StockBalance'ı doğrudan yazmak |
 | `imports` | Excel staging, validation, preview | Doğrudan authoritative stock oluşturmak |
@@ -210,7 +210,7 @@ Her inventory mutation:
 6. Yetki/master/business invariant'ları transaction içinde tekrar doğrular.
 7. Ledger kaydını oluşturur.
 8. Projection'ı günceller.
-9. IssueContext/correction/count/audit gibi ilişkili kayıtları oluşturur.
+9. IssueContext/ReceiptMetadata/correction/count/audit gibi ilişkili kayıtları oluşturur.
 10. Atomik commit eder.
 
 Herhangi bir hata: **ROLLBACK**. Kısmi stok etkisi yasaktır.
