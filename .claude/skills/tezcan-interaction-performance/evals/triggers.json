@@ -1,0 +1,22 @@
+[
+ {
+  "query": "/tezcan-interaction-performance telefonda Stok Çıkışı'nın p95 süresini laboratuvarda ölç",
+  "should_trigger": true
+ },
+ {
+  "query": "hareket geçmişi listesinde N+1 sorgu var mı ölçerek göster",
+  "should_trigger": true
+ },
+ {
+  "query": "ana sayfa düzeni kalabalık, sadeleştir",
+  "should_trigger": false
+ },
+ {
+  "query": "ledger immutability trigger'ı bulk update'i kesiyor mu",
+  "should_trigger": false
+ },
+ {
+  "query": "/tezcan-interaction-performance DRY_RUN PERF-02 PERF-06",
+  "should_trigger": true
+ }
+]

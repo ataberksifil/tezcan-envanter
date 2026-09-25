@@ -1,0 +1,22 @@
+[
+ {
+  "query": "/tezcan-backend-integrity sayım mutabakatında drift kontrolünü ve çift commit korumasını denetle",
+  "should_trigger": true
+ },
+ {
+  "query": "/tezcan-backend-integrity minimum stok hesabı DEC-042'ye uyuyor mu kanıtla",
+  "should_trigger": true
+ },
+ {
+  "query": "teknisyen başka birinin düzeltme kanıtını URL ile açabiliyor mu",
+  "should_trigger": false
+ },
+ {
+  "query": "inventory/views.py çok büyük, böl",
+  "should_trigger": false
+ },
+ {
+  "query": "/tezcan-backend-integrity DRY_RUN BE-T-02 BE-T-03",
+  "should_trigger": true
+ }
+]

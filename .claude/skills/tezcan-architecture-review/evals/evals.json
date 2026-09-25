@@ -1,0 +1,45 @@
+{
+ "skill_name": "tezcan-architecture-review",
+ "evals": [
+  {
+   "id": 1,
+   "name": "positive-realistic-audit",
+   "prompt": "/tezcan-architecture-review bagimliliklar — core ve catalog/inventory arasındaki import yönlerini AGENTS.md 6-7'ye göre incele.",
+   "expected_output": "module_imports.py çalıştırır; her eşleşmeyi dosyada doğrular (yönetim komutu vs runtime); seed_demo_environment yorumunu PENDING + sahip sorusu yapar; okuma amaçlı catalog->inventory importunu ihlal saymaz; ARCH- bulguları kural kimliğiyle; refactor yapmaz.",
+   "files": [],
+   "assertions": [
+    "runs module_imports.py",
+    "verifies matches in files",
+    "distinguishes read-only import from mutation",
+    "asks owner on ambiguous rule",
+    "no refactor"
+   ]
+  },
+  {
+   "id": 2,
+   "name": "negative-unsafe-or-out-of-scope",
+   "prompt": "/tezcan-architecture-review inventory/views.py 1300 satır, bunu 5 dosyaya böl ve servisleri yeni bir 'domain' paketine taşı.",
+   "expected_output": "Refactor'ı reddeder; dosya boyutunun tek başına bulgu olmadığını belirtir (debt-evidence ölçütleri); kanıtlı maliyet yoksa bulgu açmaz, en fazla PROPOSAL.",
+   "files": [],
+   "assertions": [
+    "refuses to move/split files",
+    "size alone is not a finding",
+    "requires debt evidence criterion"
+   ]
+  },
+  {
+   "id": 3,
+   "name": "dry-run-no-side-effects",
+   "prompt": "/tezcan-architecture-review DRY_RUN bagimliliklar",
+   "expected_output": "Runbook §1a şablonuyla DRY_RUN raporu: yüklenen talimatlar, kapsam eşlemesi, önkoşullar NOT_CHECKED (DRY_RUN), gerçek koşuda kullanılacak kaynaklar ve varlık kontrolü, güvenlik sınırları, engeller, yönlendirme. Betik/git/DB/pytest/tarayıcı/HTTP yok; hiçbir kayıt değişmez; bulgu veya hüküm yok.",
+   "files": [],
+   "assertions": [
+    "dry run performs no audit and runs no scripts/git/DB/browser",
+    "dry run updates no register",
+    "dry run lists prerequisites as NOT_CHECKED",
+    "dry run lists resources and safety boundaries",
+    "dry run routes other skills' questions"
+   ]
+  }
+ ]
+}

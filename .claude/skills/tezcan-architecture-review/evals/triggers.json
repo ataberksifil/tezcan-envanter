@@ -1,0 +1,22 @@
+[
+ {
+  "query": "/tezcan-architecture-review corrections modülü stok yazıyor mu, sahiplik kurallarına göre incele",
+  "should_trigger": true
+ },
+ {
+  "query": "kanıtlanmış teknik borç listesi çıkar, refactor yapma",
+  "should_trigger": true
+ },
+ {
+  "query": "TZ1L okutunca içerik yanlış geliyor",
+  "should_trigger": false
+ },
+ {
+  "query": "CSRF token HTMX isteklerinde gidiyor mu",
+  "should_trigger": false
+ },
+ {
+  "query": "/tezcan-architecture-review DRY_RUN bagimliliklar",
+  "should_trigger": true
+ }
+]

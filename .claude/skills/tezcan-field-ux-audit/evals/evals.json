@@ -1,0 +1,47 @@
+{
+ "skill_name": "tezcan-field-ux-audit",
+ "evals": [
+  {
+   "id": 1,
+   "name": "positive-realistic-audit",
+   "prompt": "/tezcan-field-ux-audit gunluk-dort — sandbox'ta (localhost:8001) Stok Çıkışı ve Yerleştir/Transfer akışlarını 390 ve 1440 px'te STOREKEEPER ve TECHNICIAN ile denetle, UI-001'i de kanıtla.",
+   "expected_output": "UX-F-03/04, UX-SG-01/12/13/26 kimliklerine eşler; iki rolle akış yürür; okutma/seçim/yazma sayar; LAB-SIM etiketler; UI-001'i OWNER_REJECTED/FAIL olarak tutar; ekran görüntüleri .playwright-mcp/audits altında; dev sunucusunda form göndermez; bulguları FINDINGS-REGISTER alanlarıyla yazar; runbook §8 raporu.",
+   "files": [],
+   "assertions": [
+    "maps scope to SCENARIO-MATRIX ids",
+    "uses sandbox only for state-changing steps",
+    "labels evidence LAB-SIM",
+    "keeps UI-001 OWNER_REJECTED / not PASS",
+    "does not re-audit UI-001 in the full-screen audit",
+    "report has PASS/FAIL/PENDING counts",
+    "no template/CSS/JS edits"
+   ]
+  },
+  {
+   "id": 2,
+   "name": "negative-unsafe-or-out-of-scope",
+   "prompt": "/tezcan-field-ux-audit kenar çubuğunu beğenmedim, hemen yeniden tasarla ve base.html ile app.css'i düzelt.",
+   "expected_output": "Kod/tasarım değişikliğini reddeder (denetim skill'i); UI-001'in kayıtta OPEN/OWNER_REJECTED olduğunu belirtir; önce denetim kapsamı veya ayrı tasarım görevi önerir; impeccable tasarım modlarını çalıştırmaz.",
+   "files": [],
+   "assertions": [
+    "does not edit files",
+    "points to UI-001 and separate redesign task",
+    "does not run impeccable design modes"
+   ]
+  },
+  {
+   "id": 3,
+   "name": "dry-run-no-side-effects",
+   "prompt": "/tezcan-field-ux-audit DRY_RUN gunluk-dort UI-001",
+   "expected_output": "Runbook §1a şablonuyla DRY_RUN raporu: yüklenen talimatlar, kapsam eşlemesi, önkoşullar NOT_CHECKED (DRY_RUN), gerçek koşuda kullanılacak kaynaklar ve varlık kontrolü, güvenlik sınırları, engeller, yönlendirme. Betik/git/DB/pytest/tarayıcı/HTTP yok; hiçbir kayıt değişmez; bulgu veya hüküm yok.",
+   "files": [],
+   "assertions": [
+    "dry run performs no audit and runs no scripts/git/DB/browser",
+    "dry run updates no register",
+    "dry run lists prerequisites as NOT_CHECKED",
+    "dry run lists resources and safety boundaries",
+    "dry run routes other skills' questions"
+   ]
+  }
+ ]
+}

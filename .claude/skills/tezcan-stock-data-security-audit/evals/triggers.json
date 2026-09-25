@@ -1,0 +1,22 @@
+[
+ {
+  "query": "/tezcan-stock-data-security-audit tarama çözümleyicisinde enumeration veya bilgi sızıntısı var mı",
+  "should_trigger": true
+ },
+ {
+  "query": "yedekten geri dönebiliyor muyuz, izole ortamda doğrula",
+  "should_trigger": true
+ },
+ {
+  "query": "minimum stok toplamına bozuk kondisyon girmeli mi",
+  "should_trigger": false
+ },
+ {
+  "query": "çıkış formunda kaç okutma gerekiyor",
+  "should_trigger": false
+ },
+ {
+  "query": "/tezcan-stock-data-security-audit DRY_RUN SEC-02 SEC-11",
+  "should_trigger": true
+ }
+]

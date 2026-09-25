@@ -1,0 +1,26 @@
+[
+ {
+  "query": "/tezcan-field-ux-audit UX-SG-20..21 okutma ve etiket ekranlarını mobilde denetle",
+  "should_trigger": true
+ },
+ {
+  "query": "saha UX denetimini başlat: günlük dört işlem, USB okuyucu Enter davranışı dahil",
+  "should_trigger": true
+ },
+ {
+  "query": "Mal Kabul formundaki etiket metnini 'Kabul konumu' yap",
+  "should_trigger": false
+ },
+ {
+  "query": "çıkış sayfası yavaş açılıyor, kaç ms sürüyor ölç",
+  "should_trigger": false
+ },
+ {
+  "query": "stok çıkışında negatif stok oluşabiliyor mu kontrol et",
+  "should_trigger": false
+ },
+ {
+  "query": "/tezcan-field-ux-audit DRY_RUN gunluk-dort UI-001",
+  "should_trigger": true
+ }
+]
